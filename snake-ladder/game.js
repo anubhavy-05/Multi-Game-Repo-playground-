@@ -45,6 +45,9 @@ class SnakeAndLadderGame {
             document.getElementById('gameStartModal').classList.add('hidden');
             this.gameStarted = true;
             
+            // Enable roll button
+            document.getElementById('rollButton').disabled = false;
+            
             // Set initial dice color to player 1's color
             this.updateDiceColor(1, this.player1Color);
             
