@@ -197,6 +197,18 @@ class SnakeAndLadderGame {
         if (winningPosition === BOARD_SIZE) {
             this.gameOver = true;
             this.addLog(`🎉🎉🎉 Player ${this.currentPlayer} WINS! Congratulations! 🎉🎉🎉`);
+            
+            // Play victory sound
+            try {
+                const victorySound = document.getElementById('victorySound');
+                victorySound.volume = 0.7;
+                victorySound.play().catch(error => {
+                    console.log('Audio playback failed:', error);
+                });
+            } catch (error) {
+                console.log('Error playing victory sound:', error);
+            }
+            
             setTimeout(() => {
                 alert(`🏆 Player ${this.currentPlayer} is the WINNER! 🏆\n\nCongratulations!`);
             }, 500);
