@@ -185,6 +185,33 @@ header h1 {
     animation: pulse 1s infinite;
 }
 
+.color-picker-group {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.color-picker-group label {
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #555;
+}
+
+.color-picker-group input[type="color"] {
+    width: 40px;
+    height: 40px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.color-picker-group input[type="color"]:hover {
+    transform: scale(1.1);
+    border-color: #667eea;
+}
+
 /* Dice Section */
 .dice-section {
     text-align: center;

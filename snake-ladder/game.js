@@ -74,6 +74,30 @@ class SnakeAndLadderGame {
     attachEventListeners() {
         document.getElementById('rollButton').addEventListener('click', () => this.rollDice());
         document.getElementById('resetButton').addEventListener('click', () => this.resetGame());
+        
+        // Add dice color change listeners
+        document.getElementById('player1-color').addEventListener('input', (e) => this.updateDiceColor(1, e.target.value));
+        document.getElementById('player2-color').addEventListener('input', (e) => this.updateDiceColor(2, e.target.value));
+    }
+
+    updateDiceColor(player, color) {
+        if (this.currentPlayer === player) {
+            const dice = document.getElementById('dice');
+            dice.style.background = color;
+            
+            // Adjust text color based on background brightness
+            const brightness = this.getColorBrightness(color);
+            const diceFace = dice.querySelector('.dice-face');
+            diceFace.style.color = brightness > 128 ? '#333' : '#fff';
+        }
+    }
+
+    getColorBrightness(hexColor) {
+        // Convert hex to RGB and calculate brightness
+        const r = parseInt(hexColor.substr(1, 2), 16);
+        const g = parseInt(hexColor.substr(3, 2), 16);
+        const b = parseInt(hexColor.substr(5, 2), 16);
+        return (r * 299 + g * 587 + b * 114) / 1000;
     }
 
     rollDice() {
@@ -230,6 +254,19 @@ class SnakeAndLadderGame {
             player1Turn.style.display = 'none';
             player2Turn.style.display = 'block';
         }
+        
+        // Update dice color based on current player
+        const dice = document.getElementById('dice');
+        const color = this.currentPlayer === 1 
+            ? document.getElementById('player1-color').value 
+            : document.getElementById('player2-color').value;
+        
+        dice.style.background = color;
+        
+        // Adjust text color based on background brightness
+        const brightness = this.getColorBrightness(color);
+        const diceFace = dice.querySelector('.dice-face');
+        diceFace.style.color = brightness > 128 ? '#333' : '#fff';
     }
 
     addLog(message) {
