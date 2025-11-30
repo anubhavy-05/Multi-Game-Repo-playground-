@@ -131,6 +131,17 @@ class SnakeAndLadderGame {
         // Check for snake
         const snake = getSnakeAt(newPosition);
         if (snake) {
+            // Play snake bite sound
+            try {
+                const snakeBiteSound = document.getElementById('victorySound');
+                snakeBiteSound.volume = 0.7;
+                snakeBiteSound.play().catch(error => {
+                    console.log('Audio playback failed:', error);
+                });
+            } catch (error) {
+                console.log('Error playing snake bite sound:', error);
+            }
+            
             setTimeout(() => {
                 this.addLog(`🐍 Oh no! Snake bite! Player ${this.currentPlayer} slides down to ${snake.tail}`);
                 if (this.currentPlayer === 1) {
@@ -197,18 +208,6 @@ class SnakeAndLadderGame {
         if (winningPosition === BOARD_SIZE) {
             this.gameOver = true;
             this.addLog(`🎉🎉🎉 Player ${this.currentPlayer} WINS! Congratulations! 🎉🎉🎉`);
-            
-            // Play victory sound
-            try {
-                const victorySound = document.getElementById('victorySound');
-                victorySound.volume = 0.7;
-                victorySound.play().catch(error => {
-                    console.log('Audio playback failed:', error);
-                });
-            } catch (error) {
-                console.log('Error playing victory sound:', error);
-            }
-            
             setTimeout(() => {
                 alert(`🏆 Player ${this.currentPlayer} is the WINNER! 🏆\n\nCongratulations!`);
             }, 500);

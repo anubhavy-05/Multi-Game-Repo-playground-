@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Game Collection - Play Fun Games Online</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            padding: 40px 20px;
+            animation: fadeInDown 1s ease;
+        }
+
+        header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            text-shadow: 3px 3px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 40px;
+            animation: fadeIn 1.2s ease;
+        }
+
+        .game-card {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            color: #333;
+        }
+
+        .game-card:hover {
+            transform: translateY(-10px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.4);
+        }
+
+        .game-icon {
+            font-size: 4rem;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .game-card h2 {
+            font-size: 1.8rem;
+            margin-bottom: 15px;
+            color: #667eea;
+        }
+
+        .game-card p {
+            font-size: 1rem;
+            line-height: 1.6;
+            margin-bottom: 20px;
+            color: #666;
+        }
+
+        .game-features {
+            list-style: none;
+            margin-bottom: 20px;
+        }
+
+        .game-features li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            color: #555;
+        }
+
+        .game-features li:last-child {
+            border-bottom: none;
+        }
+
+        .game-features li:before {
+            content: "✓ ";
+            color: #51cf66;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+
+        .play-button {
+            display: block;
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 10px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .play-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        footer {
+            text-align: center;
+            margin-top: 60px;
+            padding: 30px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        footer p {
+            margin: 10px 0;
+            font-size: 1rem;
+        }
+
+        footer a {
+            color: #ffd93d;
+            text-decoration: none;
+            font-weight: bold;
+            transition: color 0.3s ease;
+        }
+
+        footer a:hover {
+            color: #fff;
+        }
+
+        .github-badge {
+            display: inline-block;
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #333;
+            color: white;
+            border-radius: 8px;
+            text-decoration: none;
+            font-size: 0.9rem;
+            transition: background 0.3s ease;
+        }
+
+        .github-badge:hover {
+            background: #000;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+
+        @keyframes fadeInDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            header h1 {
+                font-size: 2rem;
+            }
+
+            header p {
+                font-size: 1rem;
+            }
+
+            .game-card {
+                padding: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎮 Multi-Game Collection</h1>
+            <p>Classic Games Built with Modern Web Technologies</p>
+        </header>
+
+        <div class="games-grid">
+            <!-- Snake and Ladder Game -->
+            <div class="game-card">
+                <div class="game-icon">🐍🪜</div>
+                <h2>Snake and Ladder</h2>
+                <p>A classic board game for 2 players with beautiful animations and exciting gameplay!</p>
+                
+                <ul class="game-features">
+                    <li>10x10 game board (100 cells)</li>
+                    <li>2-player turn-based gameplay</li>
+                    <li>10 snakes & 9 ladders</li>
+                    <li>Animated dice rolling</li>
+                    <li>Snake bite sound effects</li>
+                    <li>Real-time game log</li>
+                    <li>Fully responsive design</li>
+                </ul>
+                
+                <a href="snake-ladder/index.html" class="play-button">🎲 Play Now</a>
+            </div>
+
+            <!-- Placeholder for future games -->
+            <div class="game-card" style="opacity: 0.6;">
+                <div class="game-icon">🎮</div>
+                <h2>More Games Coming Soon!</h2>
+                <p>We're working on adding more exciting games to this collection.</p>
+                
+                <ul class="game-features">
+                    <li>Tic Tac Toe</li>
+                    <li>Memory Card Game</li>
+                    <li>Puzzle Games</li>
+                    <li>And many more...</li>
+                </ul>
+                
+                <a href="#" class="play-button" style="background: #ccc; cursor: not-allowed;">Coming Soon</a>
+            </div>
+        </div>
+
+        <footer>
+            <p>🎯 Built with HTML5, CSS3, and Vanilla JavaScript</p>
+            <p>💡 Open Source Project - Feel free to contribute!</p>
+            <a href="https://github.com/anubhavy-05/Multi-Game-Repo-playground-" class="github-badge" target="_blank">
+                ⭐ View on GitHub
+            </a>
+            <p style="margin-top: 20px; font-size: 0.9rem;">
+                Made with ❤️ by <a href="https://github.com/anubhavy-05" target="_blank">anubhavy-05</a>
+            </p>
+        </footer>
+    </div>
+</body>
+</html>
