@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Snake and Ladder Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🐍 Snake and Ladder Game 🪜</h1>
+        </header>
+
+        <div class="game-wrapper">
+            <!-- Game Board -->
+            <div class="game-board" id="gameBoard">
+                <!-- Board cells will be generated dynamically -->
+            </div>
+
+            <!-- Game Controls -->
+            <div class="game-controls">
+                <div class="player-info">
+                    <div class="player-card player1-card">
+                        <h3>Player 1</h3>
+                        <div class="player-stats">
+                            <p>Position: <span id="player1-position">0</span></p>
+                            <p class="current-turn" id="player1-turn">Your Turn!</p>
+                        </div>
+                    </div>
+                    <div class="player-card player2-card">
+                        <h3>Player 2</h3>
+                        <div class="player-stats">
+                            <p>Position: <span id="player2-position">0</span></p>
+                            <p class="current-turn" id="player2-turn" style="display: none;">Your Turn!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="dice-section">
+                    <div class="dice" id="dice">
+                        <div class="dice-face">?</div>
+                    </div>
+                    <button class="roll-button" id="rollButton">🎲 Roll Dice</button>
+                </div>
+
+                <div class="game-info">
+                    <h3>Game Log</h3>
+                    <div class="game-log" id="gameLog">
+                        <p>Welcome! Player 1 starts the game.</p>
+                    </div>
+                </div>
+
+                <button class="reset-button" id="resetButton">🔄 New Game</button>
+            </div>
+        </div>
+
+        <div class="game-legend">
+            <h3>Legend:</h3>
+            <div class="legend-items">
+                <div class="legend-item">
+                    <span class="legend-color snake-color"></span>
+                    <span>Snake 🐍 (Go Down)</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-color ladder-color"></span>
+                    <span>Ladder 🪜 (Go Up)</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="gameData.js"></script>
+    <script src="game.js"></script>
+</body>
+</html>
