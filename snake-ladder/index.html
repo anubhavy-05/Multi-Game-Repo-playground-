@@ -28,7 +28,7 @@
                             <p class="current-turn" id="player1-turn">Your Turn!</p>
                             <div class="color-picker-group">
                                 <label for="player1-color">Dice Color:</label>
-                                <input type="color" id="player1-color" value="#ffffff" title="Choose dice color for Player 1">
+                                <input type="color" id="player1-color" value="#ff6b6b" disabled title="Choose dice color before game starts">
                             </div>
                         </div>
                     </div>
@@ -39,7 +39,7 @@
                             <p class="current-turn" id="player2-turn" style="display: none;">Your Turn!</p>
                             <div class="color-picker-group">
                                 <label for="player2-color">Dice Color:</label>
-                                <input type="color" id="player2-color" value="#ffffff" title="Choose dice color for Player 2">
+                                <input type="color" id="player2-color" value="#4dabf7" disabled title="Choose dice color before game starts">
                             </div>
                         </div>
                     </div>
@@ -75,6 +75,32 @@
                     <span>Ladder 🪜 (Go Up)</span>
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- Game Start Modal -->
+    <div class="game-start-modal" id="gameStartModal">
+        <div class="modal-content">
+            <h2>🎮 Welcome to Snake & Ladder!</h2>
+            <p>Choose your dice colors before starting the game</p>
+            
+            <div class="color-selection-container">
+                <div class="player-color-setup">
+                    <div class="color-preview" id="player1-preview"></div>
+                    <h3>Player 1</h3>
+                    <label>Choose Dice Color:</label>
+                    <input type="color" id="player1-start-color" value="#ff6b6b">
+                </div>
+                
+                <div class="player-color-setup">
+                    <div class="color-preview" id="player2-preview"></div>
+                    <h3>Player 2</h3>
+                    <label>Choose Dice Color:</label>
+                    <input type="color" id="player2-start-color" value="#4dabf7">
+                </div>
+            </div>
+            
+            <button class="start-game-button" id="startGameButton">🎲 Start Game</button>
         </div>
     </div>
 

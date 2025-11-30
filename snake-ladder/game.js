@@ -6,8 +6,53 @@ class SnakeAndLadderGame {
         this.player1Position = 0;
         this.player2Position = 0;
         this.gameOver = false;
+        this.gameStarted = false;
+        this.player1Color = '#ff6b6b';
+        this.player2Color = '#4dabf7';
         this.initializeBoard();
         this.attachEventListeners();
+        this.setupStartModal();
+    }
+
+    setupStartModal() {
+        const startButton = document.getElementById('startGameButton');
+        const player1StartColor = document.getElementById('player1-start-color');
+        const player2StartColor = document.getElementById('player2-start-color');
+        const player1Preview = document.getElementById('player1-preview');
+        const player2Preview = document.getElementById('player2-preview');
+        
+        // Update preview colors in real-time
+        player1Preview.style.background = this.player1Color;
+        player2Preview.style.background = this.player2Color;
+        
+        player1StartColor.addEventListener('input', (e) => {
+            player1Preview.style.background = e.target.value;
+        });
+        
+        player2StartColor.addEventListener('input', (e) => {
+            player2Preview.style.background = e.target.value;
+        });
+        
+        startButton.addEventListener('click', () => {
+            this.player1Color = player1StartColor.value;
+            this.player2Color = player2StartColor.value;
+            
+            // Set colors in the game UI
+            document.getElementById('player1-color').value = this.player1Color;
+            document.getElementById('player2-color').value = this.player2Color;
+            
+            // Hide modal and start game
+            document.getElementById('gameStartModal').classList.add('hidden');
+            this.gameStarted = true;
+            
+            // Set initial dice color to player 1's color
+            this.updateDiceColor(1, this.player1Color);
+            
+            this.addLog('Game started! Player 1, roll the dice!');
+        });
+        
+        // Disable roll button until game starts
+        document.getElementById('rollButton').disabled = true;
     }
 
     initializeBoard() {
@@ -75,21 +120,17 @@ class SnakeAndLadderGame {
         document.getElementById('rollButton').addEventListener('click', () => this.rollDice());
         document.getElementById('resetButton').addEventListener('click', () => this.resetGame());
         
-        // Add dice color change listeners
-        document.getElementById('player1-color').addEventListener('input', (e) => this.updateDiceColor(1, e.target.value));
-        document.getElementById('player2-color').addEventListener('input', (e) => this.updateDiceColor(2, e.target.value));
+        // Color pickers in game are disabled - colors set before game starts
     }
 
     updateDiceColor(player, color) {
-        if (this.currentPlayer === player) {
-            const dice = document.getElementById('dice');
-            dice.style.background = color;
-            
-            // Adjust text color based on background brightness
-            const brightness = this.getColorBrightness(color);
-            const diceFace = dice.querySelector('.dice-face');
-            diceFace.style.color = brightness > 128 ? '#333' : '#fff';
-        }
+        const dice = document.getElementById('dice');
+        dice.style.background = color;
+        
+        // Adjust text color based on background brightness
+        const brightness = this.getColorBrightness(color);
+        const diceFace = dice.querySelector('.dice-face');
+        diceFace.style.color = brightness > 128 ? '#333' : '#fff';
     }
 
     getColorBrightness(hexColor) {
@@ -103,6 +144,11 @@ class SnakeAndLadderGame {
     rollDice() {
         if (this.gameOver) {
             this.addLog('Game is over! Click "New Game" to play again.');
+            return;
+        }
+        
+        if (!this.gameStarted) {
+            this.addLog('Please start the game first!');
             return;
         }
 
@@ -256,17 +302,8 @@ class SnakeAndLadderGame {
         }
         
         // Update dice color based on current player
-        const dice = document.getElementById('dice');
-        const color = this.currentPlayer === 1 
-            ? document.getElementById('player1-color').value 
-            : document.getElementById('player2-color').value;
-        
-        dice.style.background = color;
-        
-        // Adjust text color based on background brightness
-        const brightness = this.getColorBrightness(color);
-        const diceFace = dice.querySelector('.dice-face');
-        diceFace.style.color = brightness > 128 ? '#333' : '#fff';
+        const color = this.currentPlayer === 1 ? this.player1Color : this.player2Color;
+        this.updateDiceColor(this.currentPlayer, color);
     }
 
     addLog(message) {
@@ -282,6 +319,7 @@ class SnakeAndLadderGame {
         this.player1Position = 0;
         this.player2Position = 0;
         this.gameOver = false;
+        this.gameStarted = false;
 
         // Reset UI
         document.getElementById('gameLog').innerHTML = '<p>Welcome! Player 1 starts the game.</p>';
@@ -289,8 +327,18 @@ class SnakeAndLadderGame {
         document.getElementById('player2-turn').style.display = 'none';
         document.querySelector('.dice-face').textContent = '?';
 
+        // Reset dice to white
+        const dice = document.getElementById('dice');
+        dice.style.background = 'white';
+        dice.querySelector('.dice-face').style.color = '#333';
+
+        // Disable roll button
+        document.getElementById('rollButton').disabled = true;
+
+        // Show color selection modal again
+        document.getElementById('gameStartModal').classList.remove('hidden');
+
         this.updatePlayerPositions();
-        this.addLog('New game started! Good luck!');
     }
 }
 
