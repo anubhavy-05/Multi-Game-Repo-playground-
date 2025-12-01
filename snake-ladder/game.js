@@ -63,10 +63,14 @@ class SnakeAndLadderGame {
         gameBoard.innerHTML = '';
 
         // Create board cells (100 cells, numbered 1-100)
-        // Board starts from bottom-left and goes right, then alternates
+        // Board starts from bottom-right (1) and ends at top-left (100)
+        // Alternates direction each row (snake pattern)
         for (let row = 9; row >= 0; row--) {
             for (let col = 0; col < 10; col++) {
-                const cellNumber = row % 2 === 0 
+                // Bottom row (row 9): 1-10 from right to left
+                // Next row (row 8): 11-20 from left to right
+                // Pattern continues alternating
+                const cellNumber = row % 2 === 1 
                     ? (9 - row) * 10 + col + 1 
                     : (9 - row) * 10 + (10 - col);
 
