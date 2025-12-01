@@ -67,12 +67,18 @@ class SnakeAndLadderGame {
         // Alternates direction each row (snake pattern)
         for (let row = 9; row >= 0; row--) {
             for (let col = 0; col < 10; col++) {
-                // Bottom row (row 9): 1-10 from right to left
-                // Next row (row 8): 11-20 from left to right
-                // Pattern continues alternating
-                const cellNumber = row % 2 === 1 
-                    ? (9 - row) * 10 + col + 1 
-                    : (9 - row) * 10 + (10 - col);
+                // Calculate cell number for snake pattern starting from bottom-right
+                // Bottom row (row 9): 1-10 from right to left (1 is bottom-right)
+                // Row 8: 11-20 from left to right
+                // Pattern continues alternating up to top-left (100)
+                let cellNumber;
+                if (row % 2 === 1) {
+                    // Odd rows (from bottom): left to right
+                    cellNumber = (9 - row) * 10 + col + 1;
+                } else {
+                    // Even rows (from bottom): right to left
+                    cellNumber = (9 - row) * 10 + (10 - col);
+                }
 
                 const cell = document.createElement('div');
                 cell.className = 'cell';
