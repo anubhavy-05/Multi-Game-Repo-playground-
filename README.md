@@ -16,7 +16,7 @@ A collection of classic games built with modern web technologies! Play online, c
 
 A classic Snake and Ladder board game for 2 players with beautiful animations and modern design.
 
-**🎯 Play Now:** [Snake and Ladder Game](https://anubhavy-05.github.io/Multi-Game-Repo-playground-/snake-ladder/)
+**🎯 Play Now:** [Snake and Ladder Game](https://anubhavy-05.github.io/Multi-Game-Repo-playground-/Game1/)
 
 **✨ Features:**
 - 🎲 10x10 game board (100 cells)
@@ -39,7 +39,7 @@ A classic Snake and Ladder board game for 2 players with beautiful animations an
 
 **📂 Files Structure:**
 ```
-snake-ladder/
+Game1/
 ├── index.html      # Main game page
 ├── styles.css      # Game styling and animations
 ├── gameData.js     # Snake and ladder positions data
@@ -72,7 +72,7 @@ cd Multi-Game-Repo-playground-
 
 2. **Open in browser:**
    - Open `index.html` in your web browser to see the game collection
-   - Or directly open `snake-ladder/index.html` to play Snake and Ladder
+   - Or directly open `Game1/index.html` to play Snake and Ladder
 
 3. **No installation required!** All games run directly in your browser.
 
