@@ -91,6 +91,10 @@ function resetGame() {
     gameState.isPaused = false;
     gameState.hasStarted = false;
     
+    // Stop collision sound if playing
+    collisionSound.pause();
+    collisionSound.currentTime = 0;
+    
     updateScore();
     generateFood();
 }
