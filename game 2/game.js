@@ -3,7 +3,7 @@ const CONFIG = {
     gridSize: 20,
     canvasSize: 400,
     initialSpeed: 150,
-    speedIncrease: 5,
+    speedMultiplier: 0.95,
     minSpeed: 50,
     pointsPerFood: 10
 };
@@ -11,15 +11,16 @@ const CONFIG = {
 // Game state
 let gameState = {
     snake: [],
-    direction: { x: 1, y: 0 },
-    nextDirection: { x: 1, y: 0 },
+    direction: { x: 0, y: 0 },
+    nextDirection: { x: 0, y: 0 },
     food: { x: 0, y: 0 },
     score: 0,
     highScore: 0,
     gameLoop: null,
     speed: CONFIG.initialSpeed,
     isRunning: false,
-    isPaused: false
+    isPaused: false,
+    hasStarted: false
 };
 
 // DOM elements
@@ -63,7 +64,7 @@ function startGame() {
     resetGame();
     startScreen.classList.add('hidden');
     gameState.isRunning = true;
-    gameLoop();
+    draw();
 }
 
 // Restart game
@@ -82,11 +83,12 @@ function resetGame() {
         { x: center - 2, y: center }
     ];
     
-    gameState.direction = { x: 1, y: 0 };
-    gameState.nextDirection = { x: 1, y: 0 };
+    gameState.direction = { x: 0, y: 0 };
+    gameState.nextDirection = { x: 0, y: 0 };
     gameState.score = 0;
     gameState.speed = CONFIG.initialSpeed;
     gameState.isPaused = false;
+    gameState.hasStarted = false;
     
     updateScore();
     generateFood();
@@ -95,6 +97,11 @@ function resetGame() {
 // Main game loop
 function gameLoop() {
     if (!gameState.isRunning) return;
+    
+    if (!gameState.hasStarted) {
+        setTimeout(() => gameLoop(), gameState.speed);
+        return;
+    }
     
     gameState.direction = { ...gameState.nextDirection };
     
@@ -170,9 +177,9 @@ function eatFood() {
     gameState.score += CONFIG.pointsPerFood;
     updateScore();
     
-    // Increase speed
+    // Increase speed (multiply by 0.95 to get faster)
     if (gameState.speed > CONFIG.minSpeed) {
-        gameState.speed = Math.max(CONFIG.minSpeed, gameState.speed - CONFIG.speedIncrease);
+        gameState.speed = Math.max(CONFIG.minSpeed, gameState.speed * CONFIG.speedMultiplier);
     }
     
     generateFood();
@@ -192,6 +199,14 @@ function draw() {
     
     // Draw food
     drawFood();
+    
+    // Draw start message if not started
+    if (!gameState.hasStarted && gameState.isRunning) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('Press any arrow to start!', CONFIG.canvasSize / 2, CONFIG.canvasSize / 2 - 40);
+    }
 }
 
 // Draw grid
@@ -303,32 +318,43 @@ function handleKeyPress(e) {
     if (!gameState.isRunning) return;
     
     const key = e.key;
+    let directionChanged = false;
     
     switch(key) {
         case 'ArrowUp':
             if (gameState.direction.y === 0) {
                 gameState.nextDirection = { x: 0, y: -1 };
+                directionChanged = true;
             }
             e.preventDefault();
             break;
         case 'ArrowDown':
             if (gameState.direction.y === 0) {
                 gameState.nextDirection = { x: 0, y: 1 };
+                directionChanged = true;
             }
             e.preventDefault();
             break;
         case 'ArrowLeft':
             if (gameState.direction.x === 0) {
                 gameState.nextDirection = { x: -1, y: 0 };
+                directionChanged = true;
             }
             e.preventDefault();
             break;
         case 'ArrowRight':
             if (gameState.direction.x === 0) {
                 gameState.nextDirection = { x: 1, y: 0 };
+                directionChanged = true;
             }
             e.preventDefault();
             break;
+    }
+    
+    // Start game on first arrow press
+    if (directionChanged && !gameState.hasStarted) {
+        gameState.hasStarted = true;
+        gameLoop();
     }
 }
 
@@ -336,27 +362,39 @@ function handleKeyPress(e) {
 function handleControlButton(direction) {
     if (!gameState.isRunning) return;
     
+    let directionChanged = false;
+    
     switch(direction) {
         case 'up':
             if (gameState.direction.y === 0) {
                 gameState.nextDirection = { x: 0, y: -1 };
+                directionChanged = true;
             }
             break;
         case 'down':
             if (gameState.direction.y === 0) {
                 gameState.nextDirection = { x: 0, y: 1 };
+                directionChanged = true;
             }
             break;
         case 'left':
             if (gameState.direction.x === 0) {
                 gameState.nextDirection = { x: -1, y: 0 };
+                directionChanged = true;
             }
             break;
         case 'right':
             if (gameState.direction.x === 0) {
                 gameState.nextDirection = { x: 1, y: 0 };
+                directionChanged = true;
             }
             break;
+    }
+    
+    // Start game on first button press
+    if (directionChanged && !gameState.hasStarted) {
+        gameState.hasStarted = true;
+        gameLoop();
     }
 }
 
