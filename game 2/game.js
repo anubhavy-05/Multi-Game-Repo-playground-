@@ -33,6 +33,7 @@ const startScreen = document.getElementById('startScreen');
 const gameOverScreen = document.getElementById('gameOver');
 const startBtn = document.getElementById('startBtn');
 const restartBtn = document.getElementById('restartBtn');
+const collisionSound = document.getElementById('collisionSound');
 const controlButtons = document.querySelectorAll('.control-btn');
 
 // Set canvas size
@@ -111,6 +112,9 @@ function gameLoop() {
     
     // Check collisions
     if (checkCollision(head)) {
+        // Play collision sound
+        collisionSound.currentTime = 0;
+        collisionSound.play().catch(e => console.log('Audio play failed:', e));
         gameOver();
         return;
     }
