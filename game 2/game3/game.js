@@ -52,3 +52,113 @@ function drawBird() {
     ctx.fill();
 }
 
+// Pipe creation
+function createPipe() {
+    const minHeight = 50;
+    const maxHeight = canvas.height - PIPE_GAP - minHeight - 100;
+    const height = Math.floor(Math.random() * (maxHeight - minHeight + 1)) + minHeight;
+    
+    pipes.push({
+        x: canvas.width,
+        topHeight: height,
+        bottomY: height + PIPE_GAP,
+        scored: false
+    });
+}
+
+// Draw pipes
+function drawPipes() {
+    ctx.fillStyle = '#228B22';
+    
+    pipes.forEach(pipe => {
+        // Top pipe
+        ctx.fillRect(pipe.x, 0, PIPE_WIDTH, pipe.topHeight);
+        // Pipe cap
+        ctx.fillRect(pipe.x - 5, pipe.topHeight - 20, PIPE_WIDTH + 10, 20);
+        
+        // Bottom pipe
+        const bottomHeight = canvas.height - pipe.bottomY;
+        ctx.fillRect(pipe.x, pipe.bottomY, PIPE_WIDTH, bottomHeight);
+        // Pipe cap
+        ctx.fillRect(pipe.x - 5, pipe.bottomY, PIPE_WIDTH + 10, 20);
+    });
+}
+
+// Update pipes
+function updatePipes() {
+    // Create new pipes
+    if (frameCount % PIPE_FREQUENCY === 0) {
+        createPipe();
+    }
+    
+    // Move and check pipes
+    pipes.forEach((pipe, index) => {
+        pipe.x -= PIPE_SPEED;
+        
+        // Remove off-screen pipes
+        if (pipe.x + PIPE_WIDTH < 0) {
+            pipes.splice(index, 1);
+        }
+        
+        // Score when passing pipe
+        if (!pipe.scored && pipe.x + PIPE_WIDTH < bird.x) {
+            pipe.scored = true;
+            score++;
+            document.getElementById('score').textContent = score;
+            
+            // Update high score
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('flappyHighScore', highScore);
+                document.getElementById('highScore').textContent = highScore;
+            }
+        }
+    });
+}
+
+// Collision detection
+function checkCollision() {
+    // Ground and ceiling collision
+    if (bird.y + bird.height > canvas.height || bird.y < 0) {
+        return true;
+    }
+    
+    // Pipe collision
+    for (let pipe of pipes) {
+        if (bird.x + bird.width > pipe.x && 
+            bird.x < pipe.x + PIPE_WIDTH) {
+            if (bird.y < pipe.topHeight || 
+                bird.y + bird.height > pipe.bottomY) {
+                return true;
+            }
+        }
+    }
+    
+    return false;
+}
+
+// Update bird physics
+function updateBird() {
+    bird.velocity += bird.gravity;
+    bird.y += bird.velocity;
+}
+
+// Draw game over screen
+function drawGameOver() {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 40px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Game Over!', canvas.width/2, canvas.height/2 - 40);
+    
+    ctx.font = '24px Arial';
+    ctx.fillText(`Score: ${score}`, canvas.width/2, canvas.height/2 + 10);
+    ctx.fillText(`High Score: ${highScore}`, canvas.width/2, canvas.height/2 + 45);
+    
+    ctx.font = '18px Arial';
+    ctx.fillText('Press R to Restart', canvas.width/2, canvas.height/2 + 90);
+}
+
+/
