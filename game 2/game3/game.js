@@ -161,4 +161,91 @@ function drawGameOver() {
     ctx.fillText('Press R to Restart', canvas.width/2, canvas.height/2 + 90);
 }
 
-/
+// Draw start screen
+function drawStartScreen() {
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 30px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('Press SPACE or Click', canvas.width/2, canvas.height/2 - 20);
+    ctx.fillText('to Start!', canvas.width/2, canvas.height/2 + 20);
+}
+
+// Game loop
+function gameLoop() {
+    // Clear canvas
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    if (!gameStarted) {
+        drawBird();
+        drawStartScreen();
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+    
+    if (!gameOver) {
+        frameCount++;
+        
+        updateBird();
+        updatePipes();
+        
+        // Check collision
+        if (checkCollision()) {
+            gameOver = true;
+        }
+        
+        // Draw everything
+        drawPipes();
+        drawBird();
+    } else {
+        // Draw game over screen
+        drawPipes();
+        drawBird();
+        drawGameOver();
+    }
+    
+    requestAnimationFrame(gameLoop);
+}
+
+// Make bird jump
+function jump() {
+    if (!gameStarted) {
+        gameStarted = true;
+        return;
+    }
+    
+    if (!gameOver) {
+        bird.velocity = bird.jump;
+    }
+}
+
+// Reset game
+function resetGame() {
+    bird.y = 300;
+    bird.velocity = 0;
+    pipes = [];
+    score = 0;
+    gameOver = false;
+    gameStarted = false;
+    frameCount = 0;
+    document.getElementById('score').textContent = score;
+}
+
+// Event listeners
+document.addEventListener('keydown', (e) => {
+    if (e.code === 'Space') {
+        e.preventDefault();
+        jump();
+    } else if (e.code === 'KeyR') {
+        resetGame();
+    }
+});
+
+canvas.addEventListener('click', () => {
+    jump();
+});
+
+// Start game loop
+gameLoop();
