@@ -63,3 +63,34 @@ h1 {
     font-size: 1.2em;
 }
 
+.instructions {
+    margin-top: 15px;
+    color: #fff;
+    font-size: 0.9em;
+}
+
+.instructions p {
+    margin: 5px 0;
+    opacity: 0.9;
+}
+
+@media (max-width: 768px) {
+    .game-container {
+        padding: 20px;
+    }
+    
+    h1 {
+        font-size: 2em;
+    }
+    
+    #gameCanvas {
+        width: 100%;
+        max-width: 400px;
+        height: auto;
+    }
+    
+    .score-display {
+        flex-direction: column;
+        gap: 10px;
+    }
+}
