@@ -5,7 +5,7 @@ const ctx = canvas.getContext('2d');
 // Game variables
 let bird = {
     x: 50,
-    y: 300,
+    y: canvas.height / 2,
     width: 34,
     height: 24,
     velocity: 0,
@@ -178,6 +178,10 @@ function gameLoop() {
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
+    // Draw background
+    ctx.fillStyle = '#87CEEB';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
     if (!gameStarted) {
         drawBird();
         drawStartScreen();
@@ -213,7 +217,6 @@ function gameLoop() {
 function jump() {
     if (!gameStarted) {
         gameStarted = true;
-        return;
     }
     
     if (!gameOver) {
@@ -223,7 +226,7 @@ function jump() {
 
 // Reset game
 function resetGame() {
-    bird.y = 300;
+    bird.y = canvas.height / 2 - bird.height / 2;
     bird.velocity = 0;
     pipes = [];
     score = 0;
@@ -245,6 +248,31 @@ document.addEventListener('keydown', (e) => {
 
 canvas.addEventListener('click', () => {
     jump();
+});
+
+// Button controls
+const flapBtn = document.getElementById('flapBtn');
+const restartBtnControl = document.getElementById('restartBtnControl');
+
+flapBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    jump();
+});
+
+restartBtnControl.addEventListener('click', (e) => {
+    e.preventDefault();
+    resetGame();
+});
+
+// Touch support for buttons
+flapBtn.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    jump();
+});
+
+restartBtnControl.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    resetGame();
 });
 
 // Start game loop
