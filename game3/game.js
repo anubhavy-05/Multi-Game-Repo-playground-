@@ -1,33 +1,95 @@
-// Canvas setup
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-
-// Game variables
-let bird = {
-    x: 50,
-    y: 300,
-    width: 34,
-    height: 24,
-    velocity: 0,
-    gravity: 0.5,
-    jump: -9
-};
-
-let pipes = [];
-let score = 0;
-let highScore = localStorage.getItem('flappyHighScore') || 0;
-let gameOver = false;
-let gameStarted = false;
-let frameCount = 0;
+// Wait for DOM to be fully loaded
+let canvas, ctx;
+let bird, pipes, score, highScore, gameOver, gameStarted, frameCount;
+let flapBtn, restartBtnControl;
 
 // Game constants
 const PIPE_WIDTH = 60;
 const PIPE_GAP = 180;
 const PIPE_SPEED = 2.5;
-const PIPE_FREQUENCY = 100; // frames between pipes
+const PIPE_FREQUENCY = 100;
 
-// Update high score display
-document.getElementById('highScore').textContent = highScore;
+// Initialize game when DOM is ready
+function initGame() {
+    // Canvas setup
+    canvas = document.getElementById('gameCanvas');
+    ctx = canvas.getContext('2d');
+    
+    // Game variables
+    bird = {
+        x: 50,
+        y: 300,
+        width: 34,
+        height: 24,
+        velocity: 0,
+        gravity: 0.5,
+        jump: -9
+    };
+    
+    pipes = [];
+    score = 0;
+    highScore = parseInt(localStorage.getItem('flappyHighScore')) || 0;
+    gameOver = false;
+    gameStarted = false;
+    frameCount = 0;
+    
+    // Update high score display
+    document.getElementById('highScore').textContent = highScore;
+    document.getElementById('score').textContent = score;
+    
+    // Get button elements
+    flapBtn = document.getElementById('flapBtn');
+    restartBtnControl = document.getElementById('restartBtnControl');
+    
+    // Setup event listeners
+    setupEventListeners();
+    
+    // Start game loop
+    gameLoop();
+}
+
+// Setup all event listeners
+function setupEventListeners() {
+    // Keyboard controls
+    document.addEventListener('keydown', (e) => {
+        if (e.code === 'Space') {
+            e.preventDefault();
+            jump();
+        } else if (e.code === 'KeyR') {
+            resetGame();
+        }
+    });
+    
+    // Canvas click
+    canvas.addEventListener('click', () => {
+        jump();
+    });
+    
+    // Button controls
+    if (flapBtn) {
+        flapBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            jump();
+        });
+        
+        flapBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            jump();
+        });
+    }
+    
+    if (restartBtnControl) {
+        restartBtnControl.addEventListener('click', (e) => {
+            e.preventDefault();
+            resetGame();
+        });
+        
+        restartBtnControl.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            resetGame();
+        });
+    }
+}
 
 // Bird drawing
 function drawBird() {
@@ -240,49 +302,9 @@ function resetGame() {
     document.getElementById('score').textContent = score;
 }
 
-// Event listeners
-document.addEventListener('keydown', (e) => {
-    if (e.code === 'Space') {
-        e.preventDefault();
-        jump();
-    } else if (e.code === 'KeyR') {
-        resetGame();
-    }
-});
-
-canvas.addEventListener('click', () => {
-    jump();
-});
-
-// Button controls - Wait for DOM to be ready
-document.addEventListener('DOMContentLoaded', () => {
-    const flapBtn = document.getElementById('flapBtn');
-    const restartBtnControl = document.getElementById('restartBtnControl');
-
-    if (flapBtn) {
-        flapBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            jump();
-        });
-        
-        flapBtn.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            jump();
-        });
-    }
-
-    if (restartBtnControl) {
-        restartBtnControl.addEventListener('click', (e) => {
-            e.preventDefault();
-            resetGame();
-        });
-        
-        restartBtnControl.addEventListener('touchstart', (e) => {
-            e.preventDefault();
-            resetGame();
-        });
-    }
-});
-
-// Start game loop
-gameLoop();
+// Initialize game when page loads
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initGame);
+} else {
+    initGame();
+}
