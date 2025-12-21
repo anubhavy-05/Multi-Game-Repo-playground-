@@ -5,12 +5,12 @@ const ctx = canvas.getContext('2d');
 // Game variables
 let bird = {
     x: 50,
-    y: canvas.height / 2,
+    y: 300,
     width: 34,
     height: 24,
     velocity: 0,
     gravity: 0.5,
-    jump: -8
+    jump: -9
 };
 
 let pipes = [];
@@ -22,9 +22,9 @@ let frameCount = 0;
 
 // Game constants
 const PIPE_WIDTH = 60;
-const PIPE_GAP = 150;
-const PIPE_SPEED = 2;
-const PIPE_FREQUENCY = 90; // frames between pipes
+const PIPE_GAP = 180;
+const PIPE_SPEED = 2.5;
+const PIPE_FREQUENCY = 100; // frames between pipes
 
 // Update high score display
 document.getElementById('highScore').textContent = highScore;
@@ -87,17 +87,19 @@ function drawPipes() {
 // Update pipes
 function updatePipes() {
     // Create new pipes
-    if (frameCount % PIPE_FREQUENCY === 0) {
+    if (frameCount % PIPE_FREQUENCY === 0 && gameStarted) {
         createPipe();
     }
     
     // Move and check pipes
-    pipes.forEach((pipe, index) => {
+    for (let i = pipes.length - 1; i >= 0; i--) {
+        const pipe = pipes[i];
         pipe.x -= PIPE_SPEED;
         
         // Remove off-screen pipes
         if (pipe.x + PIPE_WIDTH < 0) {
-            pipes.splice(index, 1);
+            pipes.splice(i, 1);
+            continue;
         }
         
         // Score when passing pipe
@@ -113,7 +115,7 @@ function updatePipes() {
                 document.getElementById('highScore').textContent = highScore;
             }
         }
-    });
+    }
 }
 
 // Collision detection
@@ -211,28 +213,30 @@ function gameLoop() {
     }
     
     requestAnimationFrame(gameLoop);
-}
-
 // Make bird jump
 function jump() {
     if (!gameStarted) {
         gameStarted = true;
+        // Create first pipe immediately when game starts
+        createPipe();
     }
     
     if (!gameOver) {
         bird.velocity = bird.jump;
     }
-}
-
+}       bird.velocity = bird.jump;
+    }
 // Reset game
 function resetGame() {
-    bird.y = canvas.height / 2 - bird.height / 2;
+    bird.y = 300;
     bird.velocity = 0;
     pipes = [];
     score = 0;
     gameOver = false;
     gameStarted = false;
     frameCount = 0;
+    document.getElementById('score').textContent = score;
+}   frameCount = 0;
     document.getElementById('score').textContent = score;
 }
 
@@ -250,29 +254,34 @@ canvas.addEventListener('click', () => {
     jump();
 });
 
-// Button controls
-const flapBtn = document.getElementById('flapBtn');
-const restartBtnControl = document.getElementById('restartBtnControl');
+// Button controls - Wait for DOM to be ready
+document.addEventListener('DOMContentLoaded', () => {
+    const flapBtn = document.getElementById('flapBtn');
+    const restartBtnControl = document.getElementById('restartBtnControl');
 
-flapBtn.addEventListener('click', (e) => {
-    e.preventDefault();
-    jump();
-});
+    if (flapBtn) {
+        flapBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            jump();
+        });
+        
+        flapBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            jump();
+        });
+    }
 
-restartBtnControl.addEventListener('click', (e) => {
-    e.preventDefault();
-    resetGame();
-});
-
-// Touch support for buttons
-flapBtn.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    jump();
-});
-
-restartBtnControl.addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    resetGame();
+    if (restartBtnControl) {
+        restartBtnControl.addEventListener('click', (e) => {
+            e.preventDefault();
+            resetGame();
+        });
+        
+        restartBtnControl.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            resetGame();
+        });
+    }
 });
 
 // Start game loop
