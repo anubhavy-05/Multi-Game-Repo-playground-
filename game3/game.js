@@ -275,8 +275,11 @@ function gameLoop() {
     }
     
     requestAnimationFrame(gameLoop);
+}
+
 // Make bird jump
 function jump() {
+    console.log('Jump called!'); // Debug log
     if (!gameStarted) {
         gameStarted = true;
         // Create first pipe immediately when game starts
@@ -286,8 +289,8 @@ function jump() {
     if (!gameOver) {
         bird.velocity = bird.jump;
     }
-}       bird.velocity = bird.jump;
-    }
+}
+
 // Reset game
 function resetGame() {
     bird.y = 300;
@@ -297,8 +300,6 @@ function resetGame() {
     gameOver = false;
     gameStarted = false;
     frameCount = 0;
-    document.getElementById('score').textContent = score;
-}   frameCount = 0;
     document.getElementById('score').textContent = score;
 }
 
