@@ -52,7 +52,7 @@ function initGame() {
 function setupEventListeners() {
     // Keyboard controls
     document.addEventListener('keydown', (e) => {
-        if (e.code === 'Space') {
+        if (e.code === 'Space' || e.code === 'PageUp' || e.code === 'ArrowUp') {
             e.preventDefault();
             jump();
         } else if (e.code === 'KeyR') {
