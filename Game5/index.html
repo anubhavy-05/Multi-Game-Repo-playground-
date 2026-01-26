@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris Game</title>
+    
+</head>
+<body>
+    <div class="game-container">
+        <h1>Tetris</h1>
+        <div class="game-info">
+            <div class="info-item">
+                <span class="label">Score:</span>
+                <span id="score">0</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Level:</span>
+                <span id="level">1</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Lines:</span>
+                <span id="lines">0</span>
+            </div>
+        </div>
+        <div class="game-area">
+            <canvas id="tetris" width="300" height="600"></canvas>
+            <div class="side-panel">
+                <div class="next-piece">
+                    <h3>Next</h3>
+                    <canvas id="next" width="120" height="120"></canvas>
+                </div>
+                <div class="controls-info">
+                    <h3>Controls</h3>
+                    <p><strong>←/→</strong> Move</p>
+                    <p><strong>↑</strong> Rotate</p>
+                    <p><strong>↓</strong> Soft Drop</p>
+                    <p><strong>Space</strong> Hard Drop</p>
+                    <p><strong>P</strong> Pause</p>
+                </div>
+            </div>
+        </div>
+        <div class="button-container">
+            <button id="startBtn">Start Game</button>
+            <button id="pauseBtn" disabled>Pause</button>
+            <button id="resetBtn">Reset</button>
+        </div>
+        <div id="gameOver" class="game-over hidden">
+            <h2>Game Over!</h2>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <button id="playAgainBtn">Play Again</button>
+        </div>
+    </div>
+    
+</body>
+</html>
