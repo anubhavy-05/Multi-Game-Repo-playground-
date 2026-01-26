@@ -74,3 +74,81 @@ function randomPiece() {
     return createPiece(Math.floor(Math.random() * 7) + 1);
 }
 
+// Draw block
+function drawBlock(x, y, color) {
+    ctx.fillStyle = color;
+    ctx.fillRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+    ctx.strokeStyle = '#000';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x * BLOCK_SIZE, y * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+}
+
+// Draw board
+function drawBoard() {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    board.forEach((row, y) => {
+        row.forEach((value, x) => {
+            if (value > 0) {
+                drawBlock(x, y, COLORS[value]);
+            }
+        });
+    });
+}
+
+// Draw piece
+function drawPiece(piece, context, offsetX = 0, offsetY = 0) {
+    piece.shape.forEach((row, y) => {
+        row.forEach((value, x) => {
+            if (value > 0) {
+                const posX = piece.pos.x + x + offsetX;
+                const posY = piece.pos.y + y + offsetY;
+                context.fillStyle = COLORS[value];
+                context.fillRect(posX * BLOCK_SIZE, posY * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                context.strokeStyle = '#000';
+                context.lineWidth = 2;
+                context.strokeRect(posX * BLOCK_SIZE, posY * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+            }
+        });
+    });
+}
+
+// Draw next piece
+function drawNextPiece() {
+    nextCtx.fillStyle = '#000';
+    nextCtx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
+    
+    if (nextPiece) {
+        const tempPiece = {
+            shape: nextPiece.shape,
+            type: nextPiece.type,
+            pos: { 
+                x: Math.floor((nextCanvas.width / BLOCK_SIZE - nextPiece.shape[0].length) / 2),
+                y: Math.floor((nextCanvas.height / BLOCK_SIZE - nextPiece.shape.length) / 2)
+            }
+        };
+        drawPiece(tempPiece, nextCtx);
+    }
+}
+
+// Collision detection
+function collide(piece, offset = { x: 0, y: 0 }) {
+    for (let y = 0; y < piece.shape.length; y++) {
+        for (let x = 0; x < piece.shape[y].length; x++) {
+            if (piece.shape[y][x] !== 0) {
+                const newX = piece.pos.x + x + offset.x;
+                const newY = piece.pos.y + y + offset.y;
+                
+                if (newX < 0 || newX >= COLS || newY >= ROWS) {
+                    return true;
+                }
+                if (newY >= 0 && board[newY][newX] !== 0) {
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
