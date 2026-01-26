@@ -325,4 +325,87 @@ function togglePause() {
     }
 }
 
-/
+// Reset game
+function resetGame() {
+    gameRunning = false;
+    gamePaused = false;
+    createBoard();
+    score = 0;
+    level = 1;
+    lines = 0;
+    updateScore();
+    drawBoard();
+    
+    nextCtx.fillStyle = '#000';
+    nextCtx.fillRect(0, 0, nextCanvas.width, nextCanvas.height);
+    
+    gameOverDiv.classList.add('hidden');
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+    pauseBtn.textContent = 'Pause';
+}
+
+// Game loop
+function update(time = 0) {
+    if (!gameRunning || gamePaused) return;
+    
+    const deltaTime = time - lastTime;
+    lastTime = time;
+    dropCounter += deltaTime;
+    
+    if (dropCounter > dropInterval) {
+        drop();
+    }
+    
+    drawBoard();
+    drawPiece(currentPiece, ctx);
+    
+    requestAnimationFrame(update);
+}
+
+// Keyboard controls
+document.addEventListener('keydown', event => {
+    if (!gameRunning || gamePaused) {
+        if (event.key === 'p' || event.key === 'P') {
+            togglePause();
+        }
+        return;
+    }
+    
+    switch(event.key) {
+        case 'ArrowLeft':
+            move(-1);
+            break;
+        case 'ArrowRight':
+            move(1);
+            break;
+        case 'ArrowDown':
+            drop();
+            break;
+        case 'ArrowUp':
+            currentPiece = rotate(currentPiece);
+            break;
+        case ' ':
+            event.preventDefault();
+            hardDrop();
+            break;
+        case 'p':
+        case 'P':
+            togglePause();
+            break;
+    }
+});
+
+// Button event listeners
+startBtn.addEventListener('click', startGame);
+pauseBtn.addEventListener('click', togglePause);
+resetBtn.addEventListener('click', resetGame);
+playAgainBtn.addEventListener('click', () => {
+    resetGame();
+    startGame();
+});
+
+// Initialize
+createBoard();
+drawBoard();
+updateScore();
