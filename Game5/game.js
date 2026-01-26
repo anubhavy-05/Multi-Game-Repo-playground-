@@ -152,3 +152,177 @@ function collide(piece, offset = { x: 0, y: 0 }) {
     return false;
 }
 
+// Merge piece to board
+function merge() {
+    currentPiece.shape.forEach((row, y) => {
+        row.forEach((value, x) => {
+            if (value > 0) {
+                const boardY = currentPiece.pos.y + y;
+                const boardX = currentPiece.pos.x + x;
+                if (boardY >= 0) {
+                    board[boardY][boardX] = value;
+                }
+            }
+        });
+    });
+}
+
+// Clear lines
+function clearLines() {
+    let linesCleared = 0;
+    
+    outer: for (let y = ROWS - 1; y >= 0; y--) {
+        for (let x = 0; x < COLS; x++) {
+            if (board[y][x] === 0) {
+                continue outer;
+            }
+        }
+        
+        board.splice(y, 1);
+        board.unshift(Array(COLS).fill(0));
+        linesCleared++;
+        y++;
+    }
+    
+    if (linesCleared > 0) {
+        lines += linesCleared;
+        score += [0, 100, 300, 500, 800][linesCleared] * level;
+        level = Math.floor(lines / 10) + 1;
+        dropInterval = 1000 - (level - 1) * 100;
+        if (dropInterval < 100) dropInterval = 100;
+        
+        updateScore();
+    }
+}
+
+// Rotate piece
+function rotate(piece) {
+    const newShape = piece.shape[0].map((_, i) =>
+        piece.shape.map(row => row[i]).reverse()
+    );
+    
+    const rotatedPiece = {
+        shape: newShape,
+        type: piece.type,
+        pos: { ...piece.pos }
+    };
+    
+    if (!collide(rotatedPiece)) {
+        return rotatedPiece;
+    }
+    
+    // Wall kick
+    for (let offset = 1; offset <= 2; offset++) {
+        rotatedPiece.pos.x = piece.pos.x - offset;
+        if (!collide(rotatedPiece)) return rotatedPiece;
+        
+        rotatedPiece.pos.x = piece.pos.x + offset;
+        if (!collide(rotatedPiece)) return rotatedPiece;
+        
+        rotatedPiece.pos.x = piece.pos.x;
+    }
+    
+    return piece;
+}
+
+// Move piece
+function move(dir) {
+    if (!gameRunning || gamePaused) return;
+    
+    currentPiece.pos.x += dir;
+    if (collide(currentPiece)) {
+        currentPiece.pos.x -= dir;
+    }
+}
+
+// Drop piece
+function drop() {
+    if (!gameRunning || gamePaused) return;
+    
+    currentPiece.pos.y++;
+    if (collide(currentPiece)) {
+        currentPiece.pos.y--;
+        merge();
+        clearLines();
+        spawnPiece();
+        
+        if (collide(currentPiece)) {
+            gameOver();
+        }
+    }
+    dropCounter = 0;
+}
+
+// Hard drop
+function hardDrop() {
+    if (!gameRunning || gamePaused) return;
+    
+    while (!collide(currentPiece, { x: 0, y: 1 })) {
+        currentPiece.pos.y++;
+        score += 2;
+    }
+    drop();
+    updateScore();
+}
+
+// Spawn new piece
+function spawnPiece() {
+    currentPiece = nextPiece || randomPiece();
+    nextPiece = randomPiece();
+    drawNextPiece();
+}
+
+// Update score display
+function updateScore() {
+    scoreElement.textContent = score;
+    levelElement.textContent = level;
+    linesElement.textContent = lines;
+}
+
+// Game over
+function gameOver() {
+    gameRunning = false;
+    gamePaused = false;
+    finalScoreElement.textContent = score;
+    gameOverDiv.classList.remove('hidden');
+    startBtn.disabled = false;
+    pauseBtn.disabled = true;
+}
+
+// Start game
+function startGame() {
+    createBoard();
+    score = 0;
+    level = 1;
+    lines = 0;
+    dropInterval = 1000;
+    updateScore();
+    
+    nextPiece = randomPiece();
+    spawnPiece();
+    
+    gameRunning = true;
+    gamePaused = false;
+    gameOverDiv.classList.add('hidden');
+    
+    startBtn.disabled = true;
+    pauseBtn.disabled = false;
+    
+    lastTime = performance.now();
+    requestAnimationFrame(update);
+}
+
+// Pause game
+function togglePause() {
+    if (!gameRunning) return;
+    
+    gamePaused = !gamePaused;
+    pauseBtn.textContent = gamePaused ? 'Resume' : 'Pause';
+    
+    if (!gamePaused) {
+        lastTime = performance.now();
+        requestAnimationFrame(update);
+    }
+}
+
+/
