@@ -21,6 +21,8 @@ let score = 0;
 let level = 1;
 let lives = 3;
 let highScore = localStorage.getItem('spaceInvadersHighScore') || 0;
+let shootCooldown = 0;
+const SHOOT_COOLDOWN_TIME = 15;
 
 // Player
 let player = {
@@ -88,9 +90,8 @@ nextLevelBtn.addEventListener('click', () => {
 
 document.addEventListener('keydown', (e) => {
     keys[e.key] = true;
-    if (e.key === ' ' && gameRunning && !gamePaused) {
+    if (e.key === ' ') {
         e.preventDefault();
-        shootBullet();
     }
     if (e.key === 'p' || e.key === 'P') {
         if (gameRunning) togglePause();
@@ -245,12 +246,23 @@ function spawnMysteryShip() {
 function update() {
     if (!gameRunning || gamePaused) return;
 
+    // Decrease shoot cooldown
+    if (shootCooldown > 0) {
+        shootCooldown--;
+    }
+
     // Move player
     if (keys['ArrowLeft'] && player.x > 0) {
         player.x -= player.speed;
     }
     if (keys['ArrowRight'] && player.x < CANVAS_WIDTH - player.width) {
         player.x += player.speed;
+    }
+
+    // Shooting
+    if (keys[' '] && shootCooldown === 0) {
+        shootBullet();
+        shootCooldown = SHOOT_COOLDOWN_TIME;
     }
 
     // Move player bullets
