@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Space Invaders</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <h1>Space Invaders</h1>
+        <div class="game-info">
+            <div class="info-item">
+                <span class="label">Score:</span>
+                <span id="score">0</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Level:</span>
+                <span id="level">1</span>
+            </div>
+            <div class="info-item">
+                <span class="label">Lives:</span>
+                <span id="lives">3</span>
+            </div>
+            <div class="info-item">
+                <span class="label">High Score:</span>
+                <span id="highScore">0</span>
+            </div>
+        </div>
+        <div class="game-area">
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+            <div class="side-panel">
+                <div class="controls-info">
+                    <h3>Controls</h3>
+                    <p><strong>←/→</strong> Move</p>
+                    <p><strong>Space</strong> Shoot</p>
+                    <p><strong>P</strong> Pause</p>
+                </div>
+                <div class="game-tips">
+                    <h3>Tips</h3>
+                    <p>• Destroy all aliens to advance</p>
+                    <p>• Hit mystery ships for bonus points</p>
+                    <p>• Use shields for protection</p>
+                    <p>• Don't let aliens reach the bottom!</p>
+                </div>
+            </div>
+        </div>
+        <div class="button-container">
+            <button id="startBtn">Start Game</button>
+            <button id="pauseBtn" disabled>Pause</button>
+            <button id="resetBtn">Reset</button>
+        </div>
+        <div id="gameOver" class="game-over hidden">
+            <h2>Game Over!</h2>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <button id="restartBtn">Play Again</button>
+        </div>
+        <div id="levelComplete" class="level-complete hidden">
+            <h2>Level Complete!</h2>
+            <p>Score: <span id="levelScore">0</span></p>
+            <button id="nextLevelBtn">Next Level</button>
+        </div>
+    </div>
+    <script src="game.js"></script>
+</body>
+</html>
