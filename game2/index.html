@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worm Game - Classic Snake</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <div class="header">
+            <h1>🐛 Worm Game</h1>
+            <div class="stats">
+                <div class="score-container">
+                    <span class="label">Score:</span>
+                    <span id="score">0</span>
+                </div>
+                <div class="high-score-container">
+                    <span class="label">High Score:</span>
+                    <span id="highScore">0</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="game-area">
+            <canvas id="gameCanvas"></canvas>
+            
+            <div id="gameOver" class="overlay hidden">
+                <div class="message-box">
+                    <h2>Game Over!</h2>
+                    <p class="final-score">Your Score: <span id="finalScore">0</span></p>
+                    <button id="restartBtn" class="btn">Play Again</button>
+                </div>
+            </div>
+            
+            <div id="startScreen" class="overlay">
+                <div class="message-box">
+                    <h2>🐛 Worm Game</h2>
+                    <p>Use arrow keys to control the worm</p>
+                    <p>Eat the food to grow and score points</p>
+                    <p>Don't hit the walls or yourself!</p>
+                    <button id="startBtn" class="btn btn-start">Start Game</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="controls">
+            <h3>Controls</h3>
+            <div class="control-buttons">
+                <div class="control-row">
+                    <button class="control-btn" data-direction="up">↑</button>
+                </div>
+                <div class="control-row">
+                    <button class="control-btn" data-direction="left">←</button>
+                    <button class="control-btn" data-direction="down">↓</button>
+                    <button class="control-btn" data-direction="right">→</button>
+                </div>
+            </div>
+            <div class="control-info">
+                <p>🎮 Use Arrow Keys or Touch Controls</p>
+                <p>🍎 Food: +10 points</p>
+                <p>⚡ Speed increases as you grow!</p>
+            </div>
+        </div>
+    </div>
+    
+    <audio id="collisionSound" src="sounds/collision.mp3" preload="auto"></audio>
+    
+    <script src="game.js"></script>
+</body>
+</html>
+
