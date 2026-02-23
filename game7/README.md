@@ -18,7 +18,30 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
 - Game state management foundation
 - UI stats display (Gold, Mana, Lives, Wave)
 
-### 📋 Planned Features (20+ commits remaining)
+**Commit 2: Create Game Class and Core Initialization**
+- Implemented main Game class with OOP architecture
+- Added CONFIG object with game constants
+- Enhanced game state management system
+- Mouse and keyboard event handlers
+- Input tracking (mouse position, grid coordinates)
+- Game control functions (start, pause, reset)
+- Resource management methods (gold, mana, lives)
+- Welcome screen with instructions
+- Arrays for future game objects (towers, enemies, projectiles, particles)
+
+**Commit 3: Implement Game Loop and Rendering System**
+- RequestAnimationFrame game loop with 60 FPS target
+- Delta time calculation for smooth animations
+- Separate update() and render() functions
+- Background rendering with gradient sky and ground
+- Grid system with visual guides (40x40 pixel cells)
+- Hovered cell highlighting
+- Pause overlay with visual feedback
+- Game over screen with stats display
+- Debug info panel (FPS, frame count, mouse position, commit progress)
+- FPS-independent game logic foundation
+
+### 📋 Planned Features (17+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
@@ -87,6 +110,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 1/25+ Complete
+**Status:** 🚧 In Development - Commit 3/25+ Complete
 
-**Last Updated:** Commit 1 - Basic structure implemented
+**Last Updated:** Commit 3 - Game loop and rendering system implemented
