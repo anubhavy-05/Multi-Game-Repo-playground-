@@ -113,7 +113,27 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
 - Smooth projectile movement with delta time
 - Proper cleanup of projectiles after hit or target death
 
-### 📋 Planned Features (18+ commits remaining)
+**Commit 8: Particle Effects System**
+- Created Particle class with physics-based movement
+- Particle types with unique behaviors:
+  - 💥 Hit Particles: Impact sparks when projectiles hit enemies
+  - 🎆 Death Particles: Explosion bursts when enemies die (15-25 particles)
+  - ✨ Gold Particles: Sparkle effects when collecting gold rewards
+  - 🔥 Muzzle Flash: Brief flash when towers shoot
+- Physics simulation with gravity, friction, and velocity
+- Alpha fade-out over particle lifetime
+- Color-coded particles matching tower/enemy types
+- Projectile hit creates 8-12 colored sparks
+- Enemy death creates large explosion with enemy color
+- Gold sparkles float upward with ✨ emoji
+- Muzzle flash shows at tower position when firing
+- Particle lifecycle management (spawn, update, fade, cleanup)
+- Smooth particle motion with delta time physics
+- Shadow/glow effects on specific particle types
+- Automatic cleanup when particles expire
+- Integration with combat system (hits, deaths, shots)
+
+### 📋 Planned Features (17+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
