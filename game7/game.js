@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 4: Create path/grid system for enemy movement
+// Commit 5: Tower placement system
 
 // ============================================
 // GAME CONFIGURATION
@@ -44,8 +44,161 @@ const CONFIG = {
         { x: 15, y: 10 },   // Right
         { x: 15, y: 5 },    // Up
         { x: 19, y: 5 }     // Castle (right edge)
-    ]
+    ],
+    
+    // Tower types
+    TOWER_TYPES: {
+        archer: {
+            name: 'Archer Tower',
+            icon: '🏹',
+            cost: 20,
+            damage: 10,
+            range: 120,
+            fireRate: 1.0,  // attacks per second
+            projectileSpeed: 300,
+            color: '#8B4513',
+            description: 'Fast attack, medium damage'
+        },
+        mage: {
+            name: 'Mage Tower',
+            icon: '🔮',
+            cost: 30,
+            damage: 25,
+            range: 100,
+            fireRate: 0.5,
+            projectileSpeed: 200,
+            color: '#9370DB',
+            aoe: 50,  // Area of effect radius
+            description: 'Slow attack, high AOE damage'
+        },
+        cannon: {
+            name: 'Cannon Tower',
+            icon: '💣',
+            cost: 40,
+            damage: 35,
+            range: 150,
+            fireRate: 0.4,
+            projectileSpeed: 250,
+            color: '#696969',
+            splash: 60,  // Splash damage radius
+            description: 'Splash damage, good range'
+        },
+        lightning: {
+            name: 'Lightning Tower',
+            icon: '⚡',
+            cost: 50,
+            damage: 20,
+            range: 130,
+            fireRate: 0.8,
+            chain: 3,  // Number of chain targets
+            color: '#FFD700',
+            description: 'Chain damage to multiple enemies'
+        }
+    }
 };
+
+// ============================================
+// TOWER CLASS
+// ============================================
+class Tower {
+    constructor(gridX, gridY, type) {
+        this.gridX = gridX;
+        this.gridY = gridY;
+        this.x = gridX * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2;
+        this.y = gridY * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2;
+        
+        this.type = type;
+        this.config = CONFIG.TOWER_TYPES[type];
+        
+        // Tower stats
+        this.level = 1;
+        this.damage = this.config.damage;
+        this.range = this.config.range;
+        this.fireRate = this.config.fireRate;
+        this.cost = this.config.cost;
+        
+        // Shooting logic
+        this.timeSinceLastShot = 0;
+        this.target = null;
+        this.rotation = 0;
+        
+        // Visual effects
+        this.pulsePhase = Math.random() * Math.PI * 2;
+    }
+    
+    // Update tower logic
+    update(deltaTime, enemies) {
+        this.timeSinceLastShot += deltaTime / 1000;
+        this.pulsePhase += deltaTime * 0.003;
+        
+        // Find target (will be implemented in shooting commit)
+        // For now, just rotate slowly
+        this.rotation += deltaTime * 0.001;
+    }
+    
+    // Check if enemy is in range
+    isInRange(enemy) {
+        const dx = enemy.x - this.x;
+        const dy = enemy.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return distance <= this.range;
+    }
+    
+    // Draw the tower
+    draw(ctx) {
+        const size = CONFIG.GRID_SIZE;
+        const x = this.gridX * size;
+        const y = this.gridY * size;
+        
+        // Range indicator (when selected)
+        if (this.isSelected) {
+            ctx.fillStyle = 'rgba(100, 200, 255, 0.15)';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.range, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = 'rgba(100, 200, 255, 0.5)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        
+        // Tower base
+        ctx.fillStyle = this.config.color;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = this.config.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, size * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        
+        // Tower border
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Tower icon
+        ctx.font = `${size * 0.5}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#fff';
+        ctx.fillText(this.config.icon, this.x, this.y);
+        
+        // Level indicator
+        if (this.level > 1) {
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 10px Arial';
+            ctx.fillText(`Lv${this.level}`, this.x, this.y + size * 0.4);
+        }
+        
+        // Pulse effect
+        const pulse = Math.sin(this.pulsePhase) * 0.5 + 0.5;
+        ctx.strokeStyle = `rgba(255, 255, 255, ${pulse * 0.5})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, size * 0.35 + pulse * 5, 0, Math.PI * 2);
+        ctx.stroke();
+    }
+}
 
 // ============================================
 // MAIN GAME CLASS
@@ -91,12 +244,14 @@ class Game {
         // Selected elements
         this.selectedTower = null;
         this.hoveredCell = null;
+        this.selectedTowerType = null;  // Type of tower to place
         
         // Initialize grid and path
         this.initializeGrid();
         
         console.log('Game class initialized');
         this.setupEventListeners();
+        this.setupTowerButtons();
         this.updateUI();
     }
     
@@ -222,6 +377,58 @@ class Game {
         console.log('Event listeners setup complete');
     }
     
+    // Setup tower selection buttons
+    setupTowerButtons() {
+        const towerButtons = document.querySelectorAll('.tower-btn');
+        
+        towerButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const towerType = btn.dataset.tower;
+                const towerConfig = CONFIG.TOWER_TYPES[towerType];
+                
+                // Check if player can afford it
+                if (this.state.gold >= towerConfig.cost) {
+                    // Deselect all buttons
+                    towerButtons.forEach(b => b.classList.remove('selected'));
+                    
+                    // Select this button
+                    if (this.selectedTowerType === towerType) {
+                        // Deselect if clicking the same tower
+                        this.selectedTowerType = null;
+                    } else {
+                        btn.classList.add('selected');
+                        this.selectedTowerType = towerType;
+                        console.log('Selected tower type:', towerType);
+                    }
+                } else {
+                    console.log('Not enough gold for', towerType);
+                }
+                
+                this.updateTowerButtons();
+            });
+        });
+        
+        this.updateTowerButtons();
+        console.log('Tower buttons setup complete');
+    }
+    
+    // Update tower button states
+    updateTowerButtons() {
+        const towerButtons = document.querySelectorAll('.tower-btn');
+        
+        towerButtons.forEach(btn => {
+            const towerType = btn.dataset.tower;
+            const towerConfig = CONFIG.TOWER_TYPES[towerType];
+            
+            // Disable button if not enough gold
+            if (this.state.gold < towerConfig.cost) {
+                btn.classList.add('disabled');
+            } else {
+                btn.classList.remove('disabled');
+            }
+        });
+    }
+    
     // Handle mouse clicks
     handleClick(e) {
         const rect = this.canvas.getBoundingClientRect();
@@ -230,7 +437,51 @@ class Game {
         
         console.log(`Click at: (${x}, ${y}) - Grid: (${this.mouse.gridX}, ${this.mouse.gridY})`);
         
-        // Future: Tower placement logic will go here
+        // Tower placement
+        if (this.selectedTowerType && this.state.gameStarted && !this.state.gameOver) {
+            this.placeTower(this.mouse.gridX, this.mouse.gridY, this.selectedTowerType);
+        }
+    }
+    
+    // Place a tower
+    placeTower(gridX, gridY, type) {
+        const towerConfig = CONFIG.TOWER_TYPES[type];
+        
+        // Validate placement
+        if (!this.isCellBuildable(gridX, gridY)) {
+            console.log('Cannot build here!');
+            return false;
+        }
+        
+        // Check if can afford
+        if (this.state.gold < towerConfig.cost) {
+            console.log('Not enough gold!');
+            return false;
+        }
+        
+        // Create tower
+        const tower = new Tower(gridX, gridY, type);
+        this.towers.push(tower);
+        
+        // Update grid
+        const cell = this.getCell(gridX, gridY);
+        if (cell) {
+            cell.hasTower = true;
+        }
+        
+        // Deduct cost
+        this.spendGold(towerConfig.cost);
+        
+        // Deselect tower type
+        this.selectedTowerType = null;
+        document.querySelectorAll('.tower-btn').forEach(btn => {
+            btn.classList.remove('selected');
+        });
+        
+        console.log(`Placed ${type} tower at (${gridX}, ${gridY})`);
+        this.updateTowerButtons();
+        
+        return true;
     }
     
     // Handle keyboard input
@@ -285,7 +536,14 @@ class Game {
         this.particles = [];
         this.frameCount = 0;
         
+        // Reset tower selection
+        this.selectedTowerType = null;
+        document.querySelectorAll('.tower-btn').forEach(btn => {
+            btn.classList.remove('selected');
+        });
+        
         this.updateUI();
+        this.updateTowerButtons();
         console.log('Game reset');
     }
     
@@ -318,7 +576,12 @@ class Game {
     update(deltaTime) {
         this.frameCount++;
         
-        // Future: Update towers, enemies, projectiles, particles
+        // Update towers
+        this.towers.forEach(tower => {
+            tower.update(deltaTime, this.enemies);
+        });
+        
+        // Future: Update enemies, projectiles, particles
         // To be implemented in upcoming commits
     }
     
@@ -530,14 +793,64 @@ class Game {
     
     // Draw game objects
     drawGameObjects() {
-        // Future: Draw towers, enemies, projectiles, particles
-        // Placeholder for now
+        // Draw towers
+        this.towers.forEach(tower => {
+            tower.draw(this.ctx);
+        });
         
-        // Draw a test message
+        // Draw ghost tower preview
+        if (this.selectedTowerType && this.state.gameStarted && !this.state.gameOver) {
+            this.drawGhostTower();
+        }
+        
+        // Draw enemy count (placeholder)
         this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
         this.ctx.font = '16px Arial';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText('Game Running - Wave ' + this.state.wave, this.canvas.width / 2, 30);
+        this.ctx.fillText(`Wave ${this.state.wave} - Towers: ${this.towers.length}`, this.canvas.width / 2, 30);
+    }
+    
+    // Draw ghost tower preview
+    drawGhostTower() {
+        const config = CONFIG.TOWER_TYPES[this.selectedTowerType];
+        const canPlace = this.isCellBuildable(this.mouse.gridX, this.mouse.gridY);
+        const x = this.mouse.gridX * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2;
+        const y = this.mouse.gridY * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2;
+        const size = CONFIG.GRID_SIZE;
+        
+        // Range preview
+        this.ctx.fillStyle = canPlace ? 'rgba(100, 200, 100, 0.1)' : 'rgba(200, 100, 100, 0.1)';
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, config.range, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        this.ctx.strokeStyle = canPlace ? 'rgba(100, 200, 100, 0.5)' : 'rgba(200, 100, 100, 0.5)';
+        this.ctx.lineWidth = 2;
+        this.ctx.stroke();
+        
+        // Ghost tower
+        this.ctx.globalAlpha = 0.6;
+        this.ctx.fillStyle = config.color;
+        this.ctx.beginPath();
+        this.ctx.arc(x, y, size * 0.35, 0, Math.PI * 2);
+        this.ctx.fill();
+        
+        this.ctx.strokeStyle = canPlace ? '#4ade80' : '#ff6b6b';
+        this.ctx.lineWidth = 3;
+        this.ctx.stroke();
+        
+        // Icon
+        this.ctx.globalAlpha = 1;
+        this.ctx.font = `${size * 0.5}px Arial`;
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillStyle = '#fff';
+        this.ctx.fillText(config.icon, x, y);
+        
+        // Cost indicator
+        this.ctx.font = 'bold 12px Arial';
+        this.ctx.fillStyle = canPlace ? '#4ade80' : '#ff6b6b';
+        this.ctx.fillText(`💰${config.cost}`, x, y + size * 0.5);
     }
     
     // Draw pause overlay
@@ -614,8 +927,9 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 4: Path System Ready ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 95);
+        this.ctx.fillText('Commit 5: Tower Placement Ready ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Select a tower and click to place!', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
     // ============================================
