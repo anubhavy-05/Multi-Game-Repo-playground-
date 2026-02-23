@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Castle Defenders - Tower Defense RPG</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-container">
+        <header>
+            <h1>🏰 Castle Defenders</h1>
+            <p class="subtitle">Tower Defense RPG</p>
+        </header>
+        
+        <div class="game-wrapper">
+            <!-- Canvas for game rendering -->
+            <canvas id="gameCanvas" width="800" height="600"></canvas>
+            
+            <!-- Game UI Overlay -->
+            <div id="gameUI" class="game-ui">
+                <div class="top-bar">
+                    <div class="stat-group">
+                        <span class="stat-label">💰 Gold:</span>
+                        <span id="gold" class="stat-value">100</span>
+                    </div>
+                    <div class="stat-group">
+                        <span class="stat-label">💙 Mana:</span>
+                        <span id="mana" class="stat-value">50</span>
+                    </div>
+                    <div class="stat-group">
+                        <span class="stat-label">❤️ Lives:</span>
+                        <span id="lives" class="stat-value">25</span>
+                    </div>
+                    <div class="stat-group">
+                        <span class="stat-label">🌊 Wave:</span>
+                        <span id="wave" class="stat-value">1</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="info">
+            <p>🎮 Tower Defense RPG - Defend your castle from waves of enemies!</p>
+            <p>Game is being built commit by commit...</p>
+        </div>
+    </div>
+    
+    <script src="game.js"></script>
+</body>
+</html>
