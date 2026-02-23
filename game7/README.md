@@ -41,7 +41,19 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
 - Debug info panel (FPS, frame count, mouse position, commit progress)
 - FPS-independent game logic foundation
 
-### 📋 Planned Features (17+ commits remaining)
+**Commit 4: Create Path and Grid System**
+- Initialized 20x15 grid system (40px cells)
+- Implemented waypoint-based path system with 8 waypoints
+- Path rendering with brown tiles and borders
+- Spawn point at grid position (0,7) with pulsing red effect
+- Castle endpoint at grid position (19,5) with tower and flag
+- Grid cell property system (isPath, isBuildable, hasTower)
+- Real-time buildable zone highlighting (green=yes, red=no)
+- Path connectivity validation between waypoints
+- Debug panel shows build status for hovered cell
+- Foundation for enemy pathfinding and tower placement
+
+### 📋 Planned Features (21+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
