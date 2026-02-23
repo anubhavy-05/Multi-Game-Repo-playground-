@@ -71,7 +71,30 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
 - Tower update loop integrated into game loop
 - Tower array management and grid cell updates
 
-### 📋 Planned Features (20+ commits remaining)
+**Commit 6: Enemy Spawning and Movement System**
+- Created Enemy class with waypoint-based pathfinding
+- Added 4 enemy types with scaling difficulty:
+  - 👾 Basic Enemy: Standard speed and health
+  - 💨 Fast Enemy: High speed, low health
+  - 🛡️ Tank Enemy: Slow but tanky, deals 3 damage
+  - 🦅 Flying Enemy: Medium stats (future: bypass some towers)
+- Wave management system with auto-progression
+- Enemy spawning at timed intervals (2s between spawns)
+- Smooth movement along 8-waypoint path
+- Health bars above enemies (green/red gradient)
+- Flash effect when enemies take damage
+- Enemy health scales with wave number (+15% per wave)
+- Enemies per wave increases (5 + wave * 2)
+- Castle damage system when enemies reach end
+- Gold rewards when enemies are killed
+- Score tracking (gold reward * 10)
+- Wave completion bonus gold (10 + wave * 5)
+- Auto-start next wave after 5s delay
+- Real-time enemy/wave status display
+- Enemy rotation based on movement direction
+- Proper enemy cleanup (reached end or killed)
+
+### 📋 Planned Features (19+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
