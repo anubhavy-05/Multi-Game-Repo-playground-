@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 7: Tower shooting mechanics
+// Commit 8: Particle effects system
 
 // ============================================
 // GAME CONFIGURATION
@@ -221,7 +221,7 @@ class Tower {
     }
     
     // Try to shoot at target
-    tryShoot() {
+    tryShoot(game) {
         if (!this.target || !this.target.isAlive) return null;
         
         // Check fire rate
@@ -230,7 +230,7 @@ class Tower {
         
         // Fire!
         this.timeSinceLastShot = 0;
-        return new Projectile(this.x, this.y, this.target, this);
+        return new Projectile(this.x, this.y, this.target, this, game);
     }
     
     // Check if enemy is in range
@@ -314,11 +314,12 @@ class Tower {
 // PROJECTILE CLASS
 // ============================================
 class Projectile {
-    constructor(x, y, target, tower) {
+    constructor(x, y, target, tower, game) {
         this.x = x;
         this.y = y;
         this.target = target;
         this.tower = tower;
+        this.game = game;
         
         this.speed = tower.config.projectileSpeed;
         this.damage = tower.damage;
@@ -364,6 +365,35 @@ class Projectile {
         // Deal damage
         if (this.target && this.target.isAlive) {
             this.target.takeDamage(this.damage);
+            
+            // Create hit particles
+            if (this.game) {
+                this.createHitParticles();
+            }
+        }
+    }
+    
+    // Create hit particles
+    createHitParticles() {
+        const colors = {
+            'archer': '#8B4513',
+            'mage': '#9370DB',
+            'cannon': '#FF6B00',
+            'lightning': '#FFD700'
+        };
+        
+        const color = colors[this.type] || '#FFF';
+        const count = this.type === 'cannon' ? 12 : 8;
+        
+        for (let i = 0; i < count; i++) {
+            const particle = new Particle(this.x, this.y, 'hit', {
+                color: color,
+                size: 2 + Math.random() * 3,
+                speed: 50 + Math.random() * 100,
+                lifetime: 0.3 + Math.random() * 0.3,
+                gravity: 100
+            });
+            this.game.particles.push(particle);
         }
     }
     
@@ -417,6 +447,111 @@ class Projectile {
                 ctx.shadowBlur = 0;
                 break;
         }
+    }
+}
+
+// ============================================
+// PARTICLE CLASS
+// ============================================
+class Particle {
+    constructor(x, y, type, options = {}) {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        
+        // Velocity
+        const angle = options.angle !== undefined ? options.angle : Math.random() * Math.PI * 2;
+        const speed = options.speed !== undefined ? options.speed : 50 + Math.random() * 100;
+        this.vx = Math.cos(angle) * speed;
+        this.vy = Math.sin(angle) * speed;
+        
+        // Appearance
+        this.color = options.color || '#FFD700';
+        this.size = options.size || 3 + Math.random() * 3;
+        this.alpha = 1;
+        this.lifetime = options.lifetime || 0.5 + Math.random() * 0.5;
+        this.age = 0;
+        
+        // Physics
+        this.gravity = options.gravity !== undefined ? options.gravity : 200;
+        this.friction = options.friction !== undefined ? options.friction : 0.98;
+        
+        this.isAlive = true;
+    }
+    
+    update(deltaTime) {
+        const dt = deltaTime / 1000;
+        this.age += dt;
+        
+        // Apply velocity
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
+        
+        // Apply physics
+        this.vy += this.gravity * dt;
+        this.vx *= this.friction;
+        this.vy *= this.friction;
+        
+        // Fade out
+        this.alpha = 1 - (this.age / this.lifetime);
+        
+        // Check if dead
+        if (this.age >= this.lifetime) {
+            this.isAlive = false;
+        }
+    }
+    
+    draw(ctx) {
+        if (!this.isAlive || this.alpha <= 0) return;
+        
+        ctx.save();
+        ctx.globalAlpha = this.alpha;
+        
+        switch(this.type) {
+            case 'hit':
+                // Impact spark
+                ctx.fillStyle = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                break;
+                
+            case 'death':
+                // Explosion particle
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                break;
+                
+            case 'gold':
+                // Gold coin sparkle
+                ctx.fillStyle = '#FFD700';
+                ctx.shadowBlur = 8;
+                ctx.shadowColor = '#FFD700';
+                ctx.font = `${this.size * 3}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('✨', this.x, this.y);
+                ctx.shadowBlur = 0;
+                break;
+                
+            case 'muzzle':
+                // Muzzle flash
+                ctx.fillStyle = this.color;
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = this.color;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                break;
+        }
+        
+        ctx.restore();
     }
 }
 
@@ -794,6 +929,70 @@ class Game {
     }
     
     // ============================================
+    // PARTICLE CREATION
+    // ============================================
+    
+    // Create death explosion particles
+    createDeathParticles(enemy) {
+        const count = 15 + Math.floor(Math.random() * 10);
+        const color = enemy.config.color;
+        
+        for (let i = 0; i < count; i++) {
+            const particle = new Particle(enemy.x, enemy.y, 'death', {
+                color: color,
+                size: 3 + Math.random() * 4,
+                speed: 80 + Math.random() * 120,
+                lifetime: 0.4 + Math.random() * 0.4,
+                gravity: 150
+            });
+            this.particles.push(particle);
+        }
+    }
+    
+    // Create gold reward particles
+    createGoldParticles(enemy) {
+        const count = Math.min(5, enemy.goldReward);
+        
+        for (let i = 0; i < count; i++) {
+            const particle = new Particle(enemy.x, enemy.y, 'gold', {
+                size: 2 + Math.random() * 2,
+                speed: 60 + Math.random() * 80,
+                angle: -Math.PI / 2 + (Math.random() - 0.5) * Math.PI / 3,
+                lifetime: 0.8 + Math.random() * 0.4,
+                gravity: 300
+            });
+            this.particles.push(particle);
+        }
+    }
+    
+    // Create muzzle flash particles
+    createMuzzleFlash(tower) {
+        const colors = {
+            'archer': '#FFA500',
+            'mage': '#9370DB',
+            'cannon': '#FF6B00',
+            'lightning': '#FFD700'
+        };
+        
+        const color = colors[tower.type] || '#FFF';
+        const count = 3;
+        
+        for (let i = 0; i < count; i++) {
+            const angle = tower.rotation + (Math.random() - 0.5) * 0.5;
+            const particle = new Particle(tower.x, tower.y, 'muzzle', {
+                color: color,
+                size: 3 + Math.random() * 3,
+                speed: 40 + Math.random() * 60,
+                angle: angle,
+                lifetime: 0.15 + Math.random() * 0.1,
+                gravity: 0,
+                friction: 0.9
+            });
+            this.particles.push(particle);
+        }
+    }
+    
+    // ============================================
     // EVENT HANDLERS
     // ============================================
     
@@ -1048,9 +1247,11 @@ class Game {
             tower.update(deltaTime, this.enemies);
             
             // Try to shoot
-            const projectile = tower.tryShoot();
+            const projectile = tower.tryShoot(this);
             if (projectile) {
                 this.projectiles.push(projectile);
+                // Create muzzle flash
+                this.createMuzzleFlash(tower);
             }
         });
         
@@ -1078,14 +1279,27 @@ class Game {
             }
             // Remove dead enemies
             else if (!enemy.isAlive) {
+                // Create death particles
+                this.createDeathParticles(enemy);
+                
+                // Create gold particles
+                this.createGoldParticles(enemy);
+                
                 this.addGold(enemy.goldReward);
                 this.state.score += enemy.goldReward * 10;
                 this.enemies.splice(i, 1);
             }
         }
         
-        // Future: Update particles
-        // To be implemented in upcoming commits
+        // Update particles
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const particle = this.particles[i];
+            particle.update(deltaTime);
+            
+            if (!particle.isAlive) {
+                this.particles.splice(i, 1);
+            }
+        }
     }
     
     // Render everything
