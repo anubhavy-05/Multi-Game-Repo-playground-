@@ -53,7 +53,25 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
 - Debug panel shows build status for hovered cell
 - Foundation for enemy pathfinding and tower placement
 
-### 📋 Planned Features (21+ commits remaining)
+**Commit 5: Implement Tower Placement System**
+- Created Tower class with OOP architecture
+- Added 4 tower types with unique stats:
+  - 🏹 Archer Tower: Fast attack (20 gold)
+  - 🔮 Mage Tower: AOE damage (30 gold)
+  - 💣 Cannon Tower: Splash damage (40 gold)
+  - ⚡ Lightning Tower: Chain lightning (50 gold)
+- Tower selection menu UI with visual feedback
+- Ghost tower preview showing range and placement validity
+- Tower placement validation (buildable zones, gold cost)
+- Gold deduction system when placing towers
+- Tower rendering with icons, colors, and pulse effects
+- Level indicator support for future upgrades
+- Range visualization for placed towers
+- Button states (enabled/disabled/selected) based on gold
+- Tower update loop integrated into game loop
+- Tower array management and grid cell updates
+
+### 📋 Planned Features (20+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
