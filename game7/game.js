@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 5: Tower placement system
+// Commit 6: Enemy spawning and movement
 
 // ============================================
 // GAME CONFIGURATION
@@ -19,6 +19,10 @@ const CONFIG = {
     // FPS and timing
     TARGET_FPS: 60,
     FRAME_TIME: 1000 / 60,
+    
+    // Wave settings
+    WAVE_SPAWN_DELAY: 2000,  // ms between enemy spawns
+    WAVE_INTERVAL: 5000,     // ms between waves
     
     // Colors
     COLORS: {
@@ -93,6 +97,51 @@ const CONFIG = {
             chain: 3,  // Number of chain targets
             color: '#FFD700',
             description: 'Chain damage to multiple enemies'
+        }
+    },
+    
+    // Enemy types
+    ENEMY_TYPES: {
+        basic: {
+            name: 'Basic Enemy',
+            icon: '👾',
+            health: 50,
+            speed: 50,  // pixels per second
+            goldReward: 5,
+            damage: 1,  // damage to castle
+            color: '#FF6B6B',
+            size: 16
+        },
+        fast: {
+            name: 'Fast Enemy',
+            icon: '💨',
+            health: 30,
+            speed: 80,
+            goldReward: 7,
+            damage: 1,
+            color: '#4ECDC4',
+            size: 14
+        },
+        tank: {
+            name: 'Tank Enemy',
+            icon: '🛡️',
+            health: 150,
+            speed: 30,
+            goldReward: 15,
+            damage: 3,
+            color: '#95E1D3',
+            size: 20
+        },
+        flying: {
+            name: 'Flying Enemy',
+            icon: '🦅',
+            health: 40,
+            speed: 60,
+            goldReward: 10,
+            damage: 1,
+            color: '#F38181',
+            size: 16,
+            flying: true
         }
     }
 };
@@ -201,6 +250,142 @@ class Tower {
 }
 
 // ============================================
+// ENEMY CLASS
+// ============================================
+class Enemy {
+    constructor(type, wave) {
+        this.type = type;
+        this.config = CONFIG.ENEMY_TYPES[type];
+        this.wave = wave;
+        
+        // Enemy stats
+        this.maxHealth = this.config.health * (1 + wave * 0.15);  // Scale with wave
+        this.health = this.maxHealth;
+        this.speed = this.config.speed;
+        this.goldReward = this.config.goldReward;
+        this.damage = this.config.damage;
+        
+        // Position and movement
+        this.waypointIndex = 0;
+        this.x = CONFIG.PATH_WAYPOINTS[0].x * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2;
+        this.y = CONFIG.PATH_WAYPOINTS[0].y * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2;
+        
+        // Status
+        this.isAlive = true;
+        this.reachedEnd = false;
+        
+        // Visual effects
+        this.rotation = 0;
+        this.hurtTimer = 0;
+    }
+    
+    // Update enemy movement
+    update(deltaTime) {
+        if (!this.isAlive || this.reachedEnd) return;
+        
+        // Decrease hurt timer
+        if (this.hurtTimer > 0) {
+            this.hurtTimer -= deltaTime;
+        }
+        
+        // Get current target waypoint
+        if (this.waypointIndex >= CONFIG.PATH_WAYPOINTS.length) {
+            this.reachedEnd = true;
+            return;
+        }
+        
+        const targetWaypoint = CONFIG.PATH_WAYPOINTS[this.waypointIndex];
+        const targetX = targetWaypoint.x * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2;
+        const targetY = targetWaypoint.y * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2;
+        
+        // Calculate direction
+        const dx = targetX - this.x;
+        const dy = targetY - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Check if reached waypoint
+        if (distance < 5) {
+            this.waypointIndex++;
+            return;
+        }
+        
+        // Move towards waypoint
+        const moveDistance = this.speed * (deltaTime / 1000);
+        this.x += (dx / distance) * moveDistance;
+        this.y += (dy / distance) * moveDistance;
+        
+        // Update rotation for visual effect
+        this.rotation = Math.atan2(dy, dx);
+    }
+    
+    // Take damage
+    takeDamage(amount) {
+        this.health -= amount;
+        this.hurtTimer = 200; // ms
+        
+        if (this.health <= 0) {
+            this.isAlive = false;
+        }
+    }
+    
+    // Draw the enemy
+    draw(ctx) {
+        if (!this.isAlive) return;
+        
+        const size = this.config.size;
+        
+        // Flash red when hurt
+        if (this.hurtTimer > 0) {
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = '#FF0000';
+        }
+        
+        // Enemy body
+        ctx.fillStyle = this.config.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Enemy border
+        ctx.strokeStyle = '#000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        ctx.shadowBlur = 0;
+        
+        // Enemy icon
+        ctx.font = `${size * 1.2}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(this.config.icon, this.x, this.y);
+        
+        // Health bar
+        this.drawHealthBar(ctx);
+    }
+    
+    // Draw health bar
+    drawHealthBar(ctx) {
+        const barWidth = 30;
+        const barHeight = 4;
+        const x = this.x - barWidth / 2;
+        const y = this.y - this.config.size - 8;
+        
+        // Background
+        ctx.fillStyle = '#000';
+        ctx.fillRect(x - 1, y - 1, barWidth + 2, barHeight + 2);
+        
+        // Red background
+        ctx.fillStyle = '#FF0000';
+        ctx.fillRect(x, y, barWidth, barHeight);
+        
+        // Green health
+        const healthPercent = this.health / this.maxHealth;
+        ctx.fillStyle = '#4ade80';
+        ctx.fillRect(x, y, barWidth * healthPercent, barHeight);
+    }
+}
+
+// ============================================
 // MAIN GAME CLASS
 // ============================================
 class Game {
@@ -231,6 +416,14 @@ class Game {
         this.lastFrameTime = 0;
         this.deltaTime = 0;
         this.frameCount = 0;
+        
+        // Wave management
+        this.waveActive = false;
+        this.waveComplete = false;
+        this.timeSinceLastSpawn = 0;
+        this.enemiesSpawned = 0;
+        this.enemiesPerWave = 5;  // Will increase with wave number
+        this.timeBetweenWaves = CONFIG.WAVE_INTERVAL;
         
         // Input handling
         this.mouse = {
@@ -338,6 +531,95 @@ class Game {
     isCellBuildable(gridX, gridY) {
         const cell = this.getCell(gridX, gridY);
         return cell && cell.isBuildable && !cell.hasTower;
+    }
+    
+    // ============================================
+    // WAVE AND ENEMY SPAWNING
+    // ============================================
+    
+    // Start next wave
+    startWave() {
+        if (this.waveActive || this.state.gameOver) return;
+        
+        this.waveActive = true;
+        this.waveComplete = false;
+        this.enemiesSpawned = 0;
+        this.timeSinceLastSpawn = 0;
+        
+        // Calculate enemies for this wave
+        this.enemiesPerWave = 5 + this.state.wave * 2;
+        
+        console.log(`Wave ${this.state.wave} started! Enemies: ${this.enemiesPerWave}`);
+    }
+    
+    // Spawn an enemy
+    spawnEnemy() {
+        // Determine enemy type based on wave
+        let enemyType = 'basic';
+        
+        if (this.state.wave >= 3) {
+            // Random mix of enemy types
+            const rand = Math.random();
+            if (rand < 0.5) {
+                enemyType = 'basic';
+            } else if (rand < 0.75) {
+                enemyType = 'fast';
+            } else if (rand < 0.9) {
+                enemyType = 'tank';
+            } else {
+                enemyType = 'flying';
+            }
+        } else if (this.state.wave === 2) {
+            // Introduce fast enemies
+            enemyType = Math.random() < 0.7 ? 'basic' : 'fast';
+        }
+        
+        const enemy = new Enemy(enemyType, this.state.wave);
+        this.enemies.push(enemy);
+        this.enemiesSpawned++;
+        
+        console.log(`Spawned ${enemyType} enemy (${this.enemiesSpawned}/${this.enemiesPerWave})`);
+    }
+    
+    // Update wave state
+    updateWave(deltaTime) {
+        if (!this.waveActive || this.state.gameOver) return;
+        
+        // Spawn enemies
+        if (this.enemiesSpawned < this.enemiesPerWave) {
+            this.timeSinceLastSpawn += deltaTime;
+            
+            if (this.timeSinceLastSpawn >= CONFIG.WAVE_SPAWN_DELAY) {
+                this.spawnEnemy();
+                this.timeSinceLastSpawn = 0;
+            }
+        }
+        
+        // Check if wave is complete
+        if (this.enemiesSpawned >= this.enemiesPerWave && this.enemies.length === 0) {
+            this.completeWave();
+        }
+    }
+    
+    // Complete current wave
+    completeWave() {
+        this.waveActive = false;
+        this.waveComplete = true;
+        this.state.wave++;
+        
+        // Bonus gold for completing wave
+        const bonusGold = 10 + this.state.wave * 5;
+        this.addGold(bonusGold);
+        
+        this.updateUI();
+        console.log(`Wave ${this.state.wave - 1} complete! +${bonusGold} gold. Next wave: ${this.state.wave}`);
+        
+        // Auto-start next wave after delay
+        setTimeout(() => {
+            if (!this.state.gameOver && this.state.gameStarted && !this.state.isPaused) {
+                this.startWave();
+            }
+        }, this.timeBetweenWaves);
     }
     
     // ============================================
@@ -515,6 +797,11 @@ class Game {
     startGame() {
         this.state.gameStarted = true;
         console.log('Game started!');
+        
+        // Start first wave
+        setTimeout(() => {
+            this.startWave();
+        }, 1000);
     }
     
     // Reset game
@@ -535,6 +822,12 @@ class Game {
         this.projectiles = [];
         this.particles = [];
         this.frameCount = 0;
+        
+        // Reset wave
+        this.waveActive = false;
+        this.waveComplete = false;
+        this.timeSinceLastSpawn = 0;
+        this.enemiesSpawned = 0;
         
         // Reset tower selection
         this.selectedTowerType = null;
@@ -576,12 +869,34 @@ class Game {
     update(deltaTime) {
         this.frameCount++;
         
+        // Update wave spawning
+        this.updateWave(deltaTime);
+        
         // Update towers
         this.towers.forEach(tower => {
             tower.update(deltaTime, this.enemies);
         });
         
-        // Future: Update enemies, projectiles, particles
+        // Update enemies
+        for (let i = this.enemies.length - 1; i >= 0; i--) {
+            const enemy = this.enemies[i];
+            enemy.update(deltaTime);
+            
+            // Check if enemy reached the end
+            if (enemy.reachedEnd) {
+                this.loseLife(enemy.damage);
+                this.enemies.splice(i, 1);
+                console.log(`Enemy reached castle! Lives: ${this.state.lives}`);
+            }
+            // Remove dead enemies
+            else if (!enemy.isAlive) {
+                this.addGold(enemy.goldReward);
+                this.state.score += enemy.goldReward * 10;
+                this.enemies.splice(i, 1);
+            }
+        }
+        
+        // Future: Update projectiles, particles
         // To be implemented in upcoming commits
     }
     
@@ -793,6 +1108,11 @@ class Game {
     
     // Draw game objects
     drawGameObjects() {
+        // Draw enemies
+        this.enemies.forEach(enemy => {
+            enemy.draw(this.ctx);
+        });
+        
         // Draw towers
         this.towers.forEach(tower => {
             tower.draw(this.ctx);
@@ -803,11 +1123,19 @@ class Game {
             this.drawGhostTower();
         }
         
-        // Draw enemy count (placeholder)
+        // Draw wave info
         this.ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
         this.ctx.font = '16px Arial';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText(`Wave ${this.state.wave} - Towers: ${this.towers.length}`, this.canvas.width / 2, 30);
+        
+        let statusText = `Wave ${this.state.wave} - Towers: ${this.towers.length} - Enemies: ${this.enemies.length}`;
+        if (this.waveActive && this.enemiesSpawned < this.enemiesPerWave) {
+            statusText += ` (Spawning: ${this.enemiesSpawned}/${this.enemiesPerWave})`;
+        } else if (!this.waveActive && this.waveComplete) {
+            statusText += ' (Next wave incoming...)';
+        }
+        
+        this.ctx.fillText(statusText, this.canvas.width / 2, 30);
     }
     
     // Draw ghost tower preview
@@ -927,8 +1255,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 5: Tower Placement Ready ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Select a tower and click to place!', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 6: Enemy Spawning Ready ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Place towers to defend against waves!', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
