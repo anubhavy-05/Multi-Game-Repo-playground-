@@ -94,7 +94,26 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
 - Enemy rotation based on movement direction
 - Proper enemy cleanup (reached end or killed)
 
-### 📋 Planned Features (19+ commits remaining)
+**Commit 7: Tower Shooting Mechanics**
+- Created Projectile class with homing behavior
+- Projectile types with unique visuals per tower:
+  - 🏹 Archer: Brown arrow projectiles
+  - 🔮 Mage: Purple glowing orbs with glow effect
+  - 💣 Cannon: Large black cannonballs
+  - ⚡ Lightning: Golden bolts with bright glow
+- Tower targeting system (automatic nearest enemy in range)
+- Fire rate system with cooldown timers
+- Projectile-to-target homing movement
+- Collision detection between projectiles and enemies
+- Damage application on hit
+- Tower barrel visualization showing aim direction
+- Automatic shooting when targets are in range
+- Projectile lifecycle management (creation, movement, cleanup)
+- Visual feedback for tower rotation towards enemies
+- Smooth projectile movement with delta time
+- Proper cleanup of projectiles after hit or target death
+
+### 📋 Planned Features (18+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
