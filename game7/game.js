@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 3: Implement game loop and rendering system
+// Commit 4: Create path/grid system for enemy movement
 
 // ============================================
 // GAME CONFIGURATION
@@ -23,12 +23,28 @@ const CONFIG = {
     // Colors
     COLORS: {
         PATH: '#8B7355',
+        PATH_BORDER: '#654321',
         GRASS: '#6B8E23',
         BUILD_ZONE: 'rgba(100, 200, 100, 0.3)',
+        NO_BUILD_ZONE: 'rgba(200, 100, 100, 0.3)',
         GRID_LINE: 'rgba(255, 255, 255, 0.1)',
         SKY: '#87CEEB',
-        GROUND: '#8FBC8F'
-    }
+        GROUND: '#8FBC8F',
+        CASTLE: '#8B4513',
+        SPAWN: '#FF4444'
+    },
+    
+    // Path waypoints (in grid coordinates)
+    PATH_WAYPOINTS: [
+        { x: 0, y: 7 },     // Spawn point (left edge)
+        { x: 5, y: 7 },     // First turn
+        { x: 5, y: 3 },     // Up
+        { x: 10, y: 3 },    // Right
+        { x: 10, y: 10 },   // Down
+        { x: 15, y: 10 },   // Right
+        { x: 15, y: 5 },    // Up
+        { x: 19, y: 5 }     // Castle (right edge)
+    ]
 };
 
 // ============================================
@@ -76,10 +92,102 @@ class Game {
         this.selectedTower = null;
         this.hoveredCell = null;
         
+        // Initialize grid and path
+        this.initializeGrid();
+        
         console.log('Game class initialized');
         this.setupEventListeners();
         this.updateUI();
     }
+    
+    // ============================================
+    // GRID AND PATH SYSTEM
+    // ============================================
+    
+    // Initialize grid
+    initializeGrid() {
+        const cols = Math.floor(this.canvas.width / CONFIG.GRID_SIZE);
+        const rows = Math.floor(this.canvas.height / CONFIG.GRID_SIZE);
+        
+        // Create 2D array for grid
+        this.grid = [];
+        for (let y = 0; y < rows; y++) {
+            this.grid[y] = [];
+            for (let x = 0; x < cols; x++) {
+                this.grid[y][x] = {
+                    x: x,
+                    y: y,
+                    isPath: false,
+                    isBuildable: true,
+                    hasTower: false
+                };
+            }
+        }
+        
+        // Mark path cells
+        this.createPath();
+        
+        // Set spawn and castle positions
+        this.spawnPoint = { 
+            x: CONFIG.PATH_WAYPOINTS[0].x, 
+            y: CONFIG.PATH_WAYPOINTS[0].y 
+        };
+        this.castlePoint = { 
+            x: CONFIG.PATH_WAYPOINTS[CONFIG.PATH_WAYPOINTS.length - 1].x, 
+            y: CONFIG.PATH_WAYPOINTS[CONFIG.PATH_WAYPOINTS.length - 1].y 
+        };
+        
+        console.log('Grid initialized:', cols, 'x', rows);
+        console.log('Path created with', CONFIG.PATH_WAYPOINTS.length, 'waypoints');
+    }
+    
+    // Create path based on waypoints
+    createPath() {
+        // Connect waypoints with path
+        for (let i = 0; i < CONFIG.PATH_WAYPOINTS.length - 1; i++) {
+            const start = CONFIG.PATH_WAYPOINTS[i];
+            const end = CONFIG.PATH_WAYPOINTS[i + 1];
+            
+            // Draw path between waypoints
+            this.drawPathSegment(start, end);
+        }
+    }
+    
+    // Draw path segment between two waypoints
+    drawPathSegment(start, end) {
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const steps = Math.max(Math.abs(dx), Math.abs(dy));
+        
+        for (let i = 0; i <= steps; i++) {
+            const t = steps === 0 ? 0 : i / steps;
+            const x = Math.round(start.x + dx * t);
+            const y = Math.round(start.y + dy * t);
+            
+            if (this.grid[y] && this.grid[y][x]) {
+                this.grid[y][x].isPath = true;
+                this.grid[y][x].isBuildable = false;
+            }
+        }
+    }
+    
+    // Get cell at grid coordinates
+    getCell(gridX, gridY) {
+        if (this.grid[gridY] && this.grid[gridY][gridX]) {
+            return this.grid[gridY][gridX];
+        }
+        return null;
+    }
+    
+    // Check if cell is buildable
+    isCellBuildable(gridX, gridY) {
+        const cell = this.getCell(gridX, gridY);
+        return cell && cell.isBuildable && !cell.hasTower;
+    }
+    
+    // ============================================
+    // EVENT HANDLERS
+    // ============================================
     
     // Setup event listeners
     setupEventListeners() {
@@ -222,6 +330,13 @@ class Game {
         // Draw background
         this.drawBackground();
         
+        // Draw path
+        this.drawPath();
+        
+        // Draw spawn and castle
+        this.drawSpawn();
+        this.drawCastle();
+        
         // Draw grid
         this.drawGrid();
         
@@ -239,31 +354,126 @@ class Game {
             if (this.state.isPaused) {
                 this.drawPauseOverlay();
             }
-        }7)';
+        }
+        
+        // Draw FPS counter (debug)
+        this.drawDebugInfo();
+    }
+    
+    // ============================================
+    // RENDERING FUNCTIONS
+    // ============================================
+    
+    // Draw background
+    drawBackground() {
+        // Full grass background
+        const grassGradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+        grassGradient.addColorStop(0, CONFIG.COLORS.GROUND);
+        grassGradient.addColorStop(1, CONFIG.COLORS.GRASS);
+        this.ctx.fillStyle = grassGradient;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+    }
+    
+    // Draw path
+    drawPath() {
+        // Draw path cells
+        for (let y = 0; y < this.grid.length; y++) {
+            for (let x = 0; x < this.grid[y].length; x++) {
+                const cell = this.grid[y][x];
+                if (cell.isPath) {
+                    // Path tile
+                    this.ctx.fillStyle = CONFIG.COLORS.PATH;
+                    this.ctx.fillRect(
+                        x * CONFIG.GRID_SIZE,
+                        y * CONFIG.GRID_SIZE,
+                        CONFIG.GRID_SIZE,
+                        CONFIG.GRID_SIZE
+                    );
+                    
+                    // Path border
+                    this.ctx.strokeStyle = CONFIG.COLORS.PATH_BORDER;
+                    this.ctx.lineWidth = 2;
+                    this.ctx.strokeRect(
+                        x * CONFIG.GRID_SIZE,
+                        y * CONFIG.GRID_SIZE,
+                        CONFIG.GRID_SIZE,
+                        CONFIG.GRID_SIZE
+                    );
+                }
+            }
+        }
         
-        this.ctx.fillStyle = '#fff';
-        this.ctx.font = 'bold 36px Arial';
+        // Draw waypoint markers (small dots)
+        this.ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+        CONFIG.PATH_WAYPOINTS.forEach((waypoint, index) => {
+            if (index > 0 && index < CONFIG.PATH_WAYPOINTS.length - 1) {
+                this.ctx.beginPath();
+                this.ctx.arc(
+                    waypoint.x * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2,
+                    waypoint.y * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2,
+                    4,
+                    0,
+                    Math.PI * 2
+                );
+                this.ctx.fill();
+            }
+        });
+    }
+    
+    // Draw spawn point
+    drawSpawn() {
+        const x = this.spawnPoint.x * CONFIG.GRID_SIZE;
+        const y = this.spawnPoint.y * CONFIG.GRID_SIZE;
+        
+        // Spawn portal effect
+        this.ctx.fillStyle = CONFIG.COLORS.SPAWN;
+        this.ctx.globalAlpha = 0.3 + Math.sin(this.frameCount * 0.1) * 0.2;
+        this.ctx.fillRect(x, y, CONFIG.GRID_SIZE, CONFIG.GRID_SIZE);
+        this.ctx.globalAlpha = 1;
+        
+        // Spawn icon
+        this.ctx.fillStyle = '#FF0000';
+        this.ctx.font = 'bold 24px Arial';
         this.ctx.textAlign = 'center';
-        this.ctx.fillText('🏰 Castle Defenders', this.canvas.width / 2, this.canvas.height / 2 - 60);
+        this.ctx.textBaseline = 'middle';
+        this.ctx.fillText('⚔️', x + CONFIG.GRID_SIZE / 2, y + CONFIG.GRID_SIZE / 2);
+    }
+    
+    // Draw castle
+    drawCastle() {
+        const x = this.castlePoint.x * CONFIG.GRID_SIZE;
+        const y = this.castlePoint.y * CONFIG.GRID_SIZE;
+        const size = CONFIG.GRID_SIZE;
         
-        this.ctx.font = '20px Arial';
+        // Castle base
+        this.ctx.fillStyle = CONFIG.COLORS.CASTLE;
+        this.ctx.fillRect(x + 5, y + 10, size - 10, size - 10);
+        
+        // Castle tower
+        this.ctx.fillRect(x + size / 2 - 8, y + 5, 16, size - 5);
+        
+        // Castle flag
         this.ctx.fillStyle = '#FFD700';
-        this.ctx.fillText('Tower Defense RPG', this.canvas.width / 2, this.canvas.height / 2 - 20);
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + size / 2 + 5, y + 8);
+        this.ctx.lineTo(x + size / 2 + 15, y + 12);
+        this.ctx.lineTo(x + size / 2 + 5, y + 16);
+        this.ctx.closePath();
+        this.ctx.fill();
         
-        this.ctx.font = 'bold 18px Arial';
-        this.ctx.fillStyle = '#4ade80';
-        this.ctx.fillText('Press S to Start!', this.canvas.width / 2, this.canvas.height / 2 + 30);
+        // Flag pole
+        this.ctx.strokeStyle = '#666';
+        this.ctx.lineWidth = 2;
+        this.ctx.beginPath();
+        this.ctx.moveTo(x + size / 2 + 5, y + 5);
+        this.ctx.lineTo(x + size / 2 + 5, y + 20);
+        this.ctx.stroke();
         
-        this.ctx.font = '14px Arial';
-        this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 3: Game Loop Active
-        // Ground
-        const groundGradient = this.ctx.createLinearGradient(0, this.canvas.height * 0.6, 0, this.canvas.height);
-        groundGradient.addColorStop(0, CONFIG.COLORS.GROUND);
-        groundGradient.addColorStop(1, CONFIG.COLORS.GRASS);
-        this.ctx.fillStyle = groundGradient;
-        this.ctx.fillRect(0, this.canvas.height * 0.6, this.canvas.width, this.canvas.height * 0.4);
+        // Castle label
+        this.ctx.fillStyle = '#fff';
+        this.ctx.font = 'bold 10px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('🏰', x + size / 2, y + size - 5);
     }
     
     // Draw grid
@@ -289,13 +499,32 @@ class Game {
         
         // Highlight hovered cell
         if (this.state.gameStarted && !this.state.gameOver) {
-            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
-            this.ctx.fillRect(
-                this.mouse.gridX * CONFIG.GRID_SIZE,
-                this.mouse.gridY * CONFIG.GRID_SIZE,
-                CONFIG.GRID_SIZE,
-                CONFIG.GRID_SIZE
-            );
+            const cell = this.getCell(this.mouse.gridX, this.mouse.gridY);
+            if (cell) {
+                // Color based on buildability
+                if (cell.isBuildable && !cell.hasTower) {
+                    this.ctx.fillStyle = CONFIG.COLORS.BUILD_ZONE;
+                } else {
+                    this.ctx.fillStyle = CONFIG.COLORS.NO_BUILD_ZONE;
+                }
+                
+                this.ctx.fillRect(
+                    this.mouse.gridX * CONFIG.GRID_SIZE,
+                    this.mouse.gridY * CONFIG.GRID_SIZE,
+                    CONFIG.GRID_SIZE,
+                    CONFIG.GRID_SIZE
+                );
+                
+                // Draw border
+                this.ctx.strokeStyle = cell.isBuildable ? '#4ade80' : '#ff6b6b';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(
+                    this.mouse.gridX * CONFIG.GRID_SIZE,
+                    this.mouse.gridY * CONFIG.GRID_SIZE,
+                    CONFIG.GRID_SIZE,
+                    CONFIG.GRID_SIZE
+                );
+            }
         }
     }
     
@@ -359,8 +588,39 @@ class Game {
         this.ctx.fillText(`FPS: ${fps}`, 10, this.canvas.height - 55);
         this.ctx.fillText(`Frame: ${this.frameCount}`, 10, this.canvas.height - 40);
         this.ctx.fillText(`Mouse: ${this.mouse.gridX},${this.mouse.gridY}`, 10, this.canvas.height - 25);
-        this.ctx.fillText(`Commit: 3/25`, 10, this.canvas.height - 10);
+        
+        const cell = this.getCell(this.mouse.gridX, this.mouse.gridY);
+        const buildable = cell ? (cell.isBuildable ? 'Yes' : 'No') : 'N/A';
+        this.ctx.fillText(`Build: ${buildable}`, 10, this.canvas.height - 10);
     }
+    
+    // Draw welcome screen
+    drawWelcomeScreen() {
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        this.ctx.fillStyle = '#fff';
+        this.ctx.font = 'bold 36px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('🏰 Castle Defenders', this.canvas.width / 2, this.canvas.height / 2 - 60);
+        
+        this.ctx.font = '20px Arial';
+        this.ctx.fillStyle = '#FFD700';
+        this.ctx.fillText('Tower Defense RPG', this.canvas.width / 2, this.canvas.height / 2 - 20);
+        
+        this.ctx.font = 'bold 18px Arial';
+        this.ctx.fillStyle = '#4ade80';
+        this.ctx.fillText('Press S to Start!', this.canvas.width / 2, this.canvas.height / 2 + 30);
+        
+        this.ctx.font = '14px Arial';
+        this.ctx.fillStyle = '#a0aec0';
+        this.ctx.fillText('Commit 4: Path System Ready ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 95);
+    }
+    
+    // ============================================
+    // RESOURCE MANAGEMENT
+    // ============================================
     
     // Update UI elements
     updateUI() {
@@ -416,30 +676,6 @@ class Game {
     gameOver() {
         this.state.gameOver = true;
         console.log('Game Over! Final Score:', this.state.score);
-    }
-    
-    // Draw welcome screen
-    drawWelcomeScreen() {
-        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
-        
-        this.ctx.fillStyle = '#fff';
-        this.ctx.font = 'bold 36px Arial';
-        this.ctx.textAlign = 'center';
-        this.ctx.fillText('🏰 Castle Defenders', this.canvas.width / 2, this.canvas.height / 2 - 60);
-        
-        this.ctx.font = '20px Arial';
-        this.ctx.fillStyle = '#FFD700';
-        this.ctx.fillText('Tower Defense RPG', this.canvas.width / 2, this.canvas.height / 2 - 20);
-        
-        this.ctx.font = 'bold 18px Arial';
-        this.ctx.fillStyle = '#4ade80';
-        this.ctx.fillText('Press S to Start!', this.canvas.width / 2, this.canvas.height / 2 + 30);
-        
-        this.ctx.font = '14px Arial';
-        this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 2: Game Class Initialized ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 95);
     }
 }
 
