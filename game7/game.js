@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 6: Enemy spawning and movement
+// Commit 7: Tower shooting mechanics
 
 // ============================================
 // GAME CONFIGURATION
@@ -180,9 +180,57 @@ class Tower {
         this.timeSinceLastShot += deltaTime / 1000;
         this.pulsePhase += deltaTime * 0.003;
         
-        // Find target (will be implemented in shooting commit)
-        // For now, just rotate slowly
-        this.rotation += deltaTime * 0.001;
+        // Find target
+        this.findTarget(enemies);
+        
+        // Rotate towards target
+        if (this.target) {
+            const dx = this.target.x - this.x;
+            const dy = this.target.y - this.y;
+            this.rotation = Math.atan2(dy, dx);
+        }
+    }
+    
+    // Find nearest enemy in range
+    findTarget(enemies) {
+        // Clear target if it's dead or out of range
+        if (this.target && (!this.target.isAlive || !this.isInRange(this.target))) {
+            this.target = null;
+        }
+        
+        // Find new target if we don't have one
+        if (!this.target) {
+            let closestDistance = Infinity;
+            let closestEnemy = null;
+            
+            enemies.forEach(enemy => {
+                if (enemy.isAlive && this.isInRange(enemy)) {
+                    const dx = enemy.x - this.x;
+                    const dy = enemy.y - this.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < closestDistance) {
+                        closestDistance = distance;
+                        closestEnemy = enemy;
+                    }
+                }
+            });
+            
+            this.target = closestEnemy;
+        }
+    }
+    
+    // Try to shoot at target
+    tryShoot() {
+        if (!this.target || !this.target.isAlive) return null;
+        
+        // Check fire rate
+        const fireInterval = 1 / this.fireRate;
+        if (this.timeSinceLastShot < fireInterval) return null;
+        
+        // Fire!
+        this.timeSinceLastShot = 0;
+        return new Projectile(this.x, this.y, this.target, this);
     }
     
     // Check if enemy is in range
@@ -225,6 +273,19 @@ class Tower {
         ctx.lineWidth = 2;
         ctx.stroke();
         
+        // Tower barrel/targeting indicator (if has target)
+        if (this.target && this.target.isAlive) {
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.rotate(this.rotation);
+            
+            // Draw barrel
+            ctx.fillStyle = '#333';
+            ctx.fillRect(size * 0.2, -3, size * 0.2, 6);
+            
+            ctx.restore();
+        }
+        
         // Tower icon
         ctx.font = `${size * 0.5}px Arial`;
         ctx.textAlign = 'center';
@@ -246,6 +307,116 @@ class Tower {
         ctx.beginPath();
         ctx.arc(this.x, this.y, size * 0.35 + pulse * 5, 0, Math.PI * 2);
         ctx.stroke();
+    }
+}
+
+// ============================================
+// PROJECTILE CLASS
+// ============================================
+class Projectile {
+    constructor(x, y, target, tower) {
+        this.x = x;
+        this.y = y;
+        this.target = target;
+        this.tower = tower;
+        
+        this.speed = tower.config.projectileSpeed;
+        this.damage = tower.damage;
+        this.type = tower.type;
+        
+        // Visual
+        this.size = 4;
+        this.isAlive = true;
+        this.hasHit = false;
+    }
+    
+    // Update projectile movement
+    update(deltaTime) {
+        if (!this.isAlive || !this.target || !this.target.isAlive) {
+            this.isAlive = false;
+            return;
+        }
+        
+        // Calculate direction to target
+        const dx = this.target.x - this.x;
+        const dy = this.target.y - this.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Check if hit target
+        if (distance < 10) {
+            this.hit();
+            return;
+        }
+        
+        // Move towards target
+        const moveDistance = this.speed * (deltaTime / 1000);
+        this.x += (dx / distance) * moveDistance;
+        this.y += (dy / distance) * moveDistance;
+    }
+    
+    // Hit the target
+    hit() {
+        if (this.hasHit) return;
+        
+        this.hasHit = true;
+        this.isAlive = false;
+        
+        // Deal damage
+        if (this.target && this.target.isAlive) {
+            this.target.takeDamage(this.damage);
+        }
+    }
+    
+    // Draw the projectile
+    draw(ctx) {
+        if (!this.isAlive) return;
+        
+        // Different visuals per tower type
+        switch(this.type) {
+            case 'archer':
+                // Arrow
+                ctx.fillStyle = '#8B4513';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#654321';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                break;
+                
+            case 'mage':
+                // Magic orb
+                ctx.fillStyle = '#9370DB';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#9370DB';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size + 2, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                break;
+                
+            case 'cannon':
+                // Cannonball
+                ctx.fillStyle = '#333';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size + 1, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                break;
+                
+            case 'lightning':
+                // Lightning bolt
+                ctx.fillStyle = '#FFD700';
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = '#FFD700';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size + 1, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                break;
+        }
     }
 }
 
@@ -872,10 +1043,27 @@ class Game {
         // Update wave spawning
         this.updateWave(deltaTime);
         
-        // Update towers
+        // Update towers and let them shoot
         this.towers.forEach(tower => {
             tower.update(deltaTime, this.enemies);
+            
+            // Try to shoot
+            const projectile = tower.tryShoot();
+            if (projectile) {
+                this.projectiles.push(projectile);
+            }
         });
+        
+        // Update projectiles
+        for (let i = this.projectiles.length - 1; i >= 0; i--) {
+            const projectile = this.projectiles[i];
+            projectile.update(deltaTime);
+            
+            // Remove dead projectiles
+            if (!projectile.isAlive) {
+                this.projectiles.splice(i, 1);
+            }
+        }
         
         // Update enemies
         for (let i = this.enemies.length - 1; i >= 0; i--) {
@@ -896,7 +1084,7 @@ class Game {
             }
         }
         
-        // Future: Update projectiles, particles
+        // Future: Update particles
         // To be implemented in upcoming commits
     }
     
@@ -1113,6 +1301,11 @@ class Game {
             enemy.draw(this.ctx);
         });
         
+        // Draw projectiles
+        this.projectiles.forEach(projectile => {
+            projectile.draw(this.ctx);
+        });
+        
         // Draw towers
         this.towers.forEach(tower => {
             tower.draw(this.ctx);
@@ -1255,8 +1448,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 6: Enemy Spawning Ready ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Place towers to defend against waves!', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 7: Tower Shooting Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Towers now fire at enemies automatically!', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
