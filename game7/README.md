@@ -204,7 +204,43 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
 - Abilities now sustainable with regeneration system
 - Resource management loop complete (gold + mana)
 
-### 📋 Planned Features (14+ commits remaining)
+**Commit 12: Boss Enemy System**
+- Added boss enemy type to CONFIG.ENEMY_TYPES
+- Boss configuration:
+  - 👑 Crown icon, 500 base health (scales with wave)
+  - 35 speed, 50 gold reward, 5 damage to castle
+  - Pink/red color scheme (#FF0066)
+  - Larger size (32px vs 16px for normal enemies)
+  - isBoss flag for special handling
+- Boss wave system (every 5 waves)
+- BOSS_WAVE_INTERVAL constant in CONFIG
+- Boss warning system:
+  - 3-second countdown before boss spawn
+  - Flashing red screen overlay
+  - "BOSS INCOMING" warning text with countdown timer
+  - Suspenseful buildup before battle
+- Boss tracking with currentBoss reference
+- startWave() detects boss waves
+- spawnEnemy() modified to spawn bosses on wave 5, 10, 15, etc.
+- updateWave() handles boss warning countdown
+- Boss health bar UI at top of screen:
+  - 400px wide gold-bordered health bar
+  - Red to pink gradient fill
+  - Shows current/max health numerically
+  - Crown icon with "BOSS" label
+  - Only visible when boss is alive
+- Boss defeat rewards:
+  - +50 extra gold bonus (on top of normal 50 reward)
+  - +20 extra mana bonus
+  - Special console log message
+- Boss waves spawn only 1 enemy (the boss)
+- currentBoss reference cleared on defeat
+- drawBossWarning() for countdown animation
+- drawBossHealthBar() for boss health display
+- Enhanced visual feedback during boss battles
+- Boss system fully integrated with existing combat
+
+### 📋 Planned Features (13+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
@@ -273,6 +309,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 11/25+ Complete
+**Status:** 🚧 In Development - Commit 12/25+ Complete
 
-**Last Updated:** Commit 11 - Mana regeneration system implemented
+**Last Updated:** Commit 12 - Boss enemy system implemented
