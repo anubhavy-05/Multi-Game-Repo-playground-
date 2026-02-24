@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 10: Special abilities system
+// Commit 11: Mana regeneration system
 
 // ============================================
 // GAME CONFIGURATION
@@ -15,6 +15,12 @@ const CONFIG = {
     STARTING_MANA: 50,
     STARTING_LIVES: 25,
     STARTING_WAVE: 1,
+    
+    // Mana regeneration
+    MANA_REGEN_PER_SECOND: 0.5,  // Passive mana regeneration
+    MANA_PER_KILL: 2,             // Mana gained per enemy killed
+    MANA_PER_WAVE: 10,            // Bonus mana at wave completion
+    MAX_MANA: 100,                // Maximum mana capacity
     
     // FPS and timing
     TARGET_FPS: 60,
@@ -616,6 +622,18 @@ class Particle {
                 ctx.shadowBlur = 0;
                 break;
                 
+            case 'mana':
+                // Mana crystal sparkle
+                ctx.fillStyle = '#60A5FA';
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = '#60A5FA';
+                ctx.font = `${this.size * 3}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('💙', this.x, this.y);
+                ctx.shadowBlur = 0;
+                break;
+                
             case 'muzzle':
                 // Muzzle flash
                 ctx.fillStyle = this.color;
@@ -1006,8 +1024,11 @@ class Game {
         const bonusGold = 10 + this.state.wave * 5;
         this.addGold(bonusGold);
         
+        // Bonus mana for completing wave
+        this.addMana(CONFIG.MANA_PER_WAVE);
+        
         this.updateUI();
-        console.log(`Wave ${this.state.wave - 1} complete! +${bonusGold} gold. Next wave: ${this.state.wave}`);
+        console.log(`Wave ${this.state.wave - 1} complete! +${bonusGold} gold, +${CONFIG.MANA_PER_WAVE} mana. Next wave: ${this.state.wave}`);
         
         // Auto-start next wave after delay
         setTimeout(() => {
@@ -1049,6 +1070,22 @@ class Game {
                 angle: -Math.PI / 2 + (Math.random() - 0.5) * Math.PI / 3,
                 lifetime: 0.8 + Math.random() * 0.4,
                 gravity: 300
+            });
+            this.particles.push(particle);
+        }
+    }
+    
+    // Create mana particles when enemy is killed
+    createManaParticles(enemy) {
+        const count = 4;
+        
+        for (let i = 0; i < count; i++) {
+            const particle = new Particle(enemy.x, enemy.y, 'mana', {
+                size: 3 + Math.random() * 2,
+                speed: 70 + Math.random() * 90,
+                angle: -Math.PI / 2 + (Math.random() - 0.5) * Math.PI / 2,
+                lifetime: 1.0 + Math.random() * 0.5,
+                gravity: 250
             });
             this.particles.push(particle);
         }
@@ -1580,6 +1617,12 @@ class Game {
         // Update abilities
         this.updateAbilities(deltaTime);
         
+        // Passive mana regeneration
+        if (this.state.gameStarted && !this.state.gameOver && !this.state.isPaused) {
+            const manaToAdd = (CONFIG.MANA_REGEN_PER_SECOND * deltaTime) / 1000;
+            this.addMana(manaToAdd);
+        }
+        
         // Update wave spawning
         this.updateWave(deltaTime);
         
@@ -1646,6 +1689,8 @@ class Game {
                 const goldReward = Math.floor(enemy.goldReward * goldMultiplier);
                 
                 this.addGold(goldReward);
+                this.addMana(CONFIG.MANA_PER_KILL);
+                this.createManaParticles(enemy);
                 this.state.score += goldReward * 10;
                 this.enemies.splice(i, 1);
             }
@@ -2116,8 +2161,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 10: Special Abilities Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Use powerful abilities with mana! (Bottom panel)', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 11: Mana Regeneration Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Mana regenerates passively + from kills + wave completion!', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
@@ -2128,7 +2173,7 @@ class Game {
     // Update UI elements
     updateUI() {
         document.getElementById('gold').textContent = this.state.gold;
-        document.getElementById('mana').textContent = this.state.mana;
+        document.getElementById('mana').textContent = `${Math.floor(this.state.mana)}/${CONFIG.MAX_MANA}`;
         document.getElementById('lives').textContent = this.state.lives;
         document.getElementById('wave').textContent = this.state.wave;
     }
@@ -2194,6 +2239,15 @@ class Game {
     // Add mana
     addMana(amount) {
         this.state.mana += amount;
+        
+        // Cap mana at maximum
+        if (this.state.mana > CONFIG.MAX_MANA) {
+            this.state.mana = CONFIG.MAX_MANA;
+        }
+        
+        // Round to 1 decimal place for display
+        this.state.mana = Math.round(this.state.mana * 10) / 10;
+        
         this.updateUI();
     }
     
