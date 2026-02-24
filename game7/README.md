@@ -156,7 +156,33 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
 - Auto-update UI when selecting/deselecting towers
 - Enhanced tower visual feedback (selected towers show range)
 
-### 📋 Planned Features (16+ commits remaining)
+**Commit 10: Special Abilities System**
+- Added ABILITIES configuration to CONFIG object
+- 4 unique special abilities with mana costs and cooldowns:
+  - 🧊 Ice Freeze: Slows all enemies by 50% for 5s (30 mana, 20s cooldown)
+  - ☄️ Meteor Strike: Deals 100 damage in target area (40 mana, 25s cooldown)
+  - 💰 Gold Rush: Doubles gold rewards for 10s (20 mana, 30s cooldown)
+  - ⏰ Time Warp: Increases tower fire rate by 50% for 7s (35 mana, 22s cooldown)
+- Abilities panel UI at bottom with purple glassmorphism styling
+- Ability button states (disabled during cooldown or low mana)
+- Active ability visual indicators with pulse animation
+- Cooldown timer display on buttons
+- Meteor targeting system with click-to-cast cursor
+- Real-time ability effects:
+  - Freeze: Enemy speed reduction with ice overlay and snowflakes
+  - Meteor: Particle rain from sky, area damage, impact particles
+  - Gold Rush: 2× gold multiplier with sparkle effects
+  - Time Warp: Tower fire rate boost with purple glow
+- Ability activation with mana cost validation
+- setupAbilityButtons() for event handling
+- updateAbilities() for cooldown/duration tracking
+- castMeteor() for targeted area damage
+- drawAbilityEffects() for visual overlays
+- Integrated with enemy update loop (freeze effect)
+- Integrated with tower update loop (time warp effect)
+- Integrated with gold reward system (gold rush multiplier)
+
+### 📋 Planned Features (15+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
@@ -225,6 +251,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 9/25+ Complete
+**Status:** 🚧 In Development - Commit 10/25+ Complete
 
-**Last Updated:** Commit 9 - Tower upgrade system implemented
+**Last Updated:** Commit 10 - Special abilities system implemented
