@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 11: Mana regeneration system
+// Commit 12: Boss enemy system
 
 // ============================================
 // GAME CONFIGURATION
@@ -29,6 +29,7 @@ const CONFIG = {
     // Wave settings
     WAVE_SPAWN_DELAY: 2000,  // ms between enemy spawns
     WAVE_INTERVAL: 5000,     // ms between waves
+    BOSS_WAVE_INTERVAL: 5,   // Boss appears every 5 waves
     
     // Colors
     COLORS: {
@@ -157,6 +158,17 @@ const CONFIG = {
             color: '#F38181',
             size: 16,
             flying: true
+        },
+        boss: {
+            name: 'Boss',
+            icon: '👑',
+            health: 500,  // Will scale with wave number
+            speed: 35,
+            goldReward: 50,
+            damage: 5,
+            color: '#FF0066',
+            size: 32,
+            isBoss: true
         }
     },
     
@@ -850,6 +862,11 @@ class Game {
         this.meteorTarget = null;  // For meteor targeting
         this.meteorTargeting = false;
         
+        // Boss system
+        this.currentBoss = null;
+        this.bossWarning = false;
+        this.bossWarningTime = 0;
+        
         // Initialize grid and path
         this.initializeGrid();
         
@@ -959,18 +976,33 @@ class Game {
         this.enemiesSpawned = 0;
         this.timeSinceLastSpawn = 0;
         
-        // Calculate enemies for this wave
-        this.enemiesPerWave = 5 + this.state.wave * 2;
+        // Check if this is a boss wave
+        const isBossWave = this.state.wave % CONFIG.BOSS_WAVE_INTERVAL === 0;
         
-        console.log(`Wave ${this.state.wave} started! Enemies: ${this.enemiesPerWave}`);
+        if (isBossWave) {
+            // Boss wave - show warning
+            this.bossWarning = true;
+            this.bossWarningTime = 3000; // 3 seconds warning
+            this.enemiesPerWave = 1; // Only boss
+            console.log(`⚠️ BOSS WAVE ${this.state.wave}! A powerful boss is approaching!`);
+        } else {
+            // Calculate enemies for this wave
+            this.enemiesPerWave = 5 + this.state.wave * 2;
+            console.log(`Wave ${this.state.wave} started! Enemies: ${this.enemiesPerWave}`);
+        }
     }
     
     // Spawn an enemy
     spawnEnemy() {
-        // Determine enemy type based on wave
+        // Check if this is a boss wave
+        const isBossWave = this.state.wave % CONFIG.BOSS_WAVE_INTERVAL === 0;
+        
         let enemyType = 'basic';
         
-        if (this.state.wave >= 3) {
+        if (isBossWave) {
+            // Spawn boss
+            enemyType = 'boss';
+        } else if (this.state.wave >= 3) {
             // Random mix of enemy types
             const rand = Math.random();
             if (rand < 0.5) {
@@ -991,12 +1023,27 @@ class Game {
         this.enemies.push(enemy);
         this.enemiesSpawned++;
         
+        // Track boss
+        if (enemyType === 'boss') {
+            this.currentBoss = enemy;
+            console.log(`👑 BOSS SPAWNED! Prepare for battle!`);
+        }
+        
         console.log(`Spawned ${enemyType} enemy (${this.enemiesSpawned}/${this.enemiesPerWave})`);
     }
     
     // Update wave state
     updateWave(deltaTime) {
         if (!this.waveActive || this.state.gameOver) return;
+        
+        // Handle boss warning
+        if (this.bossWarning) {
+            this.bossWarningTime -= deltaTime;
+            if (this.bossWarningTime <= 0) {
+                this.bossWarning = false;
+            }
+            return; // Don't spawn during warning
+        }
         
         // Spawn enemies
         if (this.enemiesSpawned < this.enemiesPerWave) {
@@ -1678,6 +1725,9 @@ class Game {
             }
             // Remove dead enemies
             else if (!enemy.isAlive) {
+                // Check if this was the boss
+                const wasBoss = enemy.config.isBoss;
+                
                 // Create death particles
                 this.createDeathParticles(enemy);
                 
@@ -1686,7 +1736,15 @@ class Game {
                 
                 // Apply gold rush multiplier
                 const goldMultiplier = this.abilities.goldRush.isActive ? CONFIG.ABILITIES.goldRush.multiplier : 1;
-                const goldReward = Math.floor(enemy.goldReward * goldMultiplier);
+                let goldReward = Math.floor(enemy.goldReward * goldMultiplier);
+                
+                // Boss defeated - extra rewards
+                if (wasBoss) {
+                    goldReward += 50; // Extra boss bonus
+                    this.addMana(20); // Extra mana for boss kill
+                    this.currentBoss = null;
+                    console.log(`👑 BOSS DEFEATED! Bonus rewards granted!`);
+                }
                 
                 this.addGold(goldReward);
                 this.addMana(CONFIG.MANA_PER_KILL);
@@ -1954,8 +2012,94 @@ class Game {
         
         this.ctx.fillText(statusText, this.canvas.width / 2, 30);
         
+        // Draw boss warning
+        if (this.bossWarning) {
+            this.drawBossWarning();
+        }
+        
+        // Draw boss health bar
+        if (this.currentBoss && this.currentBoss.isAlive) {
+            this.drawBossHealthBar();
+        }
+        
         // Draw ability visual effects
         this.drawAbilityEffects();
+    }
+    
+    // Draw boss warning
+    drawBossWarning() {
+        this.ctx.save();
+        
+        // Flashing red background
+        const flashAlpha = 0.3 + Math.sin(Date.now() / 100) * 0.15;
+        this.ctx.fillStyle = `rgba(255, 0, 0, ${flashAlpha})`;
+        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Warning text
+        this.ctx.fillStyle = '#FF0000';
+        this.ctx.strokeStyle = '#000';
+        this.ctx.lineWidth = 4;
+        this.ctx.font = 'bold 48px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        
+        const warningText = '⚠️ BOSS INCOMING! ⚠️';
+        this.ctx.strokeText(warningText, this.canvas.width / 2, this.canvas.height / 2 - 50);
+        this.ctx.fillText(warningText, this.canvas.width / 2, this.canvas.height / 2 - 50);
+        
+        // Countdown
+        this.ctx.font = 'bold 32px Arial';
+        this.ctx.fillStyle = '#FFD700';
+        const countdown = Math.ceil(this.bossWarningTime / 1000);
+        this.ctx.strokeText(`${countdown}`, this.canvas.width / 2, this.canvas.height / 2 + 20);
+        this.ctx.fillText(`${countdown}`, this.canvas.width / 2, this.canvas.height / 2 + 20);
+        
+        this.ctx.restore();
+    }
+    
+    // Draw boss health bar
+    drawBossHealthBar() {
+        const boss = this.currentBoss;
+        const barWidth = 400;
+        const barHeight = 30;
+        const x = (this.canvas.width - barWidth) / 2;
+        const y = 60;
+        
+        this.ctx.save();
+        
+        // Background
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        this.ctx.fillRect(x - 5, y - 5, barWidth + 10, barHeight + 10);
+        
+        // Border
+        this.ctx.strokeStyle = '#FFD700';
+        this.ctx.lineWidth = 3;
+        this.ctx.strokeRect(x - 5, y - 5, barWidth + 10, barHeight + 10);
+        
+        // Red background
+        this.ctx.fillStyle = '#8B0000';
+        this.ctx.fillRect(x, y, barWidth, barHeight);
+        
+        // Health bar
+        const healthPercent = Math.max(0, boss.health / boss.maxHealth);
+        const gradient = this.ctx.createLinearGradient(x, y, x + barWidth * healthPercent, y);
+        gradient.addColorStop(0, '#FF0066');
+        gradient.addColorStop(1, '#FF6699');
+        this.ctx.fillStyle = gradient;
+        this.ctx.fillRect(x, y, barWidth * healthPercent, barHeight);
+        
+        // Boss name and health text
+        this.ctx.fillStyle = '#FFF';
+        this.ctx.font = 'bold 16px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.textBaseline = 'middle';
+        this.ctx.strokeStyle = '#000';
+        this.ctx.lineWidth = 3;
+        const bossText = `👑 BOSS - ${Math.floor(boss.health)} / ${boss.maxHealth}`;
+        this.ctx.strokeText(bossText, this.canvas.width / 2, y + barHeight / 2);
+        this.ctx.fillText(bossText, this.canvas.width / 2, y + barHeight / 2);
+        
+        this.ctx.restore();
     }
     
     // Draw ability visual effects
@@ -2161,8 +2305,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 11: Mana Regeneration Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Mana regenerates passively + from kills + wave completion!', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 12: Boss Enemy System Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Powerful bosses appear every 5 waves! Defeat them for extra rewards!', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
