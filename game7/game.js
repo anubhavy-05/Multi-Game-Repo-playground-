@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 8: Particle effects system
+// Commit 9: Tower upgrade system
 
 // ============================================
 // GAME CONFIGURATION
@@ -98,6 +98,15 @@ const CONFIG = {
             color: '#FFD700',
             description: 'Chain damage to multiple enemies'
         }
+    },
+    
+    // Upgrade system
+    UPGRADE: {
+        MAX_LEVEL: 5,
+        COST_MULTIPLIER: 1.5,  // Cost increases by 50% per level
+        DAMAGE_PER_LEVEL: 1.3,  // 30% damage increase per level
+        RANGE_PER_LEVEL: 1.1,   // 10% range increase per level
+        FIRE_RATE_PER_LEVEL: 1.15  // 15% fire rate increase per level
     },
     
     // Enemy types
@@ -239,6 +248,30 @@ class Tower {
         const dy = enemy.y - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
         return distance <= this.range;
+    }
+    
+    // Get upgrade cost
+    getUpgradeCost() {
+        return Math.floor(this.cost * Math.pow(CONFIG.UPGRADE.COST_MULTIPLIER, this.level - 1));
+    }
+    
+    // Check if tower can be upgraded
+    canUpgrade() {
+        return this.level < CONFIG.UPGRADE.MAX_LEVEL;
+    }
+    
+    // Upgrade the tower
+    upgrade() {
+        if (!this.canUpgrade()) return false;
+        
+        this.level++;
+        
+        // Update stats based on upgrade multipliers
+        this.damage *= CONFIG.UPGRADE.DAMAGE_PER_LEVEL;
+        this.range *= CONFIG.UPGRADE.RANGE_PER_LEVEL;
+        this.fireRate *= CONFIG.UPGRADE.FIRE_RATE_PER_LEVEL;
+        
+        return true;
     }
     
     // Draw the tower
@@ -751,6 +784,7 @@ class Game {
         console.log('Game class initialized');
         this.setupEventListeners();
         this.setupTowerButtons();
+        this.setupUpgradeButton();
         this.updateUI();
     }
     
@@ -1081,6 +1115,35 @@ class Game {
         });
     }
     
+    // Setup upgrade button
+    setupUpgradeButton() {
+        const upgradeBtn = document.getElementById('upgrade-btn');
+        if (!upgradeBtn) return;
+        
+        upgradeBtn.addEventListener('click', () => {
+            if (!this.selectedTower) return;
+            
+            const cost = this.selectedTower.getUpgradeCost();
+            
+            // Check if can upgrade and afford
+            if (this.selectedTower.canUpgrade() && this.state.gold >= cost) {
+                // Deduct cost
+                this.spendGold(cost);
+                
+                // Upgrade tower
+                this.selectedTower.upgrade();
+                
+                // Update UI
+                this.updateUpgradeUI();
+                this.updateTowerButtons();
+                
+                console.log(`Upgraded ${this.selectedTower.type} to level ${this.selectedTower.level}`);
+            }
+        });
+        
+        console.log('Upgrade button setup complete');
+    }
+    
     // Handle mouse clicks
     handleClick(e) {
         const rect = this.canvas.getBoundingClientRect();
@@ -1089,9 +1152,42 @@ class Game {
         
         console.log(`Click at: (${x}, ${y}) - Grid: (${this.mouse.gridX}, ${this.mouse.gridY})`);
         
+        // Check if clicked on existing tower
+        let clickedTower = null;
+        for (const tower of this.towers) {
+            if (tower.gridX === this.mouse.gridX && tower.gridY === this.mouse.gridY) {
+                clickedTower = tower;
+                break;
+            }
+        }
+        
+        // If clicked on a tower, select it
+        if (clickedTower) {
+            // Deselect all towers
+            this.towers.forEach(t => t.isSelected = false);
+            
+            // Select clicked tower
+            clickedTower.isSelected = true;
+            this.selectedTower = clickedTower;
+            
+            // Clear tower type selection
+            this.selectedTowerType = null;
+            document.querySelectorAll('.tower-btn').forEach(btn => {
+                btn.classList.remove('selected');
+            });
+            
+            this.updateUpgradeUI();
+            console.log('Selected tower:', clickedTower.type, 'Level:', clickedTower.level);
+        }
         // Tower placement
-        if (this.selectedTowerType && this.state.gameStarted && !this.state.gameOver) {
+        else if (this.selectedTowerType && this.state.gameStarted && !this.state.gameOver) {
             this.placeTower(this.mouse.gridX, this.mouse.gridY, this.selectedTowerType);
+        }
+        // Deselect tower if clicking empty space
+        else {
+            this.towers.forEach(t => t.isSelected = false);
+            this.selectedTower = null;
+            this.updateUpgradeUI();
         }
     }
     
@@ -1682,6 +1778,48 @@ class Game {
         document.getElementById('mana').textContent = this.state.mana;
         document.getElementById('lives').textContent = this.state.lives;
         document.getElementById('wave').textContent = this.state.wave;
+    }
+    
+    // Update upgrade UI panel
+    updateUpgradeUI() {
+        const upgradePanel = document.getElementById('upgrade-panel');
+        
+        if (!this.selectedTower || !upgradePanel) {
+            if (upgradePanel) upgradePanel.style.display = 'none';
+            return;
+        }
+        
+        // Show upgrade panel
+        upgradePanel.style.display = 'block';
+        
+        // Update tower info
+        const tower = this.selectedTower;
+        document.getElementById('tower-name').textContent = `${tower.config.icon} ${tower.type.toUpperCase()}`;
+        document.getElementById('tower-level').textContent = `Level ${tower.level}`;
+        document.getElementById('tower-damage').textContent = `💥 Damage: ${Math.floor(tower.damage)}`;
+        document.getElementById('tower-range').textContent = `🎯 Range: ${Math.floor(tower.range)}`;
+        document.getElementById('tower-fire-rate').textContent = `⚡ Fire Rate: ${tower.fireRate.toFixed(1)}/s`;
+        
+        // Update upgrade button
+        const upgradeBtn = document.getElementById('upgrade-btn');
+        const upgradeCost = document.getElementById('upgrade-cost');
+        
+        if (tower.canUpgrade()) {
+            const cost = tower.getUpgradeCost();
+            upgradeCost.textContent = `💰 ${cost}`;
+            
+            if (this.state.gold >= cost) {
+                upgradeBtn.classList.remove('disabled');
+                upgradeBtn.disabled = false;
+            } else {
+                upgradeBtn.classList.add('disabled');
+                upgradeBtn.disabled = true;
+            }
+        } else {
+            upgradeCost.textContent = 'MAX LEVEL';
+            upgradeBtn.classList.add('disabled');
+            upgradeBtn.disabled = true;
+        }
     }
     
     // Add gold
