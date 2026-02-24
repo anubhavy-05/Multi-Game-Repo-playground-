@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 9: Tower upgrade system
+// Commit 10: Special abilities system
 
 // ============================================
 // GAME CONFIGURATION
@@ -151,6 +151,50 @@ const CONFIG = {
             color: '#F38181',
             size: 16,
             flying: true
+        }
+    },
+    
+    // Special abilities
+    ABILITIES: {
+        freeze: {
+            name: 'Ice Freeze',
+            icon: '🧊',
+            manaCost: 30,
+            cooldown: 20000,  // 20 seconds
+            duration: 5000,   // 5 seconds
+            effect: 0.5,      // 50% speed reduction
+            color: '#00BFFF',
+            description: 'Slow all enemies by 50% for 5s'
+        },
+        meteor: {
+            name: 'Meteor Strike',
+            icon: '☄️',
+            manaCost: 40,
+            cooldown: 25000,  // 25 seconds
+            damage: 100,
+            radius: 80,
+            color: '#FF4500',
+            description: 'Deal 100 damage in target area'
+        },
+        goldRush: {
+            name: 'Gold Rush',
+            icon: '💰',
+            manaCost: 20,
+            cooldown: 30000,  // 30 seconds
+            duration: 10000,  // 10 seconds
+            multiplier: 2,    // 2x gold
+            color: '#FFD700',
+            description: 'Double gold rewards for 10s'
+        },
+        timeWarp: {
+            name: 'Time Warp',
+            icon: '⏰',
+            manaCost: 35,
+            cooldown: 22000,  // 22 seconds
+            duration: 7000,   // 7 seconds
+            speedBoost: 1.5,  // 1.5x fire rate
+            color: '#9370DB',
+            description: 'Increase tower fire rate by 50% for 7s'
         }
     }
 };
@@ -778,6 +822,16 @@ class Game {
         this.hoveredCell = null;
         this.selectedTowerType = null;  // Type of tower to place
         
+        // Abilities system
+        this.abilities = {
+            freeze: { cooldownRemaining: 0, isActive: false, timeRemaining: 0 },
+            meteor: { cooldownRemaining: 0, isActive: false, timeRemaining: 0 },
+            goldRush: { cooldownRemaining: 0, isActive: false, timeRemaining: 0 },
+            timeWarp: { cooldownRemaining: 0, isActive: false, timeRemaining: 0 }
+        };
+        this.meteorTarget = null;  // For meteor targeting
+        this.meteorTargeting = false;
+        
         // Initialize grid and path
         this.initializeGrid();
         
@@ -785,6 +839,7 @@ class Game {
         this.setupEventListeners();
         this.setupTowerButtons();
         this.setupUpgradeButton();
+        this.setupAbilityButtons();
         this.updateUI();
     }
     
@@ -1144,6 +1199,185 @@ class Game {
         console.log('Upgrade button setup complete');
     }
     
+    // Setup ability buttons
+    setupAbilityButtons() {
+        const abilityButtons = document.querySelectorAll('.ability-btn');
+        
+        abilityButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const abilityType = btn.dataset.ability;
+                
+                // Special case for meteor - requires targeting
+                if (abilityType === 'meteor') {
+                    this.startMeteorTargeting();
+                } else {
+                    this.activateAbility(abilityType);
+                }
+            });
+        });
+        
+        console.log('Ability buttons setup complete');
+    }
+    
+    // Start meteor targeting mode
+    startMeteorTargeting() {
+        const ability = this.abilities.meteor;
+        const config = CONFIG.ABILITIES.meteor;
+        
+        // Check cooldown and mana
+        if (ability.cooldownRemaining > 0 || this.state.mana < config.manaCost) {
+            console.log('Meteor not ready!');
+            return;
+        }
+        
+        this.meteorTargeting = true;
+        console.log('Click on the map to target meteor strike!');
+    }
+    
+    // Activate an ability
+    activateAbility(abilityType) {
+        if (!this.state.gameStarted || this.state.gameOver) return;
+        
+        const ability = this.abilities[abilityType];
+        const config = CONFIG.ABILITIES[abilityType];
+        
+        // Check if ability is on cooldown
+        if (ability.cooldownRemaining > 0) {
+            console.log(`${config.name} is on cooldown: ${(ability.cooldownRemaining / 1000).toFixed(1)}s`);
+            return;
+        }
+        
+        // Check mana cost
+        if (this.state.mana < config.manaCost) {
+            console.log(`Not enough mana for ${config.name}!`);
+            return;
+        }
+        
+        // Spend mana
+        this.spendMana(config.manaCost);
+        
+        // Set cooldown
+        ability.cooldownRemaining = config.cooldown;
+        
+        // Activate ability
+        ability.isActive = true;
+        if (config.duration) {
+            ability.timeRemaining = config.duration;
+        }
+        
+        console.log(`Activated ${config.name}!`);
+        this.updateAbilityButtons();
+    }
+    
+    // Cast meteor strike at target location
+    castMeteor(x, y) {
+        const config = CONFIG.ABILITIES.meteor;
+        
+        // Create meteor particles falling from sky
+        for (let i = 0; i < 20; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const distance = Math.random() * config.radius;
+            const px = x + Math.cos(angle) * distance;
+            const py = y + Math.sin(angle) * distance;
+            
+            this.particles.push(new Particle(
+                px,
+                py - 100,  // Start above
+                Math.random() * 40 - 20,  // vx
+                Math.random() * 200 + 100,  // vy (downward)
+                config.color,
+                'meteor'
+            ));
+        }
+        
+        // Damage enemies in radius
+        this.enemies.forEach(enemy => {
+            if (!enemy.isAlive) return;
+            
+            const dx = enemy.x - x;
+            const dy = enemy.y - y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance <= config.radius) {
+                enemy.takeDamage(config.damage);
+                
+                // Create impact particles
+                for (let i = 0; i < 10; i++) {
+                    const angle = Math.atan2(dy, dx) + (Math.random() - 0.5) * Math.PI;
+                    this.particles.push(new Particle(
+                        enemy.x,
+                        enemy.y,
+                        Math.cos(angle) * (Math.random() * 100 + 50),
+                        Math.sin(angle) * (Math.random() * 100 + 50),
+                        '#FF4500',
+                        'hit'
+                    ));
+                }
+            }
+        });
+        
+        console.log(`Meteor strike at (${x}, ${y})!`);
+    }
+    
+    // Update abilities (cooldowns and durations)
+    updateAbilities(deltaTime) {
+        Object.keys(this.abilities).forEach(key => {
+            const ability = this.abilities[key];
+            
+            // Update cooldown
+            if (ability.cooldownRemaining > 0) {
+                ability.cooldownRemaining -= deltaTime;
+                if (ability.cooldownRemaining < 0) ability.cooldownRemaining = 0;
+            }
+            
+            // Update active duration
+            if (ability.isActive && ability.timeRemaining !== undefined) {
+                ability.timeRemaining -= deltaTime;
+                if (ability.timeRemaining <= 0) {
+                    ability.isActive = false;
+                    ability.timeRemaining = 0;
+                    console.log(`${key} ability ended`);
+                }
+            }
+        });
+        
+        this.updateAbilityButtons();
+    }
+    
+    // Update ability button states
+    updateAbilityButtons() {
+        const abilityButtons = document.querySelectorAll('.ability-btn');
+        
+        abilityButtons.forEach(btn => {
+            const abilityType = btn.dataset.ability;
+            const ability = this.abilities[abilityType];
+            const config = CONFIG.ABILITIES[abilityType];
+            
+            // Update cooldown display
+            const cooldownEl = btn.querySelector('.ability-cooldown');
+            if (ability.cooldownRemaining > 0) {
+                btn.classList.add('disabled');
+                cooldownEl.textContent = `${(ability.cooldownRemaining / 1000).toFixed(1)}s`;
+            } else {
+                cooldownEl.textContent = '';
+                
+                // Check mana
+                if (this.state.mana < config.manaCost) {
+                    btn.classList.add('disabled');
+                } else {
+                    btn.classList.remove('disabled');
+                }
+            }
+            
+            // Highlight active abilities
+            if (ability.isActive) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+    
     // Handle mouse clicks
     handleClick(e) {
         const rect = this.canvas.getBoundingClientRect();
@@ -1151,6 +1385,14 @@ class Game {
         const y = e.clientY - rect.top;
         
         console.log(`Click at: (${x}, ${y}) - Grid: (${this.mouse.gridX}, ${this.mouse.gridY})`);
+        
+        // Meteor targeting mode
+        if (this.meteorTargeting) {
+            this.castMeteor(x, y);
+            this.activateAbility('meteor');
+            this.meteorTargeting = false;
+            return;
+        }
         
         // Check if clicked on existing tower
         let clickedTower = null;
@@ -1335,12 +1577,19 @@ class Game {
     update(deltaTime) {
         this.frameCount++;
         
+        // Update abilities
+        this.updateAbilities(deltaTime);
+        
         // Update wave spawning
         this.updateWave(deltaTime);
         
         // Update towers and let them shoot
         this.towers.forEach(tower => {
-            tower.update(deltaTime, this.enemies);
+            // Apply time warp effect
+            const fireRateMultiplier = this.abilities.timeWarp.isActive ? CONFIG.ABILITIES.timeWarp.speedBoost : 1;
+            const modifiedDeltaTime = deltaTime * fireRateMultiplier;
+            
+            tower.update(modifiedDeltaTime, this.enemies);
             
             // Try to shoot
             const projectile = tower.tryShoot(this);
@@ -1365,6 +1614,17 @@ class Game {
         // Update enemies
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             const enemy = this.enemies[i];
+            
+            // Apply freeze effect
+            let enemyDeltaTime = deltaTime;
+            if (this.abilities.freeze.isActive && !enemy.originalSpeed) {
+                enemy.originalSpeed = enemy.speed;
+                enemy.speed = enemy.originalSpeed * CONFIG.ABILITIES.freeze.effect;
+            } else if (!this.abilities.freeze.isActive && enemy.originalSpeed) {
+                enemy.speed = enemy.originalSpeed;
+                delete enemy.originalSpeed;
+            }
+            
             enemy.update(deltaTime);
             
             // Check if enemy reached the end
@@ -1381,8 +1641,12 @@ class Game {
                 // Create gold particles
                 this.createGoldParticles(enemy);
                 
-                this.addGold(enemy.goldReward);
-                this.state.score += enemy.goldReward * 10;
+                // Apply gold rush multiplier
+                const goldMultiplier = this.abilities.goldRush.isActive ? CONFIG.ABILITIES.goldRush.multiplier : 1;
+                const goldReward = Math.floor(enemy.goldReward * goldMultiplier);
+                
+                this.addGold(goldReward);
+                this.state.score += goldReward * 10;
                 this.enemies.splice(i, 1);
             }
         }
@@ -1644,6 +1908,95 @@ class Game {
         }
         
         this.ctx.fillText(statusText, this.canvas.width / 2, 30);
+        
+        // Draw ability visual effects
+        this.drawAbilityEffects();
+    }
+    
+    // Draw ability visual effects
+    drawAbilityEffects() {
+        // Freeze effect overlay
+        if (this.abilities.freeze.isActive) {
+            this.ctx.save();
+            this.ctx.globalAlpha = 0.3;
+            this.ctx.fillStyle = '#00BFFF';
+            
+            this.enemies.forEach(enemy => {
+                if (enemy.isAlive) {
+                    this.ctx.beginPath();
+                    this.ctx.arc(enemy.x, enemy.y, enemy.config.size + 5, 0, Math.PI * 2);
+                    this.ctx.fill();
+                }
+            });
+            
+            this.ctx.restore();
+            
+            // Ice crystals effect
+            const iceTime = Date.now() / 200;
+            for (let i = 0; i < 50; i++) {
+                const x = (i * 73 + iceTime * 20) % this.canvas.width;
+                const y = (i * 97 + iceTime * 15) % this.canvas.height;
+                this.ctx.fillStyle = 'rgba(200, 230, 255, 0.6)';
+                this.ctx.fillText('❄️', x, y);
+            }
+        }
+        
+        // Time warp effect (glow on towers)
+        if (this.abilities.timeWarp.isActive) {
+            this.ctx.save();
+            this.towers.forEach(tower => {
+                this.ctx.shadowBlur = 20;
+                this.ctx.shadowColor = '#9370DB';
+                this.ctx.strokeStyle = 'rgba(147, 112, 219, 0.7)';
+                this.ctx.lineWidth = 3;
+                this.ctx.beginPath();
+                this.ctx.arc(tower.x, tower.y, CONFIG.GRID_SIZE * 0.5, 0, Math.PI * 2);
+                this.ctx.stroke();
+            });
+            this.ctx.restore();
+        }
+        
+        // Gold rush effect (sparkles)
+        if (this.abilities.goldRush.isActive) {
+            const goldTime = Date.now() / 100;
+            for (let i = 0; i < 30; i++) {
+                const x = (i * 59 + goldTime * 30) % this.canvas.width;
+                const y = (i * 83 + goldTime * 25) % this.canvas.height;
+                this.ctx.globalAlpha = 0.5 + Math.sin(goldTime + i) * 0.3;
+                this.ctx.fillText('✨', x, y);
+            }
+            this.ctx.globalAlpha = 1;
+        }
+        
+        // Meteor targeting cursor
+        if (this.meteorTargeting) {
+            const config = CONFIG.ABILITIES.meteor;
+            
+            // Target area circle
+            this.ctx.strokeStyle = 'rgba(255, 69, 0, 0.8)';
+            this.ctx.lineWidth = 3;
+            this.ctx.setLineDash([10, 5]);
+            this.ctx.beginPath();
+            this.ctx.arc(this.mouse.x, this.mouse.y, config.radius, 0, Math.PI * 2);
+            this.ctx.stroke();
+            this.ctx.setLineDash([]);
+            
+            // Crosshair
+            this.ctx.strokeStyle = '#FF4500';
+            this.ctx.lineWidth = 2;
+            this.ctx.beginPath();
+            this.ctx.moveTo(this.mouse.x - 20, this.mouse.y);
+            this.ctx.lineTo(this.mouse.x + 20, this.mouse.y);
+            this.ctx.moveTo(this.mouse.x, this.mouse.y - 20);
+            this.ctx.lineTo(this.mouse.x, this.mouse.y + 20);
+            this.ctx.stroke();
+            
+            // Hint text
+            this.ctx.fillStyle = '#FF4500';
+            this.ctx.font = 'bold 14px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('Click to target meteor strike!', this.canvas.width / 2, this.canvas.height - 20);
+        }
     }
     
     // Draw ghost tower preview
@@ -1763,8 +2116,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 9: Tower Upgrades Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Click towers to select and upgrade them!', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 10: Special Abilities Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Use powerful abilities with mana! (Bottom panel)', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
