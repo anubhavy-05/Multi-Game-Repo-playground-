@@ -182,7 +182,29 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
 - Integrated with tower update loop (time warp effect)
 - Integrated with gold reward system (gold rush multiplier)
 
-### 📋 Planned Features (15+ commits remaining)
+**Commit 11: Mana Regeneration System**
+- Added mana regeneration constants to CONFIG object
+- Mana regeneration settings:
+  - MANA_REGEN_PER_SECOND: 0.5 (passive regeneration)
+  - MANA_PER_KILL: 2 mana per enemy killed
+  - MANA_PER_WAVE: 10 mana bonus on wave completion
+  - MAX_MANA: 100 (maximum mana capacity)
+- Passive mana regeneration in update loop
+- Mana rewards for killing enemies
+- Bonus mana for completing waves
+- Created Particle type 'mana' with blue heart emoji 💙
+- createManaParticles() function for visual feedback
+- Updated addMana() to cap at MAX_MANA
+- Mana value rounding to 1 decimal place
+- Updated UI to show mana as "current/max" format
+- Mana particles float upward when enemies are killed
+- Visual feedback with blue sparkles and glow
+- Integrated with wave completion rewards
+- Console logging for wave completion shows mana bonus
+- Abilities now sustainable with regeneration system
+- Resource management loop complete (gold + mana)
+
+### 📋 Planned Features (14+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
@@ -251,6 +273,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 10/25+ Complete
+**Status:** 🚧 In Development - Commit 11/25+ Complete
 
-**Last Updated:** Commit 10 - Special abilities system implemented
+**Last Updated:** Commit 11 - Mana regeneration system implemented
