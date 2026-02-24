@@ -133,7 +133,30 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
 - Automatic cleanup when particles expire
 - Integration with combat system (hits, deaths, shots)
 
-### 📋 Planned Features (17+ commits remaining)
+**Commit 9: Tower Upgrade System**
+- Added Tower upgrade configuration to CONFIG object
+- Upgrade constants (MAX_LEVEL: 5, multipliers for stats)
+- Tower class upgrade methods:
+  - getUpgradeCost(): Calculate cost based on level
+  - canUpgrade(): Check if tower can be upgraded
+  - upgrade(): Apply stat multipliers and level up
+- Tower click selection system
+- Visual tower selection with range circle display
+- Upgrade UI panel on left side with glassmorphism styling
+- Real-time tower stats display (damage, range, fire rate)
+- Upgrade button with cost display and validation
+- Level indicator rendering (gold "Lv#" text)
+- Stat multipliers per level:
+  - Damage: ×1.3 per level
+  - Range: ×1.1 per level
+  - Fire Rate: ×1.15 per level
+  - Cost: ×1.5 per level
+- Gold validation before allowing upgrades
+- Button state management (enabled/disabled at max level)
+- Auto-update UI when selecting/deselecting towers
+- Enhanced tower visual feedback (selected towers show range)
+
+### 📋 Planned Features (16+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
@@ -202,6 +225,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 3/25+ Complete
+**Status:** 🚧 In Development - Commit 9/25+ Complete
 
-**Last Updated:** Commit 3 - Game loop and rendering system implemented
+**Last Updated:** Commit 9 - Tower upgrade system implemented
