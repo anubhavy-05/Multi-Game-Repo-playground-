@@ -2441,8 +2441,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 14: Game Speed Control Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Control game speed with 1x, 2x, or 3x buttons in the top bar!', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 15: Wave Skip Button Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Click the green wave button to start each wave at your own pace!', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
