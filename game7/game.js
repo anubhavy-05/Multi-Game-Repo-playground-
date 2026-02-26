@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 13: Tower selling system
+// Commit 14: Game speed control system
 
 // ============================================
 // GAME CONFIGURATION
@@ -835,7 +835,8 @@ class Game {
             score: 0,
             isPaused: false,
             gameOver: false,
-            gameStarted: false
+            gameStarted: false,
+            speedMultiplier: 1  // Game speed: 1x, 2x, or 3x
         };
         
         // Game objects (will be populated in future commits)
@@ -896,6 +897,7 @@ class Game {
         this.setupUpgradeButton();
         this.setupSellButton();
         this.setupAbilityButtons();
+        this.setupSpeedButtons();
         this.updateUI();
     }
     
@@ -1369,6 +1371,28 @@ class Game {
         console.log('Ability buttons setup complete');
     }
     
+    // Setup speed control buttons
+    setupSpeedButtons() {
+        const speedButtons = document.querySelectorAll('.speed-btn');
+        
+        speedButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const speed = parseInt(btn.dataset.speed);
+                
+                // Update speed multiplier
+                this.state.speedMultiplier = speed;
+                
+                // Update active button styling
+                speedButtons.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                
+                console.log(`Game speed set to ${speed}x`);
+            });
+        });
+        
+        console.log('Speed buttons setup complete');
+    }
+    
     // Start meteor targeting mode
     startMeteorTargeting() {
         const ability = this.abilities.meteor;
@@ -1727,23 +1751,26 @@ class Game {
     update(deltaTime) {
         this.frameCount++;
         
+        // Apply speed multiplier
+        const adjustedDeltaTime = deltaTime * this.state.speedMultiplier;
+        
         // Update abilities
-        this.updateAbilities(deltaTime);
+        this.updateAbilities(adjustedDeltaTime);
         
         // Passive mana regeneration
         if (this.state.gameStarted && !this.state.gameOver && !this.state.isPaused) {
-            const manaToAdd = (CONFIG.MANA_REGEN_PER_SECOND * deltaTime) / 1000;
+            const manaToAdd = (CONFIG.MANA_REGEN_PER_SECOND * adjustedDeltaTime) / 1000;
             this.addMana(manaToAdd);
         }
         
         // Update wave spawning
-        this.updateWave(deltaTime);
+        this.updateWave(adjustedDeltaTime);
         
         // Update towers and let them shoot
         this.towers.forEach(tower => {
             // Apply time warp effect
             const fireRateMultiplier = this.abilities.timeWarp.isActive ? CONFIG.ABILITIES.timeWarp.speedBoost : 1;
-            const modifiedDeltaTime = deltaTime * fireRateMultiplier;
+            const modifiedDeltaTime = adjustedDeltaTime * fireRateMultiplier;
             
             tower.update(modifiedDeltaTime, this.enemies);
             
@@ -1759,7 +1786,7 @@ class Game {
         // Update projectiles
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             const projectile = this.projectiles[i];
-            projectile.update(deltaTime);
+            projectile.update(adjustedDeltaTime);
             
             // Remove dead projectiles
             if (!projectile.isAlive) {
@@ -1772,7 +1799,7 @@ class Game {
             const enemy = this.enemies[i];
             
             // Apply freeze effect
-            let enemyDeltaTime = deltaTime;
+            let enemyDeltaTime = adjustedDeltaTime;
             if (this.abilities.freeze.isActive && !enemy.originalSpeed) {
                 enemy.originalSpeed = enemy.speed;
                 enemy.speed = enemy.originalSpeed * CONFIG.ABILITIES.freeze.effect;
@@ -1781,7 +1808,7 @@ class Game {
                 delete enemy.originalSpeed;
             }
             
-            enemy.update(deltaTime);
+            enemy.update(adjustedDeltaTime);
             
             // Check if enemy reached the end
             if (enemy.reachedEnd) {
@@ -1823,7 +1850,7 @@ class Game {
         // Update particles
         for (let i = this.particles.length - 1; i >= 0; i--) {
             const particle = this.particles[i];
-            particle.update(deltaTime);
+            particle.update(adjustedDeltaTime);
             
             if (!particle.isAlive) {
                 this.particles.splice(i, 1);
@@ -2371,8 +2398,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 13: Tower Selling System Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Sell towers to recover resources and reposition your defenses!', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 14: Game Speed Control Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Control game speed with 1x, 2x, or 3x buttons in the top bar!', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
