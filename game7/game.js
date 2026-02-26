@@ -118,7 +118,7 @@ const CONFIG = {
     
     // Tower selling
     SELL_REFUND_PERCENT: 0.75,  // Get back 75% of total investment
-    SELL_REFUND_UPGRADED: 0.6  // Get back 60% for upgraded towers
+    SELL_REFUND_UPGRADED: 0.6,  // Get back 60% for upgraded towers
     
     // Enemy types
     ENEMY_TYPES: {
