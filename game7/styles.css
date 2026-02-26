@@ -101,6 +101,43 @@ header h1 {
     text-align: right;
 }
 
+/* Speed Controls */
+.speed-controls {
+    display: flex;
+    gap: 5px;
+    margin-left: auto;
+}
+
+.speed-btn {
+    padding: 6px 12px;
+    background: rgba(71, 85, 105, 0.8);
+    border: 2px solid rgba(148, 163, 184, 0.5);
+    border-radius: 6px;
+    color: #cbd5e1;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    min-width: 45px;
+}
+
+.speed-btn:hover {
+    background: rgba(71, 85, 105, 1);
+    border-color: rgba(148, 163, 184, 0.8);
+    transform: translateY(-1px);
+}
+
+.speed-btn.active {
+    background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    border-color: #60a5fa;
+    color: #fff;
+    box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+}
+
+.speed-btn.active:hover {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
 .info {
     margin-top: 20px;
     color: #e2e8f0;
