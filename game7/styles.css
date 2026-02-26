@@ -457,6 +457,56 @@ header h1 {
     border-radius: 4px;
 }
 
+/* Next Wave Button */
+.next-wave-btn {
+    position: absolute;
+    bottom: 120px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    border: 3px solid #34d399;
+    border-radius: 12px;
+    padding: 15px 30px;
+    color: #fff;
+    font-weight: bold;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+    pointer-events: all;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+    min-width: 180px;
+}
+
+.next-wave-btn:hover {
+    background: linear-gradient(135deg, #059669 0%, #047857 100%);
+    transform: translateX(-50%) translateY(-3px);
+    box-shadow: 0 12px 32px rgba(16, 185, 129, 0.6);
+}
+
+.next-wave-btn:active {
+    transform: translateX(-50%) translateY(-1px);
+    box-shadow: 0 6px 16px rgba(16, 185, 129, 0.4);
+}
+
+.wave-btn-icon {
+    font-size: 28px;
+    line-height: 1;
+}
+
+.wave-btn-text {
+    font-size: 16px;
+}
+
+.wave-btn-info {
+    font-size: 12px;
+    color: #d1fae5;
+}
+
 /* Responsive Design */
 @media (max-width: 900px) {
     .game-container {
