@@ -300,7 +300,46 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
   - Does not affect visual frame rate, only game logic speed
 - Seamless integration with existing time-based systems
 
-### 📋 Planned Features (11+ commits remaining)
+**Commit 15: Wave Skip Button and Wave Info**
+- Added waveAutoStart flag (false) to disable automatic wave starting
+- Next Wave button added to UI:
+  - Positioned at bottom center (above abilities panel)
+  - Large green button with wave icon (🌊)
+  - Shows "Start Next Wave" text
+  - Displays wave number info ("Wave X")
+  - Boss waves show special styling (red gradient, warning icon)
+- setupNextWaveButton() event handler:
+  - Starts wave on button click
+  - Only active when wave is complete
+  - Hides button when wave starts
+- showNextWaveButton() method:
+  - Shows button with appropriate wave info
+  - Customizes appearance for boss waves (red/dark red gradient)
+  - Updates wave info text dynamically
+- hideNextWaveButton() method hides button during active waves
+- Modified startWave() to hide button when wave begins
+- Modified completeWave():
+  - Removed auto-start setTimeout timer
+  - Shows next wave button instead
+  - Gives player full control over pacing
+- Modified startGame():
+  - Shows button immediately for Wave 1
+  - Sets waveComplete flag to enable button
+  - Player chooses when to start first wave
+- CSS styling for .next-wave-btn:
+  - Green gradient (normal waves), red gradient (boss waves)
+  - Positioned bottom: 120px for visibility
+  - Large touch-friendly size (min-width: 180px)
+  - Hover effects with transform and enhanced shadow
+  - Flex column layout with icon, text, and wave info
+- Quality of life improvement:
+  - Players control wave timing completely
+  - Build towers strategically between waves
+  - No time pressure during preparation
+  - Visual warning for upcoming boss waves
+- Excellent for strategic planning and tower repositioning
+
+### 📋 Planned Features (10+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
@@ -369,6 +408,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 14/25+ Complete
+**Status:** 🚧 In Development - Commit 15/25+ Complete
 
-**Last Updated:** Commit 14 - Game speed control system implemented
+**Last Updated:** Commit 15 - Wave skip button and wave info implemented
