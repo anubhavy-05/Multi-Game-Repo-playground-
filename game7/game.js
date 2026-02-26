@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 15: Wave skip button and wave info
+// Commit 16: Enhanced wave info display
 
 // ============================================
 // GAME CONFIGURATION
@@ -836,7 +836,8 @@ class Game {
             isPaused: false,
             gameOver: false,
             gameStarted: false,
-            speedMultiplier: 1  // Game speed: 1x, 2x, or 3x
+            speedMultiplier: 1,  // Game speed: 1x, 2x, or 3x
+            totalKills: 0  // Track total enemies killed
         };
         
         // Game objects (will be populated in future commits)
@@ -901,6 +902,7 @@ class Game {
         this.setupSpeedButtons();
         this.setupNextWaveButton();
         this.updateUI();
+        this.updateWaveInfo();
     }
     
     // ============================================
@@ -1058,6 +1060,7 @@ class Game {
         }
         
         console.log(`Spawned ${enemyType} enemy (${this.enemiesSpawned}/${this.enemiesPerWave})`);
+        this.updateWaveInfo();  // Update info when enemy spawns
     }
     
     // Update wave state
@@ -1103,6 +1106,7 @@ class Game {
         this.addMana(CONFIG.MANA_PER_WAVE);
         
         this.updateUI();
+        this.updateWaveInfo();
         console.log(`Wave ${this.state.wave - 1} complete! +${bonusGold} gold, +${CONFIG.MANA_PER_WAVE} mana. Next wave: ${this.state.wave}`);
         
         // Show next wave button instead of auto-starting
@@ -1739,7 +1743,9 @@ class Game {
             score: 0,
             isPaused: false,
             gameOver: false,
-            gameStarted: false
+            gameStarted: false,
+            speedMultiplier: 1,
+            totalKills: 0
         };
         
         this.towers = [];
@@ -1857,6 +1863,7 @@ class Game {
             if (enemy.reachedEnd) {
                 this.loseLife(enemy.damage);
                 this.enemies.splice(i, 1);
+                this.updateWaveInfo();  // Update when enemy escapes
                 console.log(`Enemy reached castle! Lives: ${this.state.lives}`);
             }
             // Remove dead enemies
@@ -1886,7 +1893,9 @@ class Game {
                 this.addMana(CONFIG.MANA_PER_KILL);
                 this.createManaParticles(enemy);
                 this.state.score += goldReward * 10;
+                this.state.totalKills++;  // Increment kill counter
                 this.enemies.splice(i, 1);
+                this.updateWaveInfo();  // Update wave info display
             }
         }
         
@@ -2456,6 +2465,22 @@ class Game {
         document.getElementById('mana').textContent = `${Math.floor(this.state.mana)}/${CONFIG.MAX_MANA}`;
         document.getElementById('lives').textContent = this.state.lives;
         document.getElementById('wave').textContent = this.state.wave;
+    }
+    
+    // Update wave info panel
+    updateWaveInfo() {
+        // Enemies remaining (alive enemies)
+        const enemiesRemaining = this.enemies.length;
+        document.getElementById('enemies-remaining').textContent = enemiesRemaining;
+        
+        // Enemies spawned this wave
+        document.getElementById('enemies-spawned').textContent = `${this.enemiesSpawned}/${this.enemiesPerWave}`;
+        
+        // Towers placed
+        document.getElementById('towers-placed').textContent = this.towers.length;
+        
+        // Total kills
+        document.getElementById('total-kills').textContent = this.state.totalKills;
     }
     
     // Update upgrade UI panel
