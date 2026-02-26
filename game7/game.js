@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 14: Game speed control system
+// Commit 15: Wave skip button and wave info
 
 // ============================================
 // GAME CONFIGURATION
@@ -858,6 +858,7 @@ class Game {
         this.enemiesSpawned = 0;
         this.enemiesPerWave = 5;  // Will increase with wave number
         this.timeBetweenWaves = CONFIG.WAVE_INTERVAL;
+        this.waveAutoStart = false;  // Prevent auto-start, use button instead
         
         // Input handling
         this.mouse = {
@@ -898,6 +899,7 @@ class Game {
         this.setupSellButton();
         this.setupAbilityButtons();
         this.setupSpeedButtons();
+        this.setupNextWaveButton();
         this.updateUI();
     }
     
@@ -998,6 +1000,9 @@ class Game {
         this.waveComplete = false;
         this.enemiesSpawned = 0;
         this.timeSinceLastSpawn = 0;
+        
+        // Hide next wave button
+        this.hideNextWaveButton();
         
         // Check if this is a boss wave
         const isBossWave = this.state.wave % CONFIG.BOSS_WAVE_INTERVAL === 0;
@@ -1100,12 +1105,8 @@ class Game {
         this.updateUI();
         console.log(`Wave ${this.state.wave - 1} complete! +${bonusGold} gold, +${CONFIG.MANA_PER_WAVE} mana. Next wave: ${this.state.wave}`);
         
-        // Auto-start next wave after delay
-        setTimeout(() => {
-            if (!this.state.gameOver && this.state.gameStarted && !this.state.isPaused) {
-                this.startWave();
-            }
-        }, this.timeBetweenWaves);
+        // Show next wave button instead of auto-starting
+        this.showNextWaveButton();
     }
     
     // ============================================
@@ -1393,6 +1394,49 @@ class Game {
         console.log('Speed buttons setup complete');
     }
     
+    // Setup next wave button
+    setupNextWaveButton() {
+        const nextWaveBtn = document.getElementById('next-wave-btn');
+        if (!nextWaveBtn) return;
+        
+        nextWaveBtn.addEventListener('click', () => {
+            if (this.waveComplete && !this.waveActive && !this.state.gameOver) {
+                this.hideNextWaveButton();
+                this.startWave();
+            }
+        });
+        
+        console.log('Next wave button setup complete');
+    }
+    
+    // Show next wave button
+    showNextWaveButton() {
+        const btn = document.getElementById('next-wave-btn');
+        const waveInfo = document.getElementById('wave-info');
+        if (btn && waveInfo) {
+            // Check if it's a boss wave
+            const isBossWave = this.state.wave % CONFIG.BOSS_WAVE_INTERVAL === 0;
+            if (isBossWave) {
+                waveInfo.textContent = `⚠️ BOSS WAVE ${this.state.wave}!`;
+                btn.style.background = 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)';
+                btn.style.borderColor = '#f87171';
+            } else {
+                waveInfo.textContent = `Wave ${this.state.wave}`;
+                btn.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+                btn.style.borderColor = '#34d399';
+            }
+            btn.style.display = 'flex';
+        }
+    }
+    
+    // Hide next wave button
+    hideNextWaveButton() {
+        const btn = document.getElementById('next-wave-btn');
+        if (btn) {
+            btn.style.display = 'none';
+        }
+    }
+    
     // Start meteor targeting mode
     startMeteorTargeting() {
         const ability = this.abilities.meteor;
@@ -1678,12 +1722,11 @@ class Game {
     // Start the game
     startGame() {
         this.state.gameStarted = true;
+        this.waveComplete = true;  // Mark as complete so button can be clicked
         console.log('Game started!');
         
-        // Start first wave
-        setTimeout(() => {
-            this.startWave();
-        }, 1000);
+        // Show next wave button to let player start wave 1 when ready
+        this.showNextWaveButton();
     }
     
     // Reset game
