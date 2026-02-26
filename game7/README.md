@@ -339,7 +339,46 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
   - Visual warning for upcoming boss waves
 - Excellent for strategic planning and tower repositioning
 
-### 📋 Planned Features (10+ commits remaining)
+**Commit 16: Enhanced Wave Info Display**
+- Added totalKills counter to game state (tracks total enemies killed)
+- Wave info panel added to UI (bottom-left corner):
+  - Positioned left: 20px, bottom: 120px
+  - Shows 4 key statistics:
+    - **Enemies:** Current alive enemies count
+    - **Spawned:** Enemies spawned this wave (X/Y format)
+    - **Towers:** Total towers placed on map
+    - **Total Kills:** Cumulative enemies killed
+  - Compact glassmorphism panel with dark background
+  - Golden text values for high visibility
+- updateWaveInfo() method updates panel in real-time:
+  - Shows live enemy count from enemies array
+  - Displays spawn progress (enemiesSpawned/enemiesPerWave)
+  - Shows current tower count
+  - Tracks and displays totalKills counter
+- Called automatically on key game events:
+  - Tower placement (updates tower count)
+  - Tower selling (updates tower count)
+  - Enemy spawn (updates spawned count)
+  - Enemy killed (updates enemies, total kills)
+  - Enemy reaches castle (updates enemy count)
+  - Wave completion (refreshes all stats)
+  - Game reset (resets all counters)
+- CSS styling for .wave-info-panel and sub-elements:
+  - Matches other panel styling (abilities, tower menu)
+  - Individual stat boxes with .wave-info-stat class
+  - Flex layout with space-between alignment
+  - Golden value text with glow effect
+  - Compact 170px width fits perfectly
+- totalKills added to constructor and resetGame state
+- Increments on each enemy death (before removal from array)
+- Quality of life feature providing:
+  - Real-time wave progress tracking
+  - Strategic information at a glance
+  - Performance monitoring (entity counts)
+  - Achievement tracking foundation (total kills)
+- Seamlessly integrated with all game systems
+
+### 📋 Planned Features (9+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
@@ -408,6 +447,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 15/25+ Complete
+**Status:** 🚧 In Development - Commit 16/25+ Complete
 
-**Last Updated:** Commit 15 - Wave skip button and wave info implemented
+**Last Updated:** Commit 16 - Enhanced wave info display implemented
