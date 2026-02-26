@@ -240,6 +240,37 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
 - Enhanced visual feedback during boss battles
 - Boss system fully integrated with existing combat
 
+**Commit 13: Tower Selling System**
+- Added sell configuration constants to CONFIG:
+  - SELL_REFUND_PERCENT: 0.75 (75% refund for base towers)
+  - SELL_REFUND_UPGRADED: 0.6 (60% refund for upgraded towers)
+- Tower.getSellValue() method calculates total investment:
+  - Includes base cost + all upgrade costs
+  - Lower refund for upgraded towers to prevent abuse
+  - Returns floored sell value based on refund percentage
+- Sell button added to upgrade panel UI:
+  - 💰 Sell Tower button with orange/red gradient
+  - Shows sell value dynamically (💰 amount)
+  - Positioned below upgrade button
+- setupSellButton() event handler in Game class:
+  - Calculates and adds gold back to player
+  - Creates gold particles for visual feedback (8 particles)
+  - Clears grid cell hasTower flag
+  - Removes tower from towers array
+  - Clears selection and hides UI panel
+  - Console logs sell value
+- updateUpgradeUI() updated to show sell value
+- CSS styling for sell-btn with hover effects:
+  - Orange gradient background (#f97316 to #ea580c)
+  - Hover transforms and glow effects
+  - Slightly smaller than upgrade button
+- Welcome screen updated to "Commit 13: Tower Selling System Active ✓"
+- Strategic feature allows repositioning towers:
+  - Recover resources from poorly placed towers
+  - Penalty for upgraded towers discourages constant rebuilding
+  - Flexible tower management for better defense strategies
+- Full integration with existing tower and resource systems
+
 ### 📋 Planned Features (13+ commits remaining)
 
 2. Game class and core initialization
@@ -309,6 +340,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 12/25+ Complete
+**Status:** 🚧 In Development - Commit 13/25+ Complete
 
-**Last Updated:** Commit 12 - Boss enemy system implemented
+**Last Updated:** Commit 13 - Tower selling system implemented
