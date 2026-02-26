@@ -283,6 +283,36 @@ header h1 {
     color: #fbbf24;
 }
 
+/* Sell Tower Button */
+.sell-btn {
+    width: 100%;
+    padding: 10px;
+    margin-top: 8px;
+    background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+    border: 2px solid #fb923c;
+    border-radius: 8px;
+    color: #fff;
+    font-weight: bold;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.sell-btn:hover {
+    background: linear-gradient(135deg, #ea580c 0%, #c2410c 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(249, 115, 22, 0.4);
+}
+
+.sell-value {
+    font-size: 12px;
+    color: #fde047;
+}
+
 /* Special Abilities Panel */
 .abilities-panel {
     position: absolute;
