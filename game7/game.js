@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 12: Boss enemy system
+// Commit 13: Tower selling system
 
 // ============================================
 // GAME CONFIGURATION
@@ -115,6 +115,10 @@ const CONFIG = {
         RANGE_PER_LEVEL: 1.1,   // 10% range increase per level
         FIRE_RATE_PER_LEVEL: 1.15  // 15% fire rate increase per level
     },
+    
+    // Tower selling
+    SELL_REFUND_PERCENT: 0.75,  // Get back 75% of total investment
+    SELL_REFUND_UPGRADED: 0.6  // Get back 60% for upgraded towers
     
     // Enemy types
     ENEMY_TYPES: {
@@ -334,6 +338,22 @@ class Tower {
         this.fireRate *= CONFIG.UPGRADE.FIRE_RATE_PER_LEVEL;
         
         return true;
+    }
+    
+    // Calculate sell value (total investment with refund percentage)
+    getSellValue() {
+        // Calculate total investment (base cost + all upgrade costs)
+        let totalInvestment = this.config.cost;
+        
+        // Add upgrade costs for each level
+        for (let i = 1; i < this.level; i++) {
+            totalInvestment += Math.floor(this.config.cost * Math.pow(CONFIG.UPGRADE.COST_MULTIPLIER, i));
+        }
+        
+        // Apply refund percentage (lower refund for upgraded towers to prevent abuse)
+        const refundPercent = this.level === 1 ? CONFIG.SELL_REFUND_PERCENT : CONFIG.SELL_REFUND_UPGRADED;
+        
+        return Math.floor(totalInvestment * refundPercent);
     }
     
     // Draw the tower
@@ -874,6 +894,7 @@ class Game {
         this.setupEventListeners();
         this.setupTowerButtons();
         this.setupUpgradeButton();
+        this.setupSellButton();
         this.setupAbilityButtons();
         this.updateUI();
     }
@@ -1281,6 +1302,51 @@ class Game {
         });
         
         console.log('Upgrade button setup complete');
+    }
+    
+    // Setup sell button
+    setupSellButton() {
+        const sellBtn = document.getElementById('sell-btn');
+        if (!sellBtn) return;
+        
+        sellBtn.addEventListener('click', () => {
+            if (!this.selectedTower) return;
+            
+            // Get sell value
+            const sellValue = this.selectedTower.getSellValue();
+            
+            // Add gold back to player
+            this.addGold(sellValue);
+            
+            // Create gold particles at tower position
+            for (let i = 0; i < 8; i++) {
+                this.particles.push(new Particle(
+                    this.selectedTower.x,
+                    this.selectedTower.y,
+                    'gold'
+                ));
+            }
+            
+            // Clear grid cell
+            const gridX = this.selectedTower.gridX;
+            const gridY = this.selectedTower.gridY;
+            this.grid[gridY][gridX].hasTower = false;
+            
+            // Remove tower from array
+            const towerIndex = this.towers.indexOf(this.selectedTower);
+            if (towerIndex > -1) {
+                this.towers.splice(towerIndex, 1);
+            }
+            
+            console.log(`Sold tower for ${sellValue} gold`);
+            
+            // Clear selection
+            this.selectedTower = null;
+            this.hideUpgradeUI();
+            this.updateTowerButtons();
+        });
+        
+        console.log('Sell button setup complete');
     }
     
     // Setup ability buttons
@@ -2305,8 +2371,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 12: Boss Enemy System Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Powerful bosses appear every 5 waves! Defeat them for extra rewards!', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 13: Tower Selling System Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Sell towers to recover resources and reposition your defenses!', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
@@ -2361,6 +2427,13 @@ class Game {
             upgradeCost.textContent = 'MAX LEVEL';
             upgradeBtn.classList.add('disabled');
             upgradeBtn.disabled = true;
+        }
+        
+        // Update sell button
+        const sellValue = tower.getSellValue();
+        const sellValueSpan = document.getElementById('sell-value');
+        if (sellValueSpan) {
+            sellValueSpan.textContent = `💰 ${sellValue}`;
         }
     }
     
