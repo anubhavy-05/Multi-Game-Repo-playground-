@@ -271,7 +271,36 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
   - Flexible tower management for better defense strategies
 - Full integration with existing tower and resource systems
 
-### 📋 Planned Features (13+ commits remaining)
+**Commit 14: Game Speed Control System**
+- Added speedMultiplier property to game state (default: 1)
+- Speed control UI buttons added to top bar:
+  - Three buttons: 1x, 2x, 3x speed options
+  - Blue gradient styling for active button
+  - Hover effects and smooth transitions
+- setupSpeedButtons() event handler:
+  - Updates state.speedMultiplier on button click
+  - Updates active button styling dynamically
+  - Console logs speed changes
+- Speed multiplier applied throughout update() method:
+  - adjustedDeltaTime = deltaTime * speedMultiplier
+  - Applied to abilities, mana regeneration, wave spawning
+  - Applied to tower updates, projectile movement
+  - Applied to enemy movement, particle effects
+  - Stacks with Time Warp ability for towers
+- CSS styling for .speed-controls and .speed-btn:
+  - Positioned in top bar with margin-left: auto
+  - Gray background for inactive, blue gradient for active
+  - Min-width 45px, consistent button sizing
+  - Hover effects with transform and glow
+- Welcome screen updated to "Commit 14: Game Speed Control Active ✓"
+- Quality of life feature for tower defense gameplay:
+  - Speed up during easy waves to reduce waiting
+  - Keep at 1x during intense boss battles
+  - 2x for moderate pace, 3x for fast gameplay
+  - Does not affect visual frame rate, only game logic speed
+- Seamless integration with existing time-based systems
+
+### 📋 Planned Features (11+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
@@ -340,6 +369,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 13/25+ Complete
+**Status:** 🚧 In Development - Commit 14/25+ Complete
 
-**Last Updated:** Commit 13 - Tower selling system implemented
+**Last Updated:** Commit 14 - Game speed control system implemented
