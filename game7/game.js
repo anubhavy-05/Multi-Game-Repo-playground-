@@ -1351,6 +1351,7 @@ class Game {
             this.selectedTower = null;
             this.hideUpgradeUI();
             this.updateTowerButtons();
+            this.updateWaveInfo();  // Update tower count after selling
         });
         
         console.log('Sell button setup complete');
@@ -1683,6 +1684,7 @@ class Game {
         
         // Deduct cost
         this.spendGold(towerConfig.cost);
+        this.updateWaveInfo();  // Update tower count
         
         // Deselect tower type
         this.selectedTowerType = null;
@@ -2450,8 +2452,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 15: Wave Skip Button Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Click the green wave button to start each wave at your own pace!', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 16: Enhanced Wave Info Display Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Wave info panel shows real-time stats: enemies, spawns, towers, and kills!', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
