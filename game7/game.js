@@ -1375,9 +1375,15 @@ class Game {
                 // Upgrade tower
                 this.selectedTower.upgrade();
                 
+                // Check if tower reached max level for achievement
+                if (this.selectedTower.level === CONFIG.UPGRADE.MAX_LEVEL) {
+                    this.achievementStats.maxUpgrade = 1;
+                }
+                
                 // Update UI
                 this.updateUpgradeUI();
                 this.updateTowerButtons();
+                this.checkAchievements();  // Check upgrade-based achievements
                 
                 console.log(`Upgraded ${this.selectedTower.type} to level ${this.selectedTower.level}`);
             }
@@ -1816,7 +1822,9 @@ class Game {
         
         // Deduct cost
         this.spendGold(towerConfig.cost);
+        this.achievementStats.towersPlaced++;  // Track for achievements
         this.updateWaveInfo();  // Update tower count
+        this.checkAchievements();  // Check tower-based achievements
         
         // Deselect tower type
         this.selectedTowerType = null;
