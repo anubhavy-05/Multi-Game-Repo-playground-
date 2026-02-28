@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 17: Achievement system
+// Commit 18: Save/Load system
 
 // ============================================
 // GAME CONFIGURATION
@@ -975,6 +975,7 @@ class Game {
         this.setupAbilityButtons();
         this.setupSpeedButtons();
         this.setupNextWaveButton();
+        this.setupSaveLoadButtons();
         this.updateUI();
         this.updateWaveInfo();
     }
@@ -1182,6 +1183,7 @@ class Game {
         this.updateUI();
         this.updateWaveInfo();
         this.checkAchievements();  // Check wave-based achievements
+        this.autoSave();  // Auto-save after wave completion
         console.log(`Wave ${this.state.wave - 1} complete! +${bonusGold} gold, +${CONFIG.MANA_PER_WAVE} mana. Next wave: ${this.state.wave}`);
         
         // Show next wave button instead of auto-starting
@@ -1384,6 +1386,7 @@ class Game {
                 this.updateUpgradeUI();
                 this.updateTowerButtons();
                 this.checkAchievements();  // Check upgrade-based achievements
+                this.autoSave();  // Auto-save after tower upgrade
                 
                 console.log(`Upgraded ${this.selectedTower.type} to level ${this.selectedTower.level}`);
             }
@@ -1520,6 +1523,248 @@ class Game {
         const btn = document.getElementById('next-wave-btn');
         if (btn) {
             btn.style.display = 'none';
+        }
+    }
+    
+    // ============================================
+    // SAVE/LOAD SYSTEM
+    // ============================================
+    
+    // Setup save/load buttons
+    setupSaveLoadButtons() {
+        const saveBtn = document.getElementById('save-btn');
+        const loadBtn = document.getElementById('load-btn');
+        
+        if (saveBtn) {
+            saveBtn.addEventListener('click', () => {
+                this.saveGame();
+            });
+        }
+        
+        if (loadBtn) {
+            loadBtn.addEventListener('click', () => {
+                this.loadGame();
+            });
+        }
+        
+        // Check if a saved game exists and enable/disable load button
+        this.updateLoadButtonState();
+        
+        console.log('Save/Load buttons setup complete');
+    }
+    
+    // Update load button state based on saved game existence
+    updateLoadButtonState() {
+        const loadBtn = document.getElementById('load-btn');
+        if (loadBtn) {
+            const hasSave = localStorage.getItem('castleDefendersSave') !== null;
+            loadBtn.disabled = !hasSave;
+            loadBtn.style.opacity = hasSave ? '1' : '0.5';
+        }
+    }
+    
+    // Save game state to localStorage
+    saveGame() {
+        try {
+            // Create save data object
+            const saveData = {
+                version: '1.0',
+                timestamp: new Date().toISOString(),
+                state: {
+                    gold: this.state.gold,
+                    mana: this.state.mana,
+                    lives: this.state.lives,
+                    wave: this.state.wave,
+                    score: this.state.score,
+                    speedMultiplier: this.state.speedMultiplier,
+                    totalKills: this.state.totalKills
+                },
+                achievements: { ...this.achievements },
+                achievementStats: { ...this.achievementStats },
+                towers: this.towers.map(tower => ({
+                    type: tower.type,
+                    x: tower.x,
+                    y: tower.y,
+                    gridX: tower.gridX,
+                    gridY: tower.gridY,
+                    level: tower.level
+                })),
+                waveState: {
+                    waveActive: this.waveActive,
+                    waveComplete: this.waveComplete,
+                    enemiesSpawned: this.enemiesSpawned
+                },
+                abilities: {
+                    freeze: { cooldownRemaining: this.abilities.freeze.cooldownRemaining },
+                    meteor: { cooldownRemaining: this.abilities.meteor.cooldownRemaining },
+                    goldRush: { cooldownRemaining: this.abilities.goldRush.cooldownRemaining },
+                    timeWarp: { cooldownRemaining: this.abilities.timeWarp.cooldownRemaining }
+                }
+            };
+            
+            // Save to localStorage
+            localStorage.setItem('castleDefendersSave', JSON.stringify(saveData));
+            
+            // Visual feedback
+            const saveBtn = document.getElementById('save-btn');
+            if (saveBtn) {
+                saveBtn.classList.add('success');
+                saveBtn.textContent = '✓ Saved!';
+                setTimeout(() => {
+                    saveBtn.classList.remove('success');
+                    saveBtn.textContent = '💾 Save';
+                }, 1500);
+            }
+            
+            this.updateLoadButtonState();
+            console.log('Game saved successfully!', saveData);
+        } catch (error) {
+            console.error('Failed to save game:', error);
+            alert('Failed to save game. Please try again.');
+        }
+    }
+    
+    // Load game state from localStorage
+    loadGame() {
+        try {
+            const savedData = localStorage.getItem('castleDefendersSave');
+            
+            if (!savedData) {
+                alert('No saved game found!');
+                return;
+            }
+            
+            const saveData = JSON.parse(savedData);
+            
+            // Pause game during load
+            const wasPaused = this.state.isPaused;
+            this.state.isPaused = true;
+            
+            // Restore state
+            this.state.gold = saveData.state.gold;
+            this.state.mana = saveData.state.mana;
+            this.state.lives = saveData.state.lives;
+            this.state.wave = saveData.state.wave;
+            this.state.score = saveData.state.score;
+            this.state.speedMultiplier = saveData.state.speedMultiplier || 1;
+            this.state.totalKills = saveData.state.totalKills || 0;
+            this.state.gameStarted = true;
+            this.state.gameOver = false;
+            
+            // Restore achievements
+            if (saveData.achievements) {
+                this.achievements = { ...saveData.achievements };
+            }
+            if (saveData.achievementStats) {
+                this.achievementStats = { ...saveData.achievementStats };
+            }
+            
+            // Clear existing game objects
+            this.towers = [];
+            this.enemies = [];
+            this.projectiles = [];
+            this.particles = [];
+            this.selectedTower = null;
+            
+            // Restore towers
+            if (saveData.towers) {
+                saveData.towers.forEach(towerData => {
+                    const tower = this.createTowerFromType(towerData.type, towerData.gridX, towerData.gridY);
+                    if (tower) {
+                        // Upgrade tower to saved level
+                        for (let i = 1; i < towerData.level; i++) {
+                            tower.upgrade();
+                        }
+                        this.towers.push(tower);
+                        this.grid[towerData.gridY][towerData.gridX].hasTower = true;
+                    }
+                });
+            }
+            
+            // Restore wave state
+            if (saveData.waveState) {
+                this.waveActive = saveData.waveState.waveActive || false;
+                this.waveComplete = saveData.waveState.waveComplete || true;
+                this.enemiesSpawned = saveData.waveState.enemiesSpawned || 0;
+                
+                if (this.waveComplete && !this.waveActive) {
+                    this.showNextWaveButton();
+                }
+            }
+            
+            // Restore ability cooldowns
+            if (saveData.abilities) {
+                Object.keys(saveData.abilities).forEach(key => {
+                    if (this.abilities[key]) {
+                        this.abilities[key].cooldownRemaining = saveData.abilities[key].cooldownRemaining || 0;
+                    }
+                });
+            }
+            
+            // Update UI
+            this.updateUI();
+            this.updateWaveInfo();
+            this.updateSpeedButtons();
+            
+            // Visual feedback
+            const loadBtn = document.getElementById('load-btn');
+            if (loadBtn) {
+                loadBtn.classList.add('success');
+                const originalText = loadBtn.textContent;
+                loadBtn.textContent = '✓ Loaded!';
+                setTimeout(() => {
+                    loadBtn.classList.remove('success');
+                    loadBtn.textContent = originalText;
+                }, 1500);
+            }
+            
+            // Restore pause state
+            this.state.isPaused = wasPaused;
+            
+            console.log('Game loaded successfully!', saveData);
+        } catch (error) {
+            console.error('Failed to load game:', error);
+            alert('Failed to load game. Save file may be corrupted.');
+        }
+    }
+    
+    // Create a tower from type (helper for loading)
+    createTowerFromType(type, gridX, gridY) {
+        const x = gridX * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2;
+        const y = gridY * CONFIG.GRID_SIZE + CONFIG.GRID_SIZE / 2;
+        
+        switch(type) {
+            case 'archer':
+                return new ArcherTower(x, y, gridX, gridY);
+            case 'mage':
+                return new MageTower(x, y, gridX, gridY);
+            case 'cannon':
+                return new CannonTower(x, y, gridX, gridY);
+            case 'lightning':
+                return new LightningTower(x, y, gridX, gridY);
+            default:
+                console.error('Unknown tower type:', type);
+                return null;
+        }
+    }
+    
+    // Update speed buttons visual state
+    updateSpeedButtons() {
+        const speedButtons = document.querySelectorAll('.speed-btn');
+        speedButtons.forEach(btn => {
+            const speed = parseInt(btn.dataset.speed);
+            if (speed === this.state.speedMultiplier) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
+    }
+    
+    // Auto-save functionality
+    autoSave() {
+        if (this.state.gameStarted && !this.state.gameOver) {
+            this.saveGame();
         }
     }
     
@@ -1825,6 +2070,7 @@ class Game {
         this.achievementStats.towersPlaced++;  // Track for achievements
         this.updateWaveInfo();  // Update tower count
         this.checkAchievements();  // Check tower-based achievements
+        this.autoSave();  // Auto-save after tower placement
         
         // Deselect tower type
         this.selectedTowerType = null;
@@ -2666,8 +2912,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 17: Achievement System Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Unlock achievements as you play! Notifications appear in top-right corner.', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 18: Save/Load System Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Your progress is auto-saved! Use Save/Load buttons in top-right corner.', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
