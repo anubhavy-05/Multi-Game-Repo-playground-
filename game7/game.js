@@ -965,6 +965,11 @@ class Enemy {
         this.health -= amount;
         this.hurtTimer = 200; // ms
         
+        // Play hit sound
+        if (this.game && this.game.soundManager) {
+            this.game.soundManager.playSound('enemyHit');
+        }
+        
         if (this.health <= 0) {
             this.isAlive = false;
         }
@@ -1234,6 +1239,9 @@ class Game {
         // Hide next wave button
         this.hideNextWaveButton();
         
+        // Play wave start sound
+        this.soundManager.playSound('waveStart');
+        
         // Check if this is a boss wave
         const isBossWave = this.state.wave % CONFIG.BOSS_WAVE_INTERVAL === 0;
         
@@ -1242,6 +1250,7 @@ class Game {
             this.bossWarning = true;
             this.bossWarningTime = 3000; // 3 seconds warning
             this.enemiesPerWave = 1; // Only boss
+            this.soundManager.playSound('bossWarning');
             console.log(`⚠️ BOSS WAVE ${this.state.wave}! A powerful boss is approaching!`);
         } else {
             // Calculate enemies for this wave
@@ -1922,6 +1931,68 @@ class Game {
     }
     
     // ============================================
+    // VOLUME CONTROLS
+    // ============================================
+    
+    // Setup volume controls
+    setupVolumeControls() {
+        const muteBtn = document.getElementById('mute-btn');
+        const volumeSlider = document.getElementById('volume-slider');
+        
+        // Mute button
+        if (muteBtn) {
+            muteBtn.addEventListener('click', () => {
+                // Initialize sound system on first interaction
+                if (!this.soundManager.initialized) {
+                    this.soundManager.init();
+                }
+                
+                const enabled = this.soundManager.toggleMute();
+                muteBtn.textContent = enabled ? '🔊' : '🔇';
+                muteBtn.classList.toggle('muted', !enabled);
+                
+                // Play button click sound if enabled
+                if (enabled) {
+                    this.soundManager.playSound('buttonClick');
+                }
+            });
+        }
+        
+        // Volume slider
+        if (volumeSlider) {
+            volumeSlider.addEventListener('input', (e) => {
+                // Initialize sound system on first interaction
+                if (!this.soundManager.initialized) {
+                    this.soundManager.init();
+                }
+                
+                const volume = e.target.value / 100;
+                this.soundManager.setVolume(volume);
+                
+                // Update mute button if volume is 0
+                if (muteBtn) {
+                    if (volume === 0) {
+                        muteBtn.textContent = '🔇';
+                        muteBtn.classList.add('muted');
+                    } else if (this.soundManager.enabled) {
+                        muteBtn.textContent = '🔊';
+                        muteBtn.classList.remove('muted');
+                    }
+                }
+            });
+            
+            // Play sound on slider release
+            volumeSlider.addEventListener('change', () => {
+                if (this.soundManager.isEnabled()) {
+                    this.soundManager.playSound('buttonClick');
+                }
+            });
+        }
+        
+        console.log('Volume controls setup complete');
+    }
+    
+    // ============================================
     // ACHIEVEMENT SYSTEM
     // ============================================
     
@@ -1974,6 +2045,9 @@ class Game {
             time: Date.now(),
             duration: 4000  // Show for 4 seconds
         });
+        
+        // Play achievement sound
+        this.soundManager.playChord([1200, 1400, 1600], 0.3, 'sine', 0.25);
         
         console.log(`🏆 ACHIEVEMENT UNLOCKED: ${achievement.name}`);
     }
@@ -3202,6 +3276,7 @@ class Game {
     // Game over
     gameOver() {
         this.state.gameOver = true;
+        this.soundManager.playSound('gameOver');
         console.log('Game Over! Final Score:', this.state.score);
     }
 }
