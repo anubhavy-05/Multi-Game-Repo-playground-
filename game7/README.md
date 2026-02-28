@@ -378,7 +378,60 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
   - Achievement tracking foundation (total kills)
 - Seamlessly integrated with all game systems
 
-### 📋 Planned Features (9+ commits remaining)
+**Commit 17: Achievement System**
+- Added ACHIEVEMENTS object to CONFIG with 8 unlockable achievements:
+  - **First Blood** (🩸): Kill your first enemy
+  - **Enemy Slayer** (⚔️): Kill 50 enemies
+  - **Veteran Defender** (🎯): Kill 100 enemies
+  - **Survivor** (🌊): Reach wave 10
+  - **Boss Slayer** (👑): Defeat your first boss
+  - **Wealthy Defender** (💰): Accumulate 500 gold
+  - **Master Architect** (🏭): Place 10 towers
+  - **Upgrade Expert** (⬆️): Upgrade a tower to max level
+- Achievement tracking system:
+  - achievements object stores unlock status (persists across resets)
+  - achievementStats tracks: bossKills, towersPlaced, maxUpgrade
+  - achievementNotifications array queues popup notifications
+  - All achievements initialized as locked in constructor
+- checkAchievements() method:
+  - Checks all achievement requirements
+  - Supports multiple requirement types (kills, wave, bossKills, gold, towersPlaced, maxUpgrade)
+  - Skips already unlocked achievements
+  - Automatically unlocks when requirements met
+- unlockAchievement() method:
+  - Marks achievement as unlocked
+  - Adds notification to queue (4-second display)
+  - Console logs achievement unlock
+- drawAchievementNotifications() renders popups:
+  - Displays in top-right corner (slides in/out)
+  - Green background with gold border
+  - Shows trophy icon, "ACHIEVEMENT UNLOCKED!" text
+  - Displays achievement icon, name, and description
+  - Smooth slide-in animation from right
+  - Auto-expires after 4 seconds with slide-out
+  - Multiple notifications stack vertically
+- Achievement triggers integrated throughout game:
+  - Enemy killed: totalKills++, checkAchievements()
+  - Boss killed: bossKills++, checkAchievements()
+  - Wave completed: checkAchievements() for wave milestone
+  - Tower placed: towersPlaced++, checkAchievements()
+  - Tower upgraded to max: maxUpgrade = 1, checkAchievements()
+  - Gold added: checkAchievements() for wealth milestone
+- Achievements persist across game resets:
+  - Once unlocked, achievements stay unlocked
+  - achievementStats reset on game restart
+  - Creates long-term progression system
+- Visual feedback system:
+  - Real-time notifications during gameplay
+  - Non-intrusive display (top-right corner)
+  - Professional animation and styling
+- Foundation for future expansion:
+  - Easy to add more achievements
+  - Ready for localStorage persistence
+  - Can add achievement menu/panel UI
+- Adds replay value and progression goals
+
+### 📋 Planned Features (8+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
@@ -447,6 +500,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 16/25+ Complete
+**Status:** 🚧 In Development - Commit 17/25+ Complete
 
-**Last Updated:** Commit 16 - Enhanced wave info display implemented
+**Last Updated:** Commit 17 - Achievement system implemented
