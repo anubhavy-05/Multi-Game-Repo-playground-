@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 16: Enhanced wave info display
+// Commit 17: Achievement system
 
 // ============================================
 // GAME CONFIGURATION
@@ -217,6 +217,66 @@ const CONFIG = {
             speedBoost: 1.5,  // 1.5x fire rate
             color: '#9370DB',
             description: 'Increase tower fire rate by 50% for 7s'
+        }
+    },
+    
+    // Achievements
+    ACHIEVEMENTS: {
+        firstBlood: {
+            id: 'firstBlood',
+            name: 'First Blood',
+            description: 'Kill your first enemy',
+            icon: '🩸',
+            requirement: { type: 'kills', value: 1 }
+        },
+        slayer: {
+            id: 'slayer',
+            name: 'Enemy Slayer',
+            description: 'Kill 50 enemies',
+            icon: '⚔️',
+            requirement: { type: 'kills', value: 50 }
+        },
+        veteran: {
+            id: 'veteran',
+            name: 'Veteran Defender',
+            description: 'Kill 100 enemies',
+            icon: '🎯',
+            requirement: { type: 'kills', value: 100 }
+        },
+        survivor: {
+            id: 'survivor',
+            name: 'Survivor',
+            description: 'Reach wave 10',
+            icon: '🌊',
+            requirement: { type: 'wave', value: 10 }
+        },
+        bossSlayer: {
+            id: 'bossSlayer',
+            name: 'Boss Slayer',
+            description: 'Defeat your first boss',
+            icon: '👑',
+            requirement: { type: 'bossKills', value: 1 }
+        },
+        wealthy: {
+            id: 'wealthy',
+            name: 'Wealthy Defender',
+            description: 'Accumulate 500 gold',
+            icon: '💰',
+            requirement: { type: 'gold', value: 500 }
+        },
+        architect: {
+            id: 'architect',
+            name: 'Master Architect',
+            description: 'Place 10 towers',
+            icon: '🏭',
+            requirement: { type: 'towersPlaced', value: 10 }
+        },
+        upgraded: {
+            id: 'upgraded',
+            name: 'Upgrade Expert',
+            description: 'Upgrade a tower to max level',
+            icon: '⬆️',
+            requirement: { type: 'maxUpgrade', value: 1 }
         }
     }
 };
@@ -840,6 +900,20 @@ class Game {
             totalKills: 0  // Track total enemies killed
         };
         
+        // Achievement tracking
+        this.achievements = {};  // Unlocked achievements
+        this.achievementStats = {
+            bossKills: 0,
+            towersPlaced: 0,
+            maxUpgrade: 0
+        };
+        this.achievementNotifications = [];  // Queue for achievement popups
+        
+        // Initialize achievements as locked
+        Object.keys(CONFIG.ACHIEVEMENTS).forEach(key => {
+            this.achievements[key] = false;
+        });
+        
         // Game objects (will be populated in future commits)
         this.towers = [];
         this.enemies = [];
@@ -1107,6 +1181,7 @@ class Game {
         
         this.updateUI();
         this.updateWaveInfo();
+        this.checkAchievements();  // Check wave-based achievements
         console.log(`Wave ${this.state.wave - 1} complete! +${bonusGold} gold, +${CONFIG.MANA_PER_WAVE} mana. Next wave: ${this.state.wave}`);
         
         // Show next wave button instead of auto-starting
@@ -1440,6 +1515,63 @@ class Game {
         if (btn) {
             btn.style.display = 'none';
         }
+    }
+    
+    // ============================================
+    // ACHIEVEMENT SYSTEM
+    // ============================================
+    
+    // Check and unlock achievements
+    checkAchievements() {
+        Object.keys(CONFIG.ACHIEVEMENTS).forEach(key => {
+            const achievement = CONFIG.ACHIEVEMENTS[key];
+            
+            // Skip if already unlocked
+            if (this.achievements[key]) return;
+            
+            // Check requirement
+            let unlocked = false;
+            const req = achievement.requirement;
+            
+            switch(req.type) {
+                case 'kills':
+                    unlocked = this.state.totalKills >= req.value;
+                    break;
+                case 'wave':
+                    unlocked = this.state.wave >= req.value;
+                    break;
+                case 'bossKills':
+                    unlocked = this.achievementStats.bossKills >= req.value;
+                    break;
+                case 'gold':
+                    unlocked = this.state.gold >= req.value;
+                    break;
+                case 'towersPlaced':
+                    unlocked = this.achievementStats.towersPlaced >= req.value;
+                    break;
+                case 'maxUpgrade':
+                    unlocked = this.achievementStats.maxUpgrade >= req.value;
+                    break;
+            }
+            
+            if (unlocked) {
+                this.unlockAchievement(key, achievement);
+            }
+        });
+    }
+    
+    // Unlock an achievement
+    unlockAchievement(achievementId, achievement) {
+        this.achievements[achievementId] = true;
+        
+        // Add to notification queue
+        this.achievementNotifications.push({
+            achievement: achievement,
+            time: Date.now(),
+            duration: 4000  // Show for 4 seconds
+        });
+        
+        console.log(`🏆 ACHIEVEMENT UNLOCKED: ${achievement.name}`);
     }
     
     // Start meteor targeting mode
@@ -1888,6 +2020,7 @@ class Game {
                     goldReward += 50; // Extra boss bonus
                     this.addMana(20); // Extra mana for boss kill
                     this.currentBoss = null;
+                    this.achievementStats.bossKills++;  // Track boss kills for achievements
                     console.log(`👑 BOSS DEFEATED! Bonus rewards granted!`);
                 }
                 
@@ -1898,6 +2031,7 @@ class Game {
                 this.state.totalKills++;  // Increment kill counter
                 this.enemies.splice(i, 1);
                 this.updateWaveInfo();  // Update wave info display
+                this.checkAchievements();  // Check for achievements after kill
             }
         }
         
