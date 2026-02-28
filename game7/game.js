@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 18: Save/Load system
+// Commit 19: Sound effects system
 
 // ============================================
 // GAME CONFIGURATION
@@ -278,8 +278,157 @@ const CONFIG = {
             icon: '⬆️',
             requirement: { type: 'maxUpgrade', value: 1 }
         }
+    },
+    
+    // Sound effects (Web Audio API synthesized sounds)
+    SOUNDS: {
+        enabled: true,
+        volume: 0.3,  // Master volume (0-1)
+        effects: {
+            towerShoot: { frequency: 440, duration: 0.05, type: 'square', volume: 0.2 },
+            enemyHit: { frequency: 200, duration: 0.08, type: 'sawtooth', volume: 0.15 },
+            enemyDeath: { frequency: 150, duration: 0.15, type: 'triangle', volume: 0.25 },
+            towerPlace: { frequency: 600, duration: 0.1, type: 'sine', volume: 0.3 },
+            towerUpgrade: { frequency: 800, duration: 0.15, type: 'sine', volume: 0.35 },
+            towerSell: { frequency: 300, duration: 0.12, type: 'triangle', volume: 0.25 },
+            waveComplete: { frequency: 700, duration: 0.2, type: 'sine', volume: 0.4 },
+            waveStart: { frequency: 500, duration: 0.15, type: 'square', volume: 0.3 },
+            abilityUse: { frequency: 900, duration: 0.12, type: 'sine', volume: 0.35 },
+            goldCollect: { frequency: 1000, duration: 0.08, type: 'sine', volume: 0.2 },
+            bossWarning: { frequency: 100, duration: 0.25, type: 'sawtooth', volume: 0.4 },
+            bossDeath: { frequency: 120, duration: 0.3, type: 'triangle', volume: 0.5 },
+            gameOver: { frequency: 180, duration: 0.4, type: 'sawtooth', volume: 0.45 },
+            achievement: { frequency: 1200, duration: 0.2, type: 'sine', volume: 0.35 },
+            buttonClick: { frequency: 600, duration: 0.03, type: 'square', volume: 0.15 }
+        }
     }
 };
+
+// ============================================
+// SOUND MANAGER
+// ============================================
+class SoundManager {
+    constructor() {
+        // Initialize Web Audio API
+        this.audioContext = null;
+        this.masterGain = null;
+        this.enabled = CONFIG.SOUNDS.enabled;
+        this.volume = CONFIG.SOUNDS.volume;
+        
+        // Initialize audio context on first user interaction
+        this.initialized = false;
+    }
+    
+    // Initialize audio context (must be called after user interaction)
+    init() {
+        if (this.initialized) return;
+        
+        try {
+            this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            this.masterGain = this.audioContext.createGain();
+            this.masterGain.connect(this.audioContext.destination);
+            this.masterGain.gain.value = this.volume;
+            this.initialized = true;
+            console.log('Sound system initialized');
+        } catch (error) {
+            console.warn('Web Audio API not supported:', error);
+            this.enabled = false;
+        }
+    }
+    
+    // Play a sound effect
+    playSound(soundName) {
+        if (!this.enabled || !this.initialized) return;
+        
+        const soundConfig = CONFIG.SOUNDS.effects[soundName];
+        if (!soundConfig) {
+            console.warn('Sound not found:', soundName);
+            return;
+        }
+        
+        try {
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(this.masterGain);
+            
+            // Set oscillator properties
+            oscillator.type = soundConfig.type;
+            oscillator.frequency.value = soundConfig.frequency;
+            
+            // Set volume envelope
+            const now = this.audioContext.currentTime;
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(soundConfig.volume, now + 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + soundConfig.duration);
+            
+            // Play sound
+            oscillator.start(now);
+            oscillator.stop(now + soundConfig.duration);
+        } catch (error) {
+            console.warn('Failed to play sound:', soundName, error);
+        }
+    }
+    
+    // Play chord (multiple frequencies at once)
+    playChord(frequencies, duration = 0.2, type = 'sine', volume = 0.3) {
+        if (!this.enabled || !this.initialized) return;
+        
+        frequencies.forEach((freq, index) => {
+            setTimeout(() => {
+                this.playSingleTone(freq, duration, type, volume);
+            }, index * 50);
+        });
+    }
+    
+    // Play single tone with custom parameters
+    playSingleTone(frequency, duration, type, volume) {
+        if (!this.enabled || !this.initialized) return;
+        
+        try {
+            const oscillator = this.audioContext.createOscillator();
+            const gainNode = this.audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(this.masterGain);
+            
+            oscillator.type = type;
+            oscillator.frequency.value = frequency;
+            
+            const now = this.audioContext.currentTime;
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(volume, now + 0.01);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, now + duration);
+            
+            oscillator.start(now);
+            oscillator.stop(now + duration);
+        } catch (error) {
+            console.warn('Failed to play tone:', error);
+        }
+    }
+    
+    // Set master volume
+    setVolume(volume) {
+        this.volume = Math.max(0, Math.min(1, volume));
+        if (this.masterGain) {
+            this.masterGain.gain.value = this.volume;
+        }
+        console.log('Volume set to:', this.volume);
+    }
+    
+    // Toggle sound on/off
+    toggleMute() {
+        this.enabled = !this.enabled;
+        console.log('Sound', this.enabled ? 'enabled' : 'disabled');
+        return this.enabled;
+    }
+    
+    // Check if sound is enabled
+    isEnabled() {
+        return this.enabled && this.initialized;
+    }
+}
 
 // ============================================
 // TOWER CLASS
@@ -964,6 +1113,9 @@ class Game {
         this.bossWarning = false;
         this.bossWarningTime = 0;
         
+        // Sound system
+        this.soundManager = new SoundManager();
+        
         // Initialize grid and path
         this.initializeGrid();
         
@@ -976,6 +1128,7 @@ class Game {
         this.setupSpeedButtons();
         this.setupNextWaveButton();
         this.setupSaveLoadButtons();
+        this.setupVolumeControls();
         this.updateUI();
         this.updateWaveInfo();
     }
