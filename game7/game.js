@@ -1908,9 +1908,18 @@ class Game {
             btn.classList.remove('selected');
         });
         
+        // Reset achievement stats (but keep unlocked achievements)
+        this.achievementStats = {
+            bossKills: 0,
+            towersPlaced: 0,
+            maxUpgrade: 0
+        };
+        this.achievementNotifications = [];  // Clear notification queue
+        
         this.updateUI();
+        this.updateWaveInfo();
         this.updateTowerButtons();
-        console.log('Game reset');
+        console.log('Game reset!');
     }
     
     // ============================================
@@ -2657,8 +2666,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 16: Enhanced Wave Info Display Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Wave info panel shows real-time stats: enemies, spawns, towers, and kills!', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 17: Achievement System Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Unlock achievements as you play! Notifications appear in top-right corner.', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
