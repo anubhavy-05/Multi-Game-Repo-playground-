@@ -2680,6 +2680,7 @@ class Game {
     addGold(amount) {
         this.state.gold += amount;
         this.updateUI();
+        this.checkAchievements();  // Check gold-based achievements
     }
     
     // Spend gold
