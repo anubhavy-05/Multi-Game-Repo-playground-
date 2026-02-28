@@ -431,7 +431,86 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
   - Can add achievement menu/panel UI
 - Adds replay value and progression goals
 
-### 📋 Planned Features (8+ commits remaining)
+**Commit 18: Save/Load System**
+- Added Save/Load buttons to UI top bar:
+  - 💾 Save button (green hover effect)
+  - 📂 Load button (blue hover effect, disabled when no save exists)
+  - Buttons positioned next to speed controls
+  - Visual feedback with success animation on save/load
+- saveGame() functionality:
+  - Saves complete game state to localStorage
+  - Stored data includes:
+    - Game state (gold, mana, lives, wave, score, speed, totalKills)
+    - All unlocked achievements and achievement stats
+    - Tower placements (type, position, level)
+    - Wave state (active, complete, enemies spawned)
+    - Ability cooldown timers
+  - Version number and timestamp for save file
+  - Visual feedback: button turns green, shows "✓ Saved!" for 1.5s
+  - Console logging for debugging
+- loadGame() functionality:
+  - Loads game state from localStorage
+  - Validates save data exists
+  - Pauses game during load process
+  - Restores all game state values
+  - Recreates towers with correct types, positions, and levels
+  - Restores wave completion state and shows next wave button
+  - Restores ability cooldowns
+  - Updates all UI elements (stats, speed buttons, wave info)
+  - Visual feedback: button shows "✓ Loaded!" for 1.5s
+  - Error handling for corrupted saves
+- createTowerFromType() helper method:
+  - Creates tower instances from saved type strings
+  - Supports all 4 tower types (archer, mage, cannon, lightning)
+  - Properly positions towers on grid
+  - Returns null for unknown types
+- updateSpeedButtons() helper method:
+  - Updates visual state of speed buttons after load
+  - Ensures correct button is highlighted based on loaded speed
+- updateLoadButtonState() method:
+  - Dynamically enables/disables load button
+  - Checks for save file existence in localStorage
+  - Updates button opacity based on state
+  - Called after each save operation
+- Auto-save system:
+  - autoSave() method checks game state before saving
+  - Automatically saves after:
+    - Wave completion (in completeWave())
+    - Tower placement (in placeTower())
+    - Tower upgrade (in setupUpgradeButton())
+  - Only saves if game started and not game over
+  - Seamless background saves without interrupting gameplay
+- setupSaveLoadButtons() initialization:
+  - Sets up click event listeners for both buttons
+  - Called in constructor during game initialization
+  - Updates load button state on startup
+- localStorage integration:
+  - Save key: 'castleDefendersSave'
+  - JSON serialization/deserialization
+  - Persistent storage across browser sessions
+  - Try-catch error handling for all operations
+- UI/UX enhancements:
+  - Save button styling with green gradient on hover
+  - Load button styling with blue gradient on hover
+  - Success animation with scale pulse effect
+  - Disabled state styling for load button when no save
+  - Alert messages for errors and "no save found"
+- Grid state restoration:
+  - Marks grid cells as having towers after load
+  - Maintains buildable/unbuildable cell states
+  - Ensures towers are properly placed on grid
+- Quality of life features:
+  - No need to manually save before closing
+  - Quick save with single button click
+  - Instant game state restoration
+  - Preserves all progress and achievements
+- Foundation for future expansions:
+  - Multiple save slots support (different keys)
+  - Cloud save integration potential
+  - Save file export/import capability
+  - Save game statistics display
+
+### 📋 Planned Features (7+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
@@ -500,6 +579,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 17/25+ Complete
+**Status:** 🚧 In Development - Commit 18/25+ Complete
 
-**Last Updated:** Commit 17 - Achievement system implemented
+**Last Updated:** Commit 18 - Save/Load system implemented
