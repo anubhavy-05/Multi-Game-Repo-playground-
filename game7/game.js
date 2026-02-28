@@ -2082,6 +2082,9 @@ class Game {
             // Draw game objects
             this.drawGameObjects();
             
+            // Draw achievement notifications
+            this.drawAchievementNotifications();
+            
             // Draw pause overlay if paused
             if (this.state.isPaused) {
                 this.drawPauseOverlay();
@@ -2572,6 +2575,66 @@ class Game {
         const cell = this.getCell(this.mouse.gridX, this.mouse.gridY);
         const buildable = cell ? (cell.isBuildable ? 'Yes' : 'No') : 'N/A';
         this.ctx.fillText(`Build: ${buildable}`, 10, this.canvas.height - 10);
+    }
+    
+    // Draw achievement notifications
+    drawAchievementNotifications() {
+        const currentTime = Date.now();
+        
+        // Remove expired notifications
+        this.achievementNotifications = this.achievementNotifications.filter(notif => {
+            return (currentTime - notif.time) < notif.duration;
+        });
+        
+        // Draw active notifications
+        this.achievementNotifications.forEach((notif, index) => {
+            const achievement = notif.achievement;
+            const elapsed = currentTime - notif.time;
+            const progress = elapsed / notif.duration;
+            
+            // Slide in/out animation
+            let yOffset = 0;
+            if (progress < 0.1) {
+                // Slide in from right
+                yOffset = (1 - progress / 0.1) * 100;
+            } else if (progress > 0.9) {
+                // Slide out to right
+                yOffset = ((progress - 0.9) / 0.1) * 100;
+            }
+            
+            const x = this.canvas.width - 320 + yOffset;
+            const y = 100 + index * 90;
+            const width = 300;
+            const height = 70;
+            
+            // Background
+            this.ctx.fillStyle = 'rgba(34, 197, 94, 0.95)';
+            this.ctx.fillRect(x, y, width, height);
+            
+            // Border
+            this.ctx.strokeStyle = '#FFD700';
+            this.ctx.lineWidth = 3;
+            this.ctx.strokeRect(x, y, width, height);
+            
+            // Achievement unlocked text
+            this.ctx.fillStyle = '#FFD700';
+            this.ctx.font = 'bold 14px Arial';
+            this.ctx.textAlign = 'left';
+            this.ctx.fillText('🏆 ACHIEVEMENT UNLOCKED!', x + 10, y + 20);
+            
+            // Achievement icon and name
+            this.ctx.font = '24px Arial';
+            this.ctx.fillText(achievement.icon, x + 10, y + 50);
+            
+            this.ctx.fillStyle = '#fff';
+            this.ctx.font = 'bold 16px Arial';
+            this.ctx.fillText(achievement.name, x + 45, y + 50);
+            
+            // Description
+            this.ctx.font = '11px Arial';
+            this.ctx.fillStyle = '#e2e8f0';
+            this.ctx.fillText(achievement.description, x + 10, y + 65);
+        });
     }
     
     // Draw welcome screen
