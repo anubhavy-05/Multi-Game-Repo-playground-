@@ -457,6 +457,7 @@ class Tower {
         this.timeSinceLastShot = 0;
         this.target = null;
         this.rotation = 0;
+        this.shootRecoil = 0;  // Recoil animation when shooting
         
         // Visual effects
         this.pulsePhase = Math.random() * Math.PI * 2;
@@ -466,6 +467,12 @@ class Tower {
     update(deltaTime, enemies) {
         this.timeSinceLastShot += deltaTime / 1000;
         this.pulsePhase += deltaTime * 0.003;
+        
+        // Decay recoil animation
+        if (this.shootRecoil > 0) {
+            this.shootRecoil -= deltaTime * 0.01;
+            if (this.shootRecoil < 0) this.shootRecoil = 0;
+        }
         
         // Find target
         this.findTarget(enemies);
@@ -554,6 +561,7 @@ class Tower {
         
         // Fire!
         this.timeSinceLastShot = 0;
+        this.shootRecoil = 1;  // Trigger recoil animation
         
         // Play shoot sound
         if (game && game.soundManager) {
@@ -612,29 +620,41 @@ class Tower {
     }
     
     // Draw the tower
-    draw(ctx) {
+    draw(ctx, game) {
         const size = CONFIG.GRID_SIZE;
         const x = this.gridX * size;
         const y = this.gridY * size;
         
-        // Range indicator (when selected)
-        if (this.isSelected) {
-            ctx.fillStyle = 'rgba(100, 200, 255, 0.15)';
+        // Calculate recoil offset
+        const recoilOffset = this.shootRecoil * 3;
+        const recoilX = this.target ? -Math.cos(this.rotation) * recoilOffset : 0;
+        const recoilY = this.target ? -Math.sin(this.rotation) * recoilOffset : 0;
+        
+        // Range indicator (when selected) with animated pulse
+        if (this.isSelected && game) {
+            const pulseSize = Math.sin(game.rangeIndicatorPhase) * 5;
+            const pulseAlpha = Math.sin(game.rangeIndicatorPhase) * 0.05 + 0.15;
+            
+            ctx.fillStyle = `rgba(100, 200, 255, ${pulseAlpha})`;
             ctx.beginPath();
-            ctx.arc(this.x, this.y, this.range, 0, Math.PI * 2);
+            ctx.arc(this.x, this.y, this.range + pulseSize, 0, Math.PI * 2);
             ctx.fill();
             
-            ctx.strokeStyle = 'rgba(100, 200, 255, 0.5)';
+            ctx.strokeStyle = `rgba(100, 200, 255, ${pulseAlpha * 3})`;
             ctx.lineWidth = 2;
             ctx.stroke();
         }
+        
+        // Apply recoil to tower position
+        const towerX = this.x + recoilX;
+        const towerY = this.y + recoilY;
         
         // Tower base
         ctx.fillStyle = this.config.color;
         ctx.shadowBlur = 10;
         ctx.shadowColor = this.config.color;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, size * 0.35, 0, Math.PI * 2);
+        ctx.arc(towerX, towerY, size * 0.35, 0, Math.PI * 2);
         ctx.fill();
         ctx.shadowBlur = 0;
         
@@ -646,7 +666,7 @@ class Tower {
         // Tower barrel/targeting indicator (if has target)
         if (this.target && this.target.isAlive) {
             ctx.save();
-            ctx.translate(this.x, this.y);
+            ctx.translate(towerX, towerY);
             ctx.rotate(this.rotation);
             
             // Draw barrel
@@ -661,13 +681,13 @@ class Tower {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#fff';
-        ctx.fillText(this.config.icon, this.x, this.y);
+        ctx.fillText(this.config.icon, towerX, towerY);
         
         // Level indicator
         if (this.level > 1) {
             ctx.fillStyle = '#FFD700';
             ctx.font = 'bold 10px Arial';
-            ctx.fillText(`Lv${this.level}`, this.x, this.y + size * 0.4);
+            ctx.fillText(`Lv${this.level}`, towerX, towerY + size * 0.4);
         }
         
         // Pulse effect
@@ -675,7 +695,7 @@ class Tower {
         ctx.strokeStyle = `rgba(255, 255, 255, ${pulse * 0.5})`;
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(this.x, this.y, size * 0.35 + pulse * 5, 0, Math.PI * 2);
+        ctx.arc(towerX, towerY, size * 0.35 + pulse * 5, 0, Math.PI * 2);
         ctx.stroke();
     }
 }
@@ -1022,10 +1042,26 @@ class Enemy {
     }
     
     // Draw the enemy
-    draw(ctx) {
+    draw(ctx, game) {
         if (!this.isAlive) return;
         
         const size = this.config.size;
+        
+        // Boss aura effect
+        if (this.config.isBoss && game) {
+            const auraPulse = Math.sin(game.castlePulse * 2) * 0.3 + 0.7;
+            ctx.shadowBlur = 30 * auraPulse;
+            ctx.shadowColor = this.config.color;
+            
+            // Draw outer aura ring
+            ctx.strokeStyle = this.config.color;
+            ctx.globalAlpha = auraPulse * 0.5;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, size + 8, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.globalAlpha = 1;
+        }
         
         // Flash red when hurt
         if (this.hurtTimer > 0) {
@@ -1399,6 +1435,9 @@ class Game {
         
         // Play wave complete sound
         this.soundManager.playChord([700, 850, 1000], 0.25, 'sine', 0.3);
+        
+        // Visual effect for wave completion
+        this.triggerFlash('#4ade80', 0.2);  // Green flash
         
         // Bonus gold for completing wave
         const bonusGold = 10 + this.state.wave * 5;
@@ -2284,6 +2323,9 @@ class Game {
         // Play achievement sound
         this.soundManager.playChord([1200, 1400, 1600], 0.3, 'sine', 0.25);
         
+        // Visual effect for achievement
+        this.triggerFlash('#FFD700', 0.25);  // Gold flash
+        
         console.log(`🏆 ACHIEVEMENT UNLOCKED: ${achievement.name}`);
     }
     
@@ -2935,6 +2977,13 @@ class Game {
         const y = this.castlePoint.y * CONFIG.GRID_SIZE;
         const size = CONFIG.GRID_SIZE;
         
+        // Pulse animation for castle
+        const pulse = Math.sin(this.castlePulse) * 0.3 + 0.7;
+        
+        // Castle glow effect
+        this.ctx.shadowBlur = 15 * pulse;
+        this.ctx.shadowColor = '#FFD700';
+        
         // Castle base
         this.ctx.fillStyle = CONFIG.COLORS.CASTLE;
         this.ctx.fillRect(x + 5, y + 10, size - 10, size - 10);
@@ -2942,11 +2991,14 @@ class Game {
         // Castle tower
         this.ctx.fillRect(x + size / 2 - 8, y + 5, 16, size - 5);
         
-        // Castle flag
+        this.ctx.shadowBlur = 0;
+        
+        // Castle flag (animated waving)
+        const flagWave = Math.sin(this.castlePulse * 3) * 2;
         this.ctx.fillStyle = '#FFD700';
         this.ctx.beginPath();
         this.ctx.moveTo(x + size / 2 + 5, y + 8);
-        this.ctx.lineTo(x + size / 2 + 15, y + 12);
+        this.ctx.lineTo(x + size / 2 + 15 + flagWave, y + 12);
         this.ctx.lineTo(x + size / 2 + 5, y + 16);
         this.ctx.closePath();
         this.ctx.fill();
@@ -2959,9 +3011,9 @@ class Game {
         this.ctx.lineTo(x + size / 2 + 5, y + 20);
         this.ctx.stroke();
         
-        // Castle label
+        // Castle label with pulse effect
         this.ctx.fillStyle = '#fff';
-        this.ctx.font = 'bold 10px Arial';
+        this.ctx.font = `bold ${10 + pulse * 2}px Arial`;
         this.ctx.textAlign = 'center';
         this.ctx.fillText('🏰', x + size / 2, y + size - 5);
     }
@@ -3022,7 +3074,7 @@ class Game {
     drawGameObjects() {
         // Draw enemies
         this.enemies.forEach(enemy => {
-            enemy.draw(this.ctx);
+            enemy.draw(this.ctx, this);
         });
         
         // Draw projectiles
@@ -3037,7 +3089,7 @@ class Game {
         
         // Draw towers
         this.towers.forEach(tower => {
-            tower.draw(this.ctx);
+            tower.draw(this.ctx, this);
         });
         
         // Draw ghost tower preview
@@ -3412,8 +3464,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 20: Tower Targeting Priority Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Set individual tower targeting modes: Closest, First, Last, Strongest, Weakest!', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 21: Visual Effects Polish Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Screen shake, tower recoil, boss aura, animated castle, and more!', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
