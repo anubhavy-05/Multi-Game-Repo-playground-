@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 20: Tower targeting priority
+// Commit 21: Visual effects polish
 
 // ============================================
 // GAME CONFIGURATION
@@ -1167,6 +1167,21 @@ class Game {
         // Sound system
         this.soundManager = new SoundManager();
         
+        // Visual effects system
+        this.screenShake = {
+            intensity: 0,
+            duration: 0,
+            offsetX: 0,
+            offsetY: 0
+        };
+        this.flashEffect = {
+            active: false,
+            alpha: 0,
+            color: '#FFFFFF'
+        };
+        this.castlePulse = 0;  // Animation phase for castle
+        this.rangeIndicatorPhase = 0;  // Animation for range indicators
+        
         // Initialize grid and path
         this.initializeGrid();
         
@@ -2153,6 +2168,66 @@ class Game {
     }
     
     // ============================================
+    // VISUAL EFFECTS SYSTEM
+    // ============================================
+    
+    // Trigger screen shake effect
+    addScreenShake(intensity, duration) {
+        this.screenShake.intensity = intensity;
+        this.screenShake.duration = duration;
+    }
+    
+    // Update screen shake
+    updateScreenShake(deltaTime) {
+        if (this.screenShake.duration > 0) {
+            this.screenShake.duration -= deltaTime;
+            
+            // Calculate shake offset
+            const progress = this.screenShake.duration / 1000;  // Normalize to 0-1
+            const currentIntensity = this.screenShake.intensity * progress;
+            
+            this.screenShake.offsetX = (Math.random() - 0.5) * currentIntensity;
+            this.screenShake.offsetY = (Math.random() - 0.5) * currentIntensity;
+        } else {
+            this.screenShake.offsetX = 0;
+            this.screenShake.offsetY = 0;
+        }
+    }
+    
+    // Trigger flash effect
+    triggerFlash(color = '#FFFFFF', alpha = 0.3) {
+        this.flashEffect.active = true;
+        this.flashEffect.alpha = alpha;
+        this.flashEffect.color = color;
+    }
+    
+    // Update flash effect
+    updateFlashEffect(deltaTime) {
+        if (this.flashEffect.active) {
+            this.flashEffect.alpha -= deltaTime / 200;  // Fade out over 200ms
+            if (this.flashEffect.alpha <= 0) {
+                this.flashEffect.active = false;
+                this.flashEffect.alpha = 0;
+            }
+        }
+    }
+    
+    // Update visual effects animations
+    updateVisualEffects(deltaTime) {
+        // Update screen shake
+        this.updateScreenShake(deltaTime);
+        
+        // Update flash effect
+        this.updateFlashEffect(deltaTime);
+        
+        // Update castle pulse animation
+        this.castlePulse += deltaTime * 0.002;
+        
+        // Update range indicator animation
+        this.rangeIndicatorPhase += deltaTime * 0.003;
+    }
+    
+    // ============================================
     // ACHIEVEMENT SYSTEM
     // ============================================
     
@@ -2268,6 +2343,10 @@ class Game {
     // Cast meteor strike at target location
     castMeteor(x, y) {
         const config = CONFIG.ABILITIES.meteor;
+        
+        // Screen shake and flash for meteor impact
+        this.addScreenShake(15, 400);  // Medium shake for 400ms
+        this.triggerFlash('#FF4500', 0.25);  // Orange flash
         
         // Create meteor particles falling from sky
         for (let i = 0; i < 20; i++) {
@@ -2670,6 +2749,9 @@ class Game {
                 // Play death sound (different for boss)
                 if (wasBoss) {
                     this.soundManager.playSound('bossDeath');
+                    // Screen shake and flash for boss death
+                    this.addScreenShake(20, 500);  // Intense shake for 500ms
+                    this.triggerFlash('#FFD700', 0.3);  // Gold flash
                 } else {
                     this.soundManager.playSound('enemyDeath');
                 }
@@ -2707,12 +2789,19 @@ class Game {
                 this.particles.splice(i, 1);
             }
         }
+        
+        // Update visual effects
+        this.updateVisualEffects(adjustedDeltaTime);
     }
     
     // Render everything
     render() {
         // Clear canvas
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        
+        // Apply screen shake
+        this.ctx.save();
+        this.ctx.translate(this.screenShake.offsetX, this.screenShake.offsetY);
         
         // Draw background
         this.drawBackground();
@@ -2744,6 +2833,17 @@ class Game {
             if (this.state.isPaused) {
                 this.drawPauseOverlay();
             }
+        }
+        
+        // Restore context after screen shake
+        this.ctx.restore();
+        
+        // Draw flash effect (on top of everything, not affected by shake)
+        if (this.flashEffect.active) {
+            this.ctx.fillStyle = this.flashEffect.color;
+            this.ctx.globalAlpha = this.flashEffect.alpha;
+            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.globalAlpha = 1;
         }
         
         // Draw FPS counter (debug)
