@@ -733,7 +733,138 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
   - Per-tower-type default priorities
   - Macro commands (set all towers to X priority)
 
-### 📋 Planned Features (6+ commits remaining)
+**Commit 21: Visual Effects Polish**
+- Added visual effects system to Game class:
+  - screenShake object with intensity, duration, offsetX, offsetY properties
+  - flashEffect object with active, alpha, color properties
+  - castlePulse animation phase for castle breathing effect
+  - rangeIndicatorPhase for pulsing tower range circles
+  - Tracks multiple animation states independently
+- Screen shake system:
+  - addScreenShake(intensity, duration) method to trigger shake
+  - updateScreenShake() method for smooth decay animation
+  - Intensity decreases linearly over duration
+  - Random offset in X and Y directions
+  - Applied via ctx.translate() in render method
+  - Affects entire game view except UI overlay
+  - Shake magnitude proportional to event importance
+- Flash effect system:
+  - triggerFlash(color, alpha) method to trigger screen flash
+  - updateFlashEffect() method for fade-out animation
+  - Drawn as fullscreen overlay after game content
+  - Fades out over 200ms
+  - Color-coded by event type (gold, orange, green, red)
+  - Not affected by screen shake (always fullscreen)
+- updateVisualEffects() method:
+  - Called every frame in update loop
+  - Updates screen shake, flash, pulse animations
+  - Centralized animation management
+  - Runs at adjusted delta time (respects game speed)
+- Tower shooting recoil animation:
+  - Added shootRecoil property to Tower class (0-1 range)
+  - Set to 1 when tower fires projectile
+  - Decays over time in tower.update()
+  - Offsets tower sprite backwards along firing direction
+  - 3-pixel maximum recoil displacement
+  - Smooth decay creates kickback feel
+  - Barrel and icon move together
+  - Level indicator follows tower position
+- Animated tower range indicators:
+  - Range circles pulse when tower selected
+  - Pulsing size: ±5 pixels
+  - Pulsing opacity: 0.15-0.2 alpha
+  - Uses game.rangeIndicatorPhase for sync
+  - All selected towers pulse in unison
+  - More dynamic visual feedback
+  - Easy to see tower coverage area
+- Tower draw method enhancements:
+  - Updated signature to draw(ctx, game)
+  - Receives game reference for animation phases
+  - Calculates recoil offset based on rotation
+  - Applies recoil to all tower visuals
+  - Range indicator uses animated pulse
+  - Maintains all existing visuals (icon, level, border)
+- Boss enemy aura effect:
+  - Checks config.isBoss in enemy draw method
+  - Pulsing glow with shadowBlur (up to 30px)
+  - Outer aura ring drawn outside boss sprite
+  - Synchronizes with castle pulse animation
+  - Color matches boss color (#FF0066)
+  - Alpha pulses between 0.35-0.7
+  - Makes boss visually intimidating
+  - Clearly distinguishes boss from regular enemies
+- Enemy draw method updated:
+  - Updated signature to draw(ctx, game)
+  - Boss aura drawn before main sprite
+  - Uses game.castlePulse for animation sync
+  - All existing features preserved (hurt flash, health bar)
+- Castle pulse animation:
+  - Breathing glow effect with shadowBlur
+  - Flag waves in the wind (sine wave motion)
+  - Castle icon pulses in size (10-12px font)
+  - Golden glow color (#FFD700)
+  - Pulse intensity 0.7-1.0 multiplier
+  - Makes castle feel alive and important
+  - Draws player's attention to what they're defending
+- Screen shake triggers:
+  - **Boss death**: 20 intensity, 500ms duration (intense)
+  - **Meteor strike**: 15 intensity, 400ms duration (medium)
+  - Proportional to event impact
+  - Makes epic moments feel powerful
+  - Player feedback for important events
+- Flash effect triggers:
+  - **Boss death**: Gold flash (#FFD700, 0.3 alpha)
+  - **Meteor strike**: Orange flash (#FF4500, 0.25 alpha)
+  - **Wave complete**: Green flash (#4ade80, 0.2 alpha)
+  - **Achievement unlock**: Gold flash (#FFD700, 0.25 alpha)
+  - Color-coded for instant event recognition
+  - Subtle alpha values prevent blinding effect
+- Rendering system updates:
+  - Apply screen shake with ctx.save()/translate()/restore()
+  - Flash drawn after restore (unaffected by shake)
+  - Flash uses globalAlpha for proper transparency
+  - Debug info drawn after all effects (always stable)
+  - Context properly restored between effects
+- Visual feedback integration:
+  - Boss battles feel epic with shake/flash/aura
+  - Wave completion celebrated with green flash
+  - Achievements feel rewarding with gold flash
+  - Meteor strikes have visceral impact
+  - Tower shooting feels responsive with recoil
+  - Castle feels alive and important
+  - Range indicators easier to see
+- Performance considerations:
+  - All effects use simple draw operations
+  - No additional textures or sprites needed
+  - Minimal CPU overhead (basic math)
+  - Effects don't impact gameplay logic
+  - Smooth at 60 FPS even with many effects
+- Animation synchronization:
+  - Castle and boss aura share pulse phase
+  - Range indicators use separate phase
+  - Tower recoil independent per tower
+  - Screen shake temporary and independent
+  - Flash effect temporary and independent
+- Welcome screen updated:
+  - Shows "Commit 21: Visual Effects Polish Active ✓"
+  - Description: "Screen shake, tower recoil, boss aura, animated castle, and more!"
+  - Highlights new visual improvements
+- Enhanced game feel:
+  - Professional polish level
+  - Juice and impact on every action
+  - Visual hierarchy (important events = bigger effects)
+  - Player satisfaction increased
+  - Game feels more dynamic and alive
+- Foundation for future expansions:
+  - Particle system enhancements
+  - More complex camera effects (zoom, rotation)
+  - Hit-stop/freeze frames on big hits
+  - Color grading for different game states
+  - Post-processing effects
+  - Screen distortion effects
+  - Slow-motion on critical moments
+
+### 📋 Planned Features (5+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
@@ -802,6 +933,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 20/25+ Complete
+**Status:** 🚧 In Development - Commit 21/25+ Complete
 
-**Last Updated:** Commit 20 - Tower targeting priority system implemented
+**Last Updated:** Commit 21 - Visual effects polish implemented
