@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 19: Sound effects system
+// Commit 20: Tower targeting priority
 
 // ============================================
 // GAME CONFIGURATION
@@ -450,6 +450,9 @@ class Tower {
         this.fireRate = this.config.fireRate;
         this.cost = this.config.cost;
         
+        // Targeting priority: 'closest', 'first', 'last', 'strongest', 'weakest'
+        this.targetPriority = 'closest';
+        
         // Shooting logic
         this.timeSinceLastShot = 0;
         this.target = null;
@@ -484,23 +487,60 @@ class Tower {
         
         // Find new target if we don't have one
         if (!this.target) {
-            let closestDistance = Infinity;
-            let closestEnemy = null;
+            const enemiesInRange = enemies.filter(e => e.isAlive && this.isInRange(e));
             
-            enemies.forEach(enemy => {
-                if (enemy.isAlive && this.isInRange(enemy)) {
-                    const dx = enemy.x - this.x;
-                    const dy = enemy.y - this.y;
-                    const distance = Math.sqrt(dx * dx + dy * dy);
+            if (enemiesInRange.length === 0) return;
+            
+            // Apply targeting priority
+            switch(this.targetPriority) {
+                case 'first':
+                    // Target enemy closest to end (highest waypoint index)
+                    this.target = enemiesInRange.reduce((best, enemy) => 
+                        enemy.waypointIndex > best.waypointIndex ? enemy : best
+                    );
+                    break;
                     
-                    if (distance < closestDistance) {
-                        closestDistance = distance;
-                        closestEnemy = enemy;
-                    }
-                }
-            });
-            
-            this.target = closestEnemy;
+                case 'last':
+                    // Target enemy furthest from end (lowest waypoint index)
+                    this.target = enemiesInRange.reduce((best, enemy) => 
+                        enemy.waypointIndex < best.waypointIndex ? enemy : best
+                    );
+                    break;
+                    
+                case 'strongest':
+                    // Target enemy with most health
+                    this.target = enemiesInRange.reduce((best, enemy) => 
+                        enemy.health > best.health ? enemy : best
+                    );
+                    break;
+                    
+                case 'weakest':
+                    // Target enemy with least health
+                    this.target = enemiesInRange.reduce((best, enemy) => 
+                        enemy.health < best.health ? enemy : best
+                    );
+                    break;
+                    
+                case 'closest':
+                default:
+                    // Target enemy closest to tower (default behavior)
+                    let closestDistance = Infinity;
+                    let closestEnemy = null;
+                    
+                    enemiesInRange.forEach(enemy => {
+                        const dx = enemy.x - this.x;
+                        const dy = enemy.y - this.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < closestDistance) {
+                            closestDistance = distance;
+                            closestEnemy = enemy;
+                        }
+                    });
+                    
+                    this.target = closestEnemy;
+                    break;
+            }
         }
     }
     
@@ -1140,6 +1180,7 @@ class Game {
         this.setupNextWaveButton();
         this.setupSaveLoadButtons();
         this.setupVolumeControls();
+        this.setupPriorityButtons();
         this.updateUI();
         this.updateWaveInfo();
     }
@@ -1813,7 +1854,8 @@ class Game {
                     y: tower.y,
                     gridX: tower.gridX,
                     gridY: tower.gridY,
-                    level: tower.level
+                    level: tower.level,
+                    targetPriority: tower.targetPriority
                 })),
                 waveState: {
                     waveActive: this.waveActive,
@@ -1900,6 +1942,10 @@ class Game {
                         // Upgrade tower to saved level
                         for (let i = 1; i < towerData.level; i++) {
                             tower.upgrade();
+                        }
+                        // Restore targeting priority
+                        if (towerData.targetPriority) {
+                            tower.targetPriority = towerData.targetPriority;
                         }
                         this.towers.push(tower);
                         this.grid[towerData.gridY][towerData.gridX].hasTower = true;
@@ -2054,6 +2100,56 @@ class Game {
         }
         
         console.log('Volume controls setup complete');
+    }
+    
+    // ============================================
+    // TOWER TARGETING PRIORITY
+    // ============================================
+    
+    // Setup priority buttons
+    setupPriorityButtons() {
+        const priorityButtons = document.querySelectorAll('.priority-btn');
+        
+        priorityButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                // Initialize sound system on first interaction
+                if (!this.soundManager.initialized) {
+                    this.soundManager.init();
+                }
+                
+                if (!this.selectedTower) return;
+                
+                const priority = btn.getAttribute('data-priority');
+                this.selectedTower.targetPriority = priority;
+                
+                // Update UI to reflect active priority
+                this.updatePriorityUI();
+                
+                // Play sound
+                this.soundManager.playSound('buttonClick');
+                
+                console.log(`Tower targeting priority set to: ${priority}`);
+            });
+        });
+        
+        console.log('Priority buttons setup complete');
+    }
+    
+    // Update priority UI
+    updatePriorityUI() {
+        if (!this.selectedTower) return;
+        
+        const priorityButtons = document.querySelectorAll('.priority-btn');
+        const currentPriority = this.selectedTower.targetPriority;
+        
+        priorityButtons.forEach(btn => {
+            const priority = btn.getAttribute('data-priority');
+            if (priority === currentPriority) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+        });
     }
     
     // ============================================
@@ -3216,8 +3312,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 19: Sound Effects System Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Enjoy immersive audio! Control volume with slider in top bar.', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 20: Tower Targeting Priority Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Set individual tower targeting modes: Closest, First, Last, Strongest, Weakest!', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
@@ -3296,6 +3392,9 @@ class Game {
         if (sellValueSpan) {
             sellValueSpan.textContent = `💰 ${sellValue}`;
         }
+        
+        // Update targeting priority UI
+        this.updatePriorityUI();
     }
     
     // Add gold
