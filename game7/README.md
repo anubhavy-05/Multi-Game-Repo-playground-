@@ -510,7 +510,102 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
   - Save file export/import capability
   - Save game statistics display
 
-### 📋 Planned Features (7+ commits remaining)
+**Commit 19: Sound Effects System**
+- Added CONFIG.SOUNDS configuration object:
+  - Master volume control (default 0.3)
+  - 15 different sound effects defined:
+    - **towerShoot**: Tower firing projectile (440Hz square wave)
+    - **enemyHit**: Enemy taking damage (200Hz sawtooth)
+    - **enemyDeath**: Regular enemy death (150Hz triangle)
+    - **towerPlace**: Tower placement (600Hz sine)
+    - **towerUpgrade**: Tower upgrade (800Hz sine)
+    - **towerSell**: Tower selling (300Hz triangle)
+    - **waveComplete**: Wave completion (chord: 700-850-1000Hz)
+    - **waveStart**: Wave start (500Hz square)
+    - **abilityUse**: Ability activation (900Hz sine)
+    - **goldCollect**: Gold earned (1000Hz sine)
+    - **bossWarning**: Boss wave warning (100Hz sawtooth)
+    - **bossDeath**: Boss defeated (120Hz triangle)
+    - **gameOver**: Game over (180Hz sawtooth)
+    - **achievement**: Achievement unlocked (chord: 1200-1400-1600Hz)
+    - **buttonClick**: UI button clicks (600Hz square)
+  - Each sound has custom frequency, duration, waveform type, and volume
+- Created SoundManager class:
+  - Web Audio API implementation for synthesized sounds
+  - Lazy initialization on first user interaction (browser requirement)
+  - audioContext and masterGain node management
+  - playSound() method for predefined effects
+  - playChord() method for multiple frequencies (achievements, wave complete)
+  - playSingleTone() helper for custom tone generation
+  - setVolume() for master volume control (0-1 range)
+  - toggleMute() to enable/disable all sounds
+  - isEnabled() status check method
+  - Oscillator types: sine, square, triangle, sawtooth
+  - Volume envelopes with attack and decay for natural sound
+  - Error handling for unsupported browsers
+- Sound integration throughout game:
+  - **Tower shooting**: Plays on projectile creation
+  - **Enemy hit**: Plays in takeDamage() method
+  - **Enemy death**: Different sounds for regular enemies vs bosses
+  - **Tower placement**: Plays when tower successfully placed
+  - **Tower upgrade**: Plays on successful upgrade
+  - **Tower selling**: Plays when tower sold
+  - **Wave start**: Plays when wave begins
+  - **Boss warning**: Plays when boss wave detected
+  - **Wave complete**: Musical chord progression
+  - **Ability use**: Plays when ability activated
+  - **Achievement unlock**: Triumphant chord sequence
+  - **Game over**: Low ominous tone
+  - **Button clicks**: All UI buttons (towers, abilities, speed, save/load, wave start)
+- Volume controls UI:
+  - Added volume-controls div in top bar
+  - 🔊 Mute button (toggles to 🔇 when muted)
+  - Volume slider (0-100 range, default 30)
+  - Positioned in top-right after save/load buttons
+  - Purple gradient hover effects
+  - Red gradient when muted
+  - Circular slider thumb with purple gradient
+  - Hover animations on all controls
+- setupVolumeControls() method:
+  - Initializes sound system on first button click
+  - Mute button toggles sound enabled state
+  - Visual feedback (emoji and color change)
+  - Volume slider updates master volume in real-time
+  - Auto-updates mute button when volume reaches 0
+  - Plays button click sound on slider release
+  - Console logging for debugging
+- Sound system features:
+  - No external audio files required (100% synthesized)
+  - Extremely lightweight (no asset loading)
+  - Instant sound generation with no latency
+  - Cross-browser compatible (Web Audio API)
+  - Graceful degradation if audio not supported
+  - Lazy initialization prevents autoplay issues
+  - All sounds triggered by user actions
+  - Volume controls accessible at all times
+- Audio architecture:
+  - Master gain node for global volume control
+  - Individual oscillators for each sound
+  - Envelope shaping for professional sound quality
+  - Multiple sound effects can play simultaneously
+  - Automatic cleanup of completed oscillators
+  - Memory efficient (no audio buffers)
+- Enhanced user experience:
+  - Audio feedback for all major actions
+  - Different sounds create distinct game feel
+  - Boss encounters more dramatic with sound
+  - Achievements feel rewarding with chords
+  - Volume controls respect user preferences
+  - Mute option for silent gameplay
+  - Immersive audio-visual experience
+- Foundation for future expansions:
+  - Music tracks support (different AudioContext nodes)
+  - Sound effect variations
+  - 3D positional audio for spatial effects
+  - Sound effect presets/themes
+  - Per-category volume controls
+
+### 📋 Planned Features (6+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
@@ -579,6 +674,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 18/25+ Complete
+**Status:** 🚧 In Development - Commit 19/25+ Complete
 
-**Last Updated:** Commit 18 - Save/Load system implemented
+**Last Updated:** Commit 19 - Sound effects system implemented
