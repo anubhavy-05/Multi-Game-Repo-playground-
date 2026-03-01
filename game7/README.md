@@ -605,6 +605,134 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
   - Sound effect presets/themes
   - Per-category volume controls
 
+**Commit 20: Tower Targeting Priority System**
+- Added targetPriority property to Tower class:
+  - New property stores targeting mode for each tower
+  - Default priority: 'closest' (standard targeting)
+  - 5 different priority modes available
+  - Individual setting per tower (not global)
+  - Persisted in save/load system
+- Rewrote findTarget() method with priority modes:
+  - **'closest'**: Targets nearest enemy (default)
+    - Calculates Euclidean distance to all in-range enemies
+    - Selects enemy with minimum distance
+    - Best for general-purpose defense
+  - **'first'**: Targets enemy closest to endpoint
+    - Finds enemy with highest waypointIndex
+    - Prioritizes enemies about to breach castle
+    - Prevents enemies from slipping through
+    - Strategic for high-traffic lanes
+  - **'last'**: Targets enemy furthest from endpoint
+    - Finds enemy with lowest waypointIndex
+    - Focuses on newly spawned enemies
+    - Good for slowing waves early
+    - Prevents wave buildup
+  - **'strongest'**: Targets enemy with most health
+    - Finds enemy with highest current health
+    - Focus fire on tanks and bosses
+    - Maximizes damage efficiency on tough enemies
+    - Ideal for high-DPS towers
+  - **'weakest'**: Targets enemy with least health
+    - Finds enemy with lowest current health
+    - Quickly eliminates low-health enemies
+    - Maximizes kill count and gold income
+    - Efficient cleanup strategy
+  - Uses Array.reduce() for efficient single-pass targeting
+  - Filters enemies by range first, then applies priority logic
+  - Switch statement for clean priority mode handling
+  - Fallback to null if no valid targets
+- Targeting priority UI in tower upgrade panel:
+  - .targeting-priority section added to upgrade panel
+  - Positioned between tower stats and upgrade button
+  - "🎯 Target Priority:" label with icon
+  - 5 priority buttons in 3-column grid layout:
+    - **Close** (📍): Closest enemy targeting
+    - **First** (🏃): Enemy nearest to end
+    - **Last** (🚶): Enemy furthest from end
+    - **Strong** (💪): Highest health enemy
+    - **Weak** (🤕): Lowest health enemy
+  - Each button has data-priority attribute for event handling
+  - Tooltip titles on hover explaining each mode
+  - Visual icons for quick recognition
+  - Compact layout fits naturally in upgrade panel
+- Priority button styling (styles.css):
+  - Dark background with glassmorphism effect
+  - Slate blue gradient on normal state
+  - Cyan gradient on hover with lift animation
+  - Purple gradient for active priority mode
+  - Glowing box shadow on active button
+  - Border and color transitions (0.2s ease)
+  - Responsive grid layout (3 columns)
+  - Small font size for compact design
+  - Clear visual hierarchy with borders
+- setupPriorityButtons() method:
+  - Queries all .priority-btn elements
+  - Adds click event listeners to each button
+  - Initializes sound system on first interaction
+  - Updates selectedTower.targetPriority on click
+  - Calls updatePriorityUI() to reflect changes
+  - Plays button click sound for feedback
+  - Console logging for debugging
+  - Only works when tower is selected
+- updatePriorityUI() method:
+  - Checks if tower is currently selected
+  - Queries all priority buttons
+  - Compares each button's data-priority with tower priority
+  - Adds .active class to matching button
+  - Removes .active class from non-matching buttons
+  - Called whenever tower selection changes
+  - Called from updateUpgradeUI() method
+  - Visual feedback shows current targeting mode
+- Integration with existing systems:
+  - Called setupPriorityButtons() in Game constructor
+  - updateUpgradeUI() calls updatePriorityUI() automatically
+  - Priority UI updates when tower selected
+  - Priority buttons disabled when no tower selected
+  - Works seamlessly with upgrade panel visibility
+  - Priority persists through tower upgrades
+- Save/load priority state:
+  - saveGame() includes targetPriority in tower data
+  - Tower objects saved with: type, position, level, targetPriority
+  - loadGame() restores targetPriority property
+  - Priority restored after tower level upgrades
+  - Conditional check for backward compatibility
+  - Old saves default to 'closest' if priority missing
+  - Full state persistence for targeting strategies
+- Strategic gameplay depth:
+  - **Early game**: Use 'last' priority to slow waves at spawn
+  - **Mid game**: Mix 'closest' and 'first' for balanced defense
+  - **Late game**: Use 'strongest' on DPS towers, 'weakest' on rapid-fire
+  - **Boss waves**: Switch high-DPS towers to 'strongest' priority
+  - **Multiple lanes**: Use 'first' priority on final defense towers
+  - **Economy builds**: Use 'weakest' to maximize gold from kills
+  - Micro-management for advanced players
+  - Customize each tower's behavior individually
+  - Adapt strategy to enemy composition
+  - No one-size-fits-all solution
+- Enhanced tower AI:
+  - More intelligent targeting decisions
+  - Player control over tower behavior
+  - Reduces frustration from towers targeting "wrong" enemies
+  - Allows strategic focus fire
+  - Better handling of mixed enemy waves
+  - Foundation for advanced tactics
+- User experience improvements:
+  - Clear visual feedback (active button highlighted)
+  - Intuitive icons and labels
+  - Integrated smoothly in upgrade panel
+  - No extra clicks needed (one-click priority change)
+  - Sound feedback on button clicks
+  - Priority persists across sessions
+  - Respects player strategic decisions
+- Foundation for future expansions:
+  - Custom priority targeting (percentage-based)
+  - Priority presets (save/load priority configs)
+  - Auto-priority based on wave composition
+  - Advanced targeting filters (air units only, bosses only)
+  - Visual targeting lines in debug mode
+  - Per-tower-type default priorities
+  - Macro commands (set all towers to X priority)
+
 ### 📋 Planned Features (6+ commits remaining)
 
 2. Game class and core initialization
