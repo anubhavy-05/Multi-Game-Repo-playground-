@@ -514,6 +514,12 @@ class Tower {
         
         // Fire!
         this.timeSinceLastShot = 0;
+        
+        // Play shoot sound
+        if (game && game.soundManager) {
+            game.soundManager.playSound('towerShoot');
+        }
+        
         return new Projectile(this.x, this.y, this.target, this, game);
     }
     
@@ -1335,6 +1341,9 @@ class Game {
         this.waveComplete = true;
         this.state.wave++;
         
+        // Play wave complete sound
+        this.soundManager.playChord([700, 850, 1000], 0.25, 'sine', 0.3);
+        
         // Bonus gold for completing wave
         const bonusGold = 10 + this.state.wave * 5;
         this.addGold(bonusGold);
@@ -1475,11 +1484,19 @@ class Game {
         
         towerButtons.forEach(btn => {
             btn.addEventListener('click', () => {
+                // Initialize sound on first interaction
+                if (!this.soundManager.initialized) {
+                    this.soundManager.init();
+                }
+                
                 const towerType = btn.dataset.tower;
                 const towerConfig = CONFIG.TOWER_TYPES[towerType];
                 
                 // Check if player can afford it
                 if (this.state.gold >= towerConfig.cost) {
+                    // Play button click sound
+                    this.soundManager.playSound('buttonClick');
+                    
                     // Deselect all buttons
                     towerButtons.forEach(b => b.classList.remove('selected'));
                     
@@ -1533,11 +1550,19 @@ class Game {
             
             // Check if can upgrade and afford
             if (this.selectedTower.canUpgrade() && this.state.gold >= cost) {
+                // Initialize sound on first interaction
+                if (!this.soundManager.initialized) {
+                    this.soundManager.init();
+                }
+                
                 // Deduct cost
                 this.spendGold(cost);
                 
                 // Upgrade tower
                 this.selectedTower.upgrade();
+                
+                // Play upgrade sound
+                this.soundManager.playSound('towerUpgrade');
                 
                 // Check if tower reached max level for achievement
                 if (this.selectedTower.level === CONFIG.UPGRADE.MAX_LEVEL) {
@@ -1565,8 +1590,16 @@ class Game {
         sellBtn.addEventListener('click', () => {
             if (!this.selectedTower) return;
             
+            // Initialize sound on first interaction
+            if (!this.soundManager.initialized) {
+                this.soundManager.init();
+            }
+            
             // Get sell value
             const sellValue = this.selectedTower.getSellValue();
+            
+            // Play sell sound
+            this.soundManager.playSound('towerSell');
             
             // Add gold back to player
             this.addGold(sellValue);
@@ -1609,6 +1642,11 @@ class Game {
         
         abilityButtons.forEach(btn => {
             btn.addEventListener('click', () => {
+                // Initialize sound on first interaction
+                if (!this.soundManager.initialized) {
+                    this.soundManager.init();
+                }
+                
                 const abilityType = btn.dataset.ability;
                 
                 // Special case for meteor - requires targeting
@@ -1629,7 +1667,15 @@ class Game {
         
         speedButtons.forEach(btn => {
             btn.addEventListener('click', () => {
+                // Initialize sound on first interaction
+                if (!this.soundManager.initialized) {
+                    this.soundManager.init();
+                }
+                
                 const speed = parseInt(btn.dataset.speed);
+                
+                // Play button click sound
+                this.soundManager.playSound('buttonClick');
                 
                 // Update speed multiplier
                 this.state.speedMultiplier = speed;
@@ -1652,6 +1698,12 @@ class Game {
         
         nextWaveBtn.addEventListener('click', () => {
             if (this.waveComplete && !this.waveActive && !this.state.gameOver) {
+                // Initialize sound on first interaction
+                if (!this.soundManager.initialized) {
+                    this.soundManager.init();
+                }
+                
+                this.soundManager.playSound('buttonClick');
                 this.hideNextWaveButton();
                 this.startWave();
             }
@@ -1699,12 +1751,24 @@ class Game {
         
         if (saveBtn) {
             saveBtn.addEventListener('click', () => {
+                // Initialize sound on first interaction
+                if (!this.soundManager.initialized) {
+                    this.soundManager.init();
+                }
+                
+                this.soundManager.playSound('buttonClick');
                 this.saveGame();
             });
         }
         
         if (loadBtn) {
             loadBtn.addEventListener('click', () => {
+                // Initialize sound on first interaction
+                if (!this.soundManager.initialized) {
+                    this.soundManager.init();
+                }
+                
+                this.soundManager.playSound('buttonClick');
                 this.loadGame();
             });
         }
@@ -2098,6 +2162,9 @@ class Game {
             ability.timeRemaining = config.duration;
         }
         
+        // Play ability sound
+        this.soundManager.playSound('abilityUse');
+        
         console.log(`Activated ${config.name}!`);
         this.updateAbilityButtons();
     }
@@ -2285,6 +2352,9 @@ class Game {
         // Create tower
         const tower = new Tower(gridX, gridY, type);
         this.towers.push(tower);
+        
+        // Play tower placement sound
+        this.soundManager.playSound('towerPlace');
         
         // Update grid
         const cell = this.getCell(gridX, gridY);
@@ -2500,6 +2570,13 @@ class Game {
                 
                 // Create gold particles
                 this.createGoldParticles(enemy);
+                
+                // Play death sound (different for boss)
+                if (wasBoss) {
+                    this.soundManager.playSound('bossDeath');
+                } else {
+                    this.soundManager.playSound('enemyDeath');
+                }
                 
                 // Apply gold rush multiplier
                 const goldMultiplier = this.abilities.goldRush.isActive ? CONFIG.ABILITIES.goldRush.multiplier : 1;
@@ -3139,8 +3216,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 18: Save/Load System Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Your progress is auto-saved! Use Save/Load buttons in top-right corner.', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 19: Sound Effects System Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Enjoy immersive audio! Control volume with slider in top bar.', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
