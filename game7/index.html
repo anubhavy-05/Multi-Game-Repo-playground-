@@ -106,6 +106,16 @@
                         <div id="tower-range" class="upgrade-stat">🎯 Range: 0</div>
                         <div id="tower-fire-rate" class="upgrade-stat">⚡ Fire Rate: 0</div>
                     </div>
+                    <div class="targeting-priority">
+                        <label class="priority-label">🎯 Target Priority:</label>
+                        <div class="priority-buttons">
+                            <button class="priority-btn active" data-priority="closest" title="Target nearest enemy">📍 Close</button>
+                            <button class="priority-btn" data-priority="first" title="Target enemy closest to end">🏃 First</button>
+                            <button class="priority-btn" data-priority="last" title="Target enemy furthest from end">🚶 Last</button>
+                            <button class="priority-btn" data-priority="strongest" title="Target enemy with most HP">💪 Strong</button>
+                            <button class="priority-btn" data-priority="weakest" title="Target enemy with least HP">🤕 Weak</button>
+                        </div>
+                    </div>
                     <button id="upgrade-btn" class="upgrade-btn">
                         <span>⬆️ Upgrade</span>
                         <span id="upgrade-cost" class="upgrade-cost">💰0</span>
