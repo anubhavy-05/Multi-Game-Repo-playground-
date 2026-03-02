@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 21: Visual effects polish
+// Commit 22: Advanced difficulty progression
 
 // ============================================
 // GAME CONFIGURATION
@@ -30,6 +30,45 @@ const CONFIG = {
     WAVE_SPAWN_DELAY: 2000,  // ms between enemy spawns
     WAVE_INTERVAL: 5000,     // ms between waves
     BOSS_WAVE_INTERVAL: 5,   // Boss appears every 5 waves
+    
+    // Difficulty progression
+    DIFFICULTY: {
+        // Enemy scaling per wave
+        HEALTH_SCALING: 0.15,        // 15% health increase per wave
+        SPEED_SCALING: 0.02,         // 2% speed increase per wave
+        GOLD_SCALING: 0.10,          // 10% gold increase per wave
+        
+        // Wave composition (enemy count scaling)
+        BASE_ENEMIES: 5,             // Starting enemies in wave 1
+        ENEMIES_PER_WAVE: 2,         // Additional enemies per wave
+        MAX_ENEMIES_PER_WAVE: 50,    // Cap on enemies per wave
+        
+        // Spawn rate progression
+        MIN_SPAWN_DELAY: 800,        // Fastest spawn rate (ms)
+        SPAWN_DELAY_REDUCTION: 50,   // Decrease spawn delay per wave (ms)
+        
+        // Enemy type unlock waves
+        FAST_UNLOCK_WAVE: 2,         // Fast enemies appear wave 2+
+        TANK_UNLOCK_WAVE: 3,         // Tank enemies appear wave 3+
+        FLYING_UNLOCK_WAVE: 5,       // Flying enemies appear wave 5+
+        
+        // Enemy composition weights (higher = more common)
+        ENEMY_WEIGHTS: {
+            basic: { early: 70, mid: 40, late: 20 },    // Waves 1-5, 6-15, 16+
+            fast: { early: 30, mid: 30, late: 25 },
+            tank: { early: 0, mid: 20, late: 30 },
+            flying: { early: 0, mid: 10, late: 25 }
+        },
+        
+        // Boss scaling
+        BOSS_HEALTH_MULTIPLIER: 10,  // Boss has 10x normal health
+        BOSS_SPEED_MULTIPLIER: 0.7,  // Boss is 30% slower
+        BOSS_GOLD_MULTIPLIER: 5,     // Boss gives 5x gold
+        
+        // Wave rewards scaling
+        BASE_WAVE_GOLD: 10,          // Base gold for completing wave
+        WAVE_GOLD_PER_WAVE: 5        // Additional gold per wave number
+    },
     
     // Colors
     COLORS: {
@@ -966,11 +1005,23 @@ class Enemy {
         this.config = CONFIG.ENEMY_TYPES[type];
         this.wave = wave;
         
-        // Enemy stats
-        this.maxHealth = this.config.health * (1 + wave * 0.15);  // Scale with wave
+        // Apply difficulty scaling to stats
+        const healthMultiplier = 1 + (wave * CONFIG.DIFFICULTY.HEALTH_SCALING);
+        const speedMultiplier = 1 + (wave * CONFIG.DIFFICULTY.SPEED_SCALING);
+        const goldMultiplier = 1 + (wave * CONFIG.DIFFICULTY.GOLD_SCALING);
+        
+        // Boss gets extra scaling
+        if (this.config.isBoss) {
+            this.maxHealth = this.config.health * healthMultiplier * CONFIG.DIFFICULTY.BOSS_HEALTH_MULTIPLIER;
+            this.speed = this.config.speed * CONFIG.DIFFICULTY.BOSS_SPEED_MULTIPLIER;  // Bosses don't get speed scaling
+            this.goldReward = Math.floor(this.config.goldReward * goldMultiplier * CONFIG.DIFFICULTY.BOSS_GOLD_MULTIPLIER);
+        } else {
+            this.maxHealth = this.config.health * healthMultiplier;
+            this.speed = this.config.speed * speedMultiplier;
+            this.goldReward = Math.floor(this.config.goldReward * goldMultiplier);
+        }
+        
         this.health = this.maxHealth;
-        this.speed = this.config.speed;
-        this.goldReward = this.config.goldReward;
         this.damage = this.config.damage;
         
         // Position and movement
@@ -1168,6 +1219,7 @@ class Game {
         this.timeSinceLastSpawn = 0;
         this.enemiesSpawned = 0;
         this.enemiesPerWave = 5;  // Will increase with wave number
+        this.currentSpawnDelay = CONFIG.WAVE_SPAWN_DELAY;  // Dynamic spawn rate
         this.timeBetweenWaves = CONFIG.WAVE_INTERVAL;
         this.waveAutoStart = false;  // Prevent auto-start, use button instead
         
@@ -1351,9 +1403,18 @@ class Game {
             this.soundManager.playSound('bossWarning');
             console.log(`⚠️ BOSS WAVE ${this.state.wave}! A powerful boss is approaching!`);
         } else {
-            // Calculate enemies for this wave
-            this.enemiesPerWave = 5 + this.state.wave * 2;
-            console.log(`Wave ${this.state.wave} started! Enemies: ${this.enemiesPerWave}`);
+            // Calculate enemies for this wave using difficulty system
+            const enemyCount = CONFIG.DIFFICULTY.BASE_ENEMIES + (this.state.wave * CONFIG.DIFFICULTY.ENEMIES_PER_WAVE);
+            this.enemiesPerWave = Math.min(enemyCount, CONFIG.DIFFICULTY.MAX_ENEMIES_PER_WAVE);
+            
+            // Calculate spawn delay (gets faster as waves progress)
+            const spawnDelayReduction = this.state.wave * CONFIG.DIFFICULTY.SPAWN_DELAY_REDUCTION;
+            this.currentSpawnDelay = Math.max(
+                CONFIG.DIFFICULTY.MIN_SPAWN_DELAY,
+                CONFIG.WAVE_SPAWN_DELAY - spawnDelayReduction
+            );
+            
+            console.log(`Wave ${this.state.wave} started! Enemies: ${this.enemiesPerWave}, Spawn delay: ${this.currentSpawnDelay}ms`);
         }
     }
     
@@ -1367,21 +1428,9 @@ class Game {
         if (isBossWave) {
             // Spawn boss
             enemyType = 'boss';
-        } else if (this.state.wave >= 3) {
-            // Random mix of enemy types
-            const rand = Math.random();
-            if (rand < 0.5) {
-                enemyType = 'basic';
-            } else if (rand < 0.75) {
-                enemyType = 'fast';
-            } else if (rand < 0.9) {
-                enemyType = 'tank';
-            } else {
-                enemyType = 'flying';
-            }
-        } else if (this.state.wave === 2) {
-            // Introduce fast enemies
-            enemyType = Math.random() < 0.7 ? 'basic' : 'fast';
+        } else {
+            // Use difficulty system for enemy type selection
+            enemyType = this.selectEnemyType();
         }
         
         const enemy = new Enemy(enemyType, this.state.wave);
@@ -1391,11 +1440,57 @@ class Game {
         // Track boss
         if (enemyType === 'boss') {
             this.currentBoss = enemy;
-            console.log(`👑 BOSS SPAWNED! Prepare for battle!`);
+            console.log(`👑 BOSS SPAWNED! Health: ${Math.floor(enemy.maxHealth)}, Gold: ${enemy.goldReward}`);
         }
         
         console.log(`Spawned ${enemyType} enemy (${this.enemiesSpawned}/${this.enemiesPerWave})`);
         this.updateWaveInfo();  // Update info when enemy spawns
+    }
+    
+    // Select enemy type based on wave and difficulty weights
+    selectEnemyType() {
+        const wave = this.state.wave;
+        const weights = CONFIG.DIFFICULTY.ENEMY_WEIGHTS;
+        
+        // Determine game phase
+        let phase = 'early';  // Waves 1-5
+        if (wave >= 16) {
+            phase = 'late';
+        } else if (wave >= 6) {
+            phase = 'mid';
+        }
+        
+        // Build weighted pool of available enemy types
+        const pool = [];
+        
+        // Basic enemies always available
+        for (let i = 0; i < weights.basic[phase]; i++) {
+            pool.push('basic');
+        }
+        
+        // Fast enemies unlock at wave 2
+        if (wave >= CONFIG.DIFFICULTY.FAST_UNLOCK_WAVE) {
+            for (let i = 0; i < weights.fast[phase]; i++) {
+                pool.push('fast');
+            }
+        }
+        
+        // Tank enemies unlock at wave 3
+        if (wave >= CONFIG.DIFFICULTY.TANK_UNLOCK_WAVE) {
+            for (let i = 0; i < weights.tank[phase]; i++) {
+                pool.push('tank');
+            }
+        }
+        
+        // Flying enemies unlock at wave 5
+        if (wave >= CONFIG.DIFFICULTY.FLYING_UNLOCK_WAVE) {
+            for (let i = 0; i < weights.flying[phase]; i++) {
+                pool.push('flying');
+            }
+        }
+        
+        // Random selection from weighted pool
+        return pool[Math.floor(Math.random() * pool.length)];
     }
     
     // Update wave state
@@ -1415,7 +1510,9 @@ class Game {
         if (this.enemiesSpawned < this.enemiesPerWave) {
             this.timeSinceLastSpawn += deltaTime;
             
-            if (this.timeSinceLastSpawn >= CONFIG.WAVE_SPAWN_DELAY) {
+            // Use current spawn delay (varies by wave)
+            const spawnDelay = this.currentSpawnDelay || CONFIG.WAVE_SPAWN_DELAY;
+            if (this.timeSinceLastSpawn >= spawnDelay) {
                 this.spawnEnemy();
                 this.timeSinceLastSpawn = 0;
             }
@@ -1439,8 +1536,8 @@ class Game {
         // Visual effect for wave completion
         this.triggerFlash('#4ade80', 0.2);  // Green flash
         
-        // Bonus gold for completing wave
-        const bonusGold = 10 + this.state.wave * 5;
+        // Bonus gold for completing wave (scales with wave number)
+        const bonusGold = CONFIG.DIFFICULTY.BASE_WAVE_GOLD + (this.state.wave * CONFIG.DIFFICULTY.WAVE_GOLD_PER_WAVE);
         this.addGold(bonusGold);
         
         // Bonus mana for completing wave
@@ -3464,8 +3561,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 21: Visual Effects Polish Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Screen shake, tower recoil, boss aura, animated castle, and more!', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 22: Advanced Difficulty Progression Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Dynamic enemy scaling, weighted spawning, faster waves, increasing challenge!', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
