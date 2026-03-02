@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 22: Advanced difficulty progression
+// Commit 23: Status effects system
 
 // ============================================
 // GAME CONFIGURATION
@@ -119,7 +119,9 @@ const CONFIG = {
             projectileSpeed: 200,
             color: '#9370DB',
             aoe: 50,  // Area of effect radius
-            description: 'Slow attack, high AOE damage'
+            statusEffect: 'slow',  // Applies slow effect
+            statusChance: 0.6,  // 60% chance to apply
+            description: 'Slow attack, high AOE damage + Slow'
         },
         cannon: {
             name: 'Cannon Tower',
@@ -131,7 +133,9 @@ const CONFIG = {
             projectileSpeed: 250,
             color: '#696969',
             splash: 60,  // Splash damage radius
-            description: 'Splash damage, good range'
+            statusEffect: 'burn',  // Applies burn effect
+            statusChance: 0.8,  // 80% chance to apply
+            description: 'Splash damage, good range + Burn'
         },
         lightning: {
             name: 'Lightning Tower',
@@ -142,7 +146,9 @@ const CONFIG = {
             fireRate: 0.8,
             chain: 3,  // Number of chain targets
             color: '#FFD700',
-            description: 'Chain damage to multiple enemies'
+            statusEffect: 'stun',  // Applies stun effect
+            statusChance: 0.3,  // 30% chance to stun
+            description: 'Chain damage to multiple enemies + Stun'
         }
     },
     
@@ -158,6 +164,44 @@ const CONFIG = {
     // Tower selling
     SELL_REFUND_PERCENT: 0.75,  // Get back 75% of total investment
     SELL_REFUND_UPGRADED: 0.6,  // Get back 60% for upgraded towers
+    
+    // Status Effects System
+    STATUS_EFFECTS: {
+        slow: {
+            name: 'Slow',
+            icon: '❄️',
+            color: '#60A5FA',
+            speedMultiplier: 0.5,  // 50% speed reduction
+            duration: 2000,  // 2 seconds
+            stackable: false
+        },
+        burn: {
+            name: 'Burn',
+            icon: '🔥',
+            color: '#FF4500',
+            damagePerSecond: 5,  // Damage over time
+            duration: 3000,  // 3 seconds
+            stackable: true,  // Multiple burns can stack
+            maxStacks: 3
+        },
+        poison: {
+            name: 'Poison',
+            icon: '☠️',
+            color: '#10B981',
+            damagePerSecond: 3,  // Lower DPS but longer
+            duration: 5000,  // 5 seconds
+            stackable: true,
+            maxStacks: 5
+        },
+        stun: {
+            name: 'Stun',
+            icon: '⚡',
+            color: '#FFD700',
+            speedMultiplier: 0,  // Complete immobilization
+            duration: 1000,  // 1 second
+            stackable: false
+        }
+    },
     
     // Enemy types
     ENEMY_TYPES: {
@@ -795,6 +839,14 @@ class Projectile {
         if (this.target && this.target.isAlive) {
             this.target.takeDamage(this.damage);
             
+            // Apply status effect if tower has one
+            if (this.tower.config.statusEffect && this.tower.config.statusChance) {
+                // Check if effect should be applied based on chance
+                if (Math.random() < this.tower.config.statusChance) {
+                    this.target.applyStatusEffect(this.tower.config.statusEffect);
+                }
+            }
+            
             // Create hit particles
             if (this.game) {
                 this.createHitParticles();
@@ -1033,6 +1085,15 @@ class Enemy {
         this.isAlive = true;
         this.reachedEnd = false;
         
+        // Status effects tracking
+        this.statusEffects = {
+            slow: { active: false, duration: 0, stacks: 0 },
+            burn: { active: false, duration: 0, stacks: 0, lastTick: 0 },
+            poison: { active: false, duration: 0, stacks: 0, lastTick: 0 },
+            stun: { active: false, duration: 0, stacks: 0 }
+        };
+        this.baseSpeed = this.speed;  // Store base speed for status calculations
+        
         // Visual effects
         this.rotation = 0;
         this.hurtTimer = 0;
@@ -1041,6 +1102,9 @@ class Enemy {
     // Update enemy movement
     update(deltaTime) {
         if (!this.isAlive || this.reachedEnd) return;
+        
+        // Update status effects
+        this.updateStatusEffects(deltaTime);
         
         // Decrease hurt timer
         if (this.hurtTimer > 0) {
@@ -1092,6 +1156,83 @@ class Enemy {
         }
     }
     
+    // Apply a status effect
+    applyStatusEffect(effectType) {
+        if (!CONFIG.STATUS_EFFECTS[effectType]) return;
+        
+        const effectConfig = CONFIG.STATUS_EFFECTS[effectType];
+        const effect = this.statusEffects[effectType];
+        
+        // Check if effect is stackable
+        if (effectConfig.stackable) {
+            // Increase stack count up to max
+            if (effect.stacks < effectConfig.maxStacks) {
+                effect.stacks++;
+            }
+            // Refresh duration
+            effect.duration = effectConfig.duration;
+            effect.active = true;
+        } else {
+            // Non-stackable: just apply/refresh
+            effect.active = true;
+            effect.duration = effectConfig.duration;
+            effect.stacks = 1;
+        }
+        
+        // Reset DoT tick timers
+        if (effectType === 'burn' || effectType === 'poison') {
+            effect.lastTick = 0;
+        }
+    }
+    
+    // Update status effects
+    updateStatusEffects(deltaTime) {
+        let totalSpeedMultiplier = 1;
+        
+        // Process each status effect
+        for (const effectType in this.statusEffects) {
+            const effect = this.statusEffects[effectType];
+            if (!effect.active) continue;
+            
+            const effectConfig = CONFIG.STATUS_EFFECTS[effectType];
+            
+            // Decrease duration
+            effect.duration -= deltaTime;
+            
+            // Check if effect expired
+            if (effect.duration <= 0) {
+                effect.active = false;
+                effect.stacks = 0;
+                continue;
+            }
+            
+            // Apply speed modification effects
+            if (effectConfig.speedMultiplier !== undefined) {
+                totalSpeedMultiplier *= effectConfig.speedMultiplier;
+            }
+            
+            // Apply damage over time effects
+            if (effectConfig.damagePerSecond !== undefined) {
+                effect.lastTick += deltaTime;
+                const tickInterval = 1000; // Damage per second
+                
+                if (effect.lastTick >= tickInterval) {
+                    const ticks = Math.floor(effect.lastTick / tickInterval);
+                    const damage = effectConfig.damagePerSecond * effect.stacks * ticks;
+                    this.health -= damage;
+                    effect.lastTick = effect.lastTick % tickInterval;
+                    
+                    if (this.health <= 0) {
+                        this.isAlive = false;
+                    }
+                }
+            }
+        }
+        
+        // Update speed based on active effects
+        this.speed = this.baseSpeed * totalSpeedMultiplier;
+    }
+    
     // Draw the enemy
     draw(ctx, game) {
         if (!this.isAlive) return;
@@ -1141,6 +1282,68 @@ class Enemy {
         
         // Health bar
         this.drawHealthBar(ctx);
+        
+        // Status effect indicators
+        this.drawStatusEffects(ctx);
+    }
+    
+    // Draw status effect icons above enemy
+    drawStatusEffects(ctx) {
+        const activeEffects = [];
+        
+        // Collect active effects
+        for (const effectType in this.statusEffects) {
+            const effect = this.statusEffects[effectType];
+            if (effect.active) {
+                activeEffects.push({
+                    type: effectType,
+                    config: CONFIG.STATUS_EFFECTS[effectType],
+                    stacks: effect.stacks
+                });
+            }
+        }
+        
+        if (activeEffects.length === 0) return;
+        
+        // Draw each active effect
+        const iconSize = 12;
+        const iconSpacing = 14;
+        const startX = this.x - (activeEffects.length * iconSpacing) / 2 + iconSize / 2;
+        const y = this.y - this.config.size - 18;
+        
+        activeEffects.forEach((effect, index) => {
+            const x = startX + index * iconSpacing;
+            
+            // Draw background circle
+            ctx.fillStyle = effect.config.color;
+            ctx.globalAlpha = 0.8;
+            ctx.beginPath();
+            ctx.arc(x, y, iconSize / 2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            
+            // Draw border
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.stroke();
+            
+            // Draw icon
+            ctx.font = `${iconSize - 2}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#FFF';
+            ctx.fillText(effect.config.icon, x, y);
+            
+            // Draw stack count for stackable effects
+            if (effect.config.stackable && effect.stacks > 1) {
+                ctx.font = 'bold 8px Arial';
+                ctx.fillStyle = '#FFF';
+                ctx.strokeStyle = '#000';
+                ctx.lineWidth = 2;
+                ctx.strokeText(effect.stacks, x + 5, y + 5);
+                ctx.fillText(effect.stacks, x + 5, y + 5);
+            }
+        });
     }
     
     // Draw health bar
@@ -3561,8 +3764,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 22: Advanced Difficulty Progression Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Dynamic enemy scaling, weighted spawning, faster waves, increasing challenge!', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 23: Status Effects System Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Towers now inflict slow, burn, stun, and poison effects on enemies!', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
