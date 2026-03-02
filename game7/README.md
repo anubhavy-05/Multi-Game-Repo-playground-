@@ -1011,6 +1011,63 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
   - Challenge waves with specific compositions
   - Player-selected difficulty multipliers
 
+**Commit 23: Status Effects System**
+- Added comprehensive STATUS_EFFECTS configuration object to CONFIG:
+  - Four status effect types: slow, burn, poison, stun
+  - Each effect has: name, icon, color, duration, and behavior
+  - **Slow effect (❄️)**: 50% speed, 2s duration, non-stackable, cyan, crowd control
+  - **Burn effect (🔥)**: 5 DPS, 3s duration, stackable (max 3), orange-red, DoT amplification
+  - **Poison effect (☠️)**: 3 DPS, 5s duration, stackable (max 5), lime green, sustained damage
+  - **Stun effect (⚡)**: 0% speed, 1s duration, non-stackable, gold, emergency interrupt
+- Tower types updated with status effect properties:
+  - **Mage Tower**: slow effect, 60% chance, "Magical attacks that slow enemies"
+  - **Cannon Tower**: burn effect, 80% chance, "Explosive shots that burn enemies"
+  - **Lightning Tower**: stun effect, 30% chance, "Chain lightning that stuns targets"
+  - **Archer Tower**: No status effect, pure physical damage
+- Enemy class enhanced with status effect tracking:
+  - Added statusEffects object tracking all four effect types
+  - Added baseSpeed property for speed calculations
+  - New applyStatusEffect(effectType) method handles application and stacking logic
+  - New updateStatusEffects(deltaTime) method processes active effects:
+    - Decreases duration, removes expired effects
+    - Applies speed modifications (compounds multiple effects)
+    - Applies DoT damage every 1 second (scales with stacks)
+    - Frame-rate independent
+  - Enemy.update() calls updateStatusEffects() before movement
+  - New drawStatusEffects() method displays icons above enemies:
+    - Circular icons with effect colors
+    - Shows stack count for stackable effects
+    - Centered above health bar
+    - 80% opacity, clean visual hierarchy
+  - Enemy.draw() calls drawStatusEffects() after health bar
+- Projectile.hit() method updated to apply status effects:
+  - Checks tower statusEffect and statusChance properties
+  - Rolls random chance and applies effect on success
+  - Works with all tower types automatically
+- Welcome screen updated:
+  - "Commit 23: Status Effects System Active ✓"
+  - "Towers now inflict slow, burn, stun, and poison effects on enemies!"
+- Strategic implications:
+  - **Mage + DPS synergy**: Slowed enemies take more hits
+  - **Cannon stacking**: 3 burn stacks = 15 DPS = 45 damage over 3s
+  - **Lightning control**: Stun buys time during critical moments
+  - **Poison** (unused): Reserved for future tower, most economic DoT
+  - **Combined effects**: Slow + burn, stun + burst, multi-tower synergies
+- Visual feedback and balance:
+  - Clear color-coded icons above enemies
+  - Stack counts visible for burn/poison
+  - Balanced chances: Mage 60%, Cannon 80%, Lightning 30%
+  - Tuned durations: Slow 2s, Burn 3s, Poison 5s, Stun 1s
+  - Stack limits prevent abuse (burn 3, poison 5)
+  - DoT damage balanced with tower costs
+- Performance and architecture:
+  - Status effects per enemy, only active effects processed
+  - Efficient 1-second DoT tick intervals
+  - No frame rate impact with 50+ enemies
+  - Clean modular design: CONFIG → Enemy → Projectile
+  - Easy to add new effects and towers
+  - Foundation for status immunity, effect combos, upgrade trees
+
 ### 📋 Planned Features (4+ commits remaining)
 
 2. Game class and core initialization
@@ -1080,6 +1137,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 22/25+ Complete
+**Status:** 🚧 In Development - Commit 23/25+ Complete
 
-**Last Updated:** Commit 22 - Advanced difficulty progression implemented
+**Last Updated:** Commit 23 - Status effects system implemented
