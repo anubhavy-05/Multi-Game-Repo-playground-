@@ -864,7 +864,154 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
   - Screen distortion effects
   - Slow-motion on critical moments
 
-### 📋 Planned Features (5+ commits remaining)
+**Commit 22: Advanced Difficulty Progression**
+- Added comprehensive DIFFICULTY configuration object to CONFIG:
+  - Health scaling: 15% increase per wave
+  - Speed scaling: 2% increase per wave
+  - Gold scaling: 10% increase per wave
+  - Base enemies: 5, increases by 2 per wave
+  - Max enemies per wave: 50 (cap to prevent overwhelming)
+  - Spawn delay reduction: 50ms faster per wave
+  - Minimum spawn delay: 800ms (fastest possible)
+  - Enemy type unlock waves: Fast (2), Tank (3), Flying (5)
+  - Three-phase enemy composition weights (early/mid/late game)
+  - Boss multipliers: 10x health, 0.7x speed, 5x gold
+  - Wave reward scaling: base 10 + 5 per wave
+- Enemy constructor rewritten for difficulty scaling:
+  - Calculates health multiplier based on wave and scaling factor
+  - Calculates speed multiplier based on wave and scaling factor
+  - Calculates gold multiplier based on wave and scaling factor
+  - Boss enemies receive special multipliers
+  - Boss health: baseHealth × waveMultiplier × 10
+  - Boss speed: baseSpeed × 0.7 (no wave scaling, stays slow)
+  - Boss gold: baseGold × waveMultiplier × 5
+  - Regular enemies scale linearly with wave
+  - All stats properly rounded (gold floored to integer)
+  - Creates smooth difficulty curve
+- startWave() method updated:
+  - Uses CONFIG.DIFFICULTY.BASE_ENEMIES and ENEMIES_PER_WAVE
+  - Caps total enemies at MAX_ENEMIES_PER_WAVE
+  - Calculates dynamic spawn delay per wave
+  - Spawn rate accelerates as game progresses
+  - Boss waves unchanged (still 1 boss every 5 waves)
+  - Stores currentSpawnDelay for updateWave to use
+  - Logs enemy count and spawn delay for debugging
+- New selectEnemyType() method:
+  - Replaces hardcoded enemy type selection
+  - Determines game phase: early (1-5), mid (6-15), late (16+)
+  - Uses weighted pool system for enemy selection
+  - Respects enemy type unlock waves
+  - Basic enemies: 70% early, 40% mid, 20% late
+  - Fast enemies: 30% early, 30% mid, 25% late (unlock wave 2)
+  - Tank enemies: 0% early, 20% mid, 30% late (unlock wave 3)
+  - Flying enemies: 0% early, 10% mid, 25% late (unlock wave 5)
+  - Builds array of enemy types based on weights
+  - Randomly selects from weighted pool
+  - Ensures proper enemy variety at each phase
+- spawnEnemy() method updated:
+  - Calls selectEnemyType() for non-boss waves
+  - Boss spawn logging now includes health and gold values
+  - Better console feedback for debugging
+- updateWave() method updated:
+  - Uses dynamic currentSpawnDelay instead of fixed delay
+  - Spawn rate adapts per wave
+  - Falls back to CONFIG.WAVE_SPAWN_DELAY if not set
+- completeWave() method updated:
+  - Uses CONFIG.DIFFICULTY.BASE_WAVE_GOLD and WAVE_GOLD_PER_WAVE
+  - Wave 1 reward: 15 gold (10 base + 5)
+  - Wave 10 reward: 60 gold (10 base + 50)
+  - Wave 20 reward: 110 gold (10 base + 100)
+  - Linear scaling provides consistent income growth
+- Game constructor updated:
+  - Added currentSpawnDelay property to wave management
+  - Initialized to CONFIG.WAVE_SPAWN_DELAY
+  - Updated per wave in startWave()
+- Difficulty curve design:
+  - **Early game (Waves 1-5)**:
+    - 5-15 enemies per wave
+    - Mostly basic and fast enemies
+    - Slow spawn rate (2000-1800ms)
+    - Health: 50-115 (basic enemy)
+    - Gold: 5-8 per kill, 15-35 per wave
+    - Tutorial phase, build economy
+  - **Mid game (Waves 6-15)**:
+    - 17-35 enemies per wave
+    - Mixed enemy types, tanks appear
+    - Medium spawn rate (1700-1200ms)
+    - Health: 127-227 (basic enemy)
+    - Gold: 9-14 per kill, 40-85 per wave
+    - Strategic phase, optimize towers
+  - **Late game (Waves 16+)**:
+    - 37-50 enemies per wave
+    - Heavy mix of tanks and flying
+    - Fast spawn rate (1150-800ms minimum)
+    - Health: 236+ (basic enemy)
+    - Gold: 15+ per kill, 90+ per wave
+    - Survival phase, advanced tactics required
+- Boss scaling across waves:
+  - Wave 5 boss: ~690 health, 35 speed, 55 gold
+  - Wave 10 boss: ~1150 health, 35 speed, 75 gold
+  - Wave 15 boss: ~1610 health, 35 speed, 95 gold
+  - Wave 20 boss: ~2070 health, 35 speed, 115 gold
+  - Boss speed stays constant (strategic choice)
+  - Health scales dramatically for epic battles
+  - Gold scales to reward boss kills appropriately
+- Enemy composition evolution:
+  - Wave 1: 100% basic enemies (tutorial)
+  - Wave 2-5: Basic and fast mix (learning phase)
+  - Wave 6-15: Balanced mix, tanks introduced
+  - Wave 16+: Challenging mix, fewer basics
+  - Flying enemies add complexity late game
+  - Players must adapt tower strategies
+- Spawn rate acceleration:
+  - Wave 1: 2000ms between spawns
+  - Wave 10: 1550ms between spawns
+  - Wave 20: 1050ms between spawns
+  - Wave 24+: 800ms (minimum cap)
+  - Maintains game intensity
+  - Forces efficient tower placement
+  - Prevents long waits between enemies
+- Economic balance:
+  - Early game: Positive income, build towers
+  - Mid game: Break even, optimize placement
+  - Late game: High income but expensive upgrades needed
+  - Boss waves provide major income spikes
+  - Selling towers remains viable strategy
+  - Gold Rush ability more valuable late game
+- Strategic depth added:
+  - Must prioritize upgrades vs new towers
+  - Enemy mix requires diverse tower types
+  - Faster spawns reduce reaction time
+  - Flying enemies counter ground-focused setups
+  - Tank enemies require high DPS towers
+  - Wave planning becomes important
+- Welcome screen updated:
+  - Shows "Commit 22: Advanced Difficulty Progression Active ✓"
+  - Description: "Dynamic enemy scaling, weighted spawning, faster waves, increasing challenge!"
+  - Highlights new difficulty system
+- Balance testing notes:
+  - Scaling factors tuned for smooth curve
+  - No vertical difficulty spikes
+  - Players can reach wave 20+ with good play
+  - Boss waves remain challenging but fair
+  - Early game not too easy or too hard
+  - Late game provides endless challenge
+- Performance considerations:
+  - Weighted pool system is efficient
+  - Enemy cap prevents performance issues
+  - Spawn delay minimum prevents frame drops
+  - All calculations simple integer math
+  - No performance impact from difficulty system
+- Foundation for future expansions:
+  - Difficulty presets (easy/normal/hard modes)
+  - Custom wave definitions
+  - Special events (triple gold, double enemies)
+  - Endless mode with infinite scaling
+  - Boss rush mode
+  - Challenge waves with specific compositions
+  - Player-selected difficulty multipliers
+
+### 📋 Planned Features (4+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
@@ -933,6 +1080,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 21/25+ Complete
+**Status:** 🚧 In Development - Commit 22/25+ Complete
 
-**Last Updated:** Commit 21 - Visual effects polish implemented
+**Last Updated:** Commit 22 - Advanced difficulty progression implemented
