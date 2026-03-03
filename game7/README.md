@@ -1068,6 +1068,191 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
   - Easy to add new effects and towers
   - Foundation for status immunity, effect combos, upgrade trees
 
+**Commit 24: Critical Hits and Combo System**
+- Added CRITICAL_HIT configuration object to CONFIG:
+  - BASE_CHANCE: 10% base crit chance for all towers
+  - BASE_MULTIPLIER: 2.0x damage on critical hit
+  - Per-tower bonuses for specialized crit behavior:
+    - **Archer**: 15% bonus chance (25% total), 1.8x multiplier - frequent light crits
+    - **Mage**: 5% bonus chance (15% total), 3.0x multiplier - rare devastating crits
+    - **Cannon**: 10% bonus chance (20% total), 2.5x multiplier - explosive crits
+    - **Lightning**: 20% bonus chance (30% total), 2.0x multiplier - frequent chain crits
+  - Balanced crit system: high chance = lower multiplier, low chance = higher multiplier
+- Added COMBO configuration object to CONFIG:
+  - TIME_WINDOW: 3 seconds to maintain combo between kills
+  - GOLD_MULTIPLIERS with tiered thresholds:
+    - LOW: 5+ kills → 1.2x gold (20% bonus)
+    - MEDIUM: 10+ kills → 1.5x gold (50% bonus)
+    - HIGH: 20+ kills → 2.0x gold (100% bonus)
+    - EXTREME: 30+ kills → 3.0x gold (200% bonus)
+  - MAX_COMBO_DISPLAY: 99 (caps UI display to prevent overflow)
+- Projectile.hit() method completely rewritten with critical hit logic:
+  - Calculates final damage with crit rolls
+  - Gets base crit chance and tower-specific bonuses from CONFIG
+  - Combines BASE_CHANCE + tower bonus chance for total crit chance
+  - Combines BASE_MULTIPLIER + tower bonus multiplier for total multiplier
+  - Rolls Math.random() against total crit chance
+  - Applies damage multiplier on crit, floors to integer
+  - Calls new createDamageText() method to show floating damage numbers
+  - Critical hits show in gold color with exclamation mark
+  - Normal hits show in white with plain number
+  - Status effects applied after damage (unchanged)
+  - Hit particles now accept isCritical parameter
+- createHitParticles() method enhanced for critical hits:
+  - Doubles particle count on critical hits
+  - Uses gold color (#FFD700) for crit particles instead of tower colors
+  - Larger particle size for crits (3-7px vs 2-5px)
+  - Faster particle speed for crits (100-250 vs 50-150)
+  - Creates more impressive visual feedback for big hits
+- Game class enhanced with combo system:
+  - Added combo object to constructor:
+    - count: tracks consecutive kills
+    - multiplier: current gold multiplier (1.0-3.0x)
+    - lastKillTime: timestamp of most recent kill
+    - active: whether combo is currently active
+  - Added floatingTexts array for damage numbers and combo text
+- New updateCombo() method:
+  - Called every time an enemy dies
+  - Checks time since last kill
+  - If within TIME_WINDOW: increments combo count
+  - If beyond TIME_WINDOW: resets combo to 1
+  - Updates lastKillTime to current timestamp
+  - Calculates appropriate gold multiplier based on combo count
+  - Uses tiered thresholds for multiplier progression
+  - Smooth escalation: 1x → 1.2x → 1.5x → 2x → 3x
+- New createComboText() method:
+  - Creates floating text showing gold earned with multiplier
+  - Format: "+{amount} (x{multiplier})"
+  - Gold color (#FFD700) for visibility
+  - 16px font, floats upward at -30 pixels/sec
+  - 1.5 second lifetime with alpha fade
+  - Positioned above enemy death location
+  - Only shown when combo is active (count > 1)
+- New updateComboSystem() method:
+  - Called every frame in update loop
+  - Checks if combo is currently active
+  - Monitors time since last kill
+  - Breaks combo if TIME_WINDOW exceeded (3 seconds)
+  - Resets count, multiplier, and active state
+  - Provides smooth combo timeout feel
+- New updateFloatingTexts() method:
+  - Updates all floating damage/combo text each frame
+  - Moves text upward using velocityY
+  - Fades alpha based on remaining lifetime
+  - Removes expired text from array
+  - Frame-rate independent using deltaTime
+  - Handles both damage numbers and combo text
+- createDamageText() method:
+  - Creates floating damage number on hit
+  - Critical hits: gold color, 20px font, "!" suffix
+  - Normal hits: white color, 14px font, plain number
+  - Floats upward at -50 pixels/sec
+  - 1 second lifetime for damage numbers
+  - Alpha fades from 1.0 to 0.0 over lifetime
+  - Positioned at projectile hit location
+- Enemy kill logic updated in updateEnemies():
+  - Calls updateCombo() immediately when enemy dies
+  - Applies combo multiplier to gold reward
+  - Stacks with Gold Rush ability (goldRush × combo)
+  - Calls createComboText() if combo active
+  - Gold formula: baseGold × goldRush × comboMultiplier
+  - Combo bonus applied to all enemy types including bosses
+  - Boss kills maintain and benefit from combo
+- New drawComboUI() method:
+  - Displays combo counter at top-right of screen
+  - 160×80px panel with purple gradient background
+  - Gold border with pulsing glow effect
+  - Shows "⚔️ COMBO" header in gold
+  - Displays combo count with "x" suffix (e.g., "25x")
+  - Shows gold bonus percentage (e.g., "+100% Gold")
+  - Time remaining bar at bottom of panel
+  - Bar color indicates urgency:
+    - Green: >60% time remaining
+    - Yellow: 30-60% time remaining
+    - Red: <30% time remaining
+  - Pulse animation for attention
+  - Only visible when combo count > 1
+- Floating text rendering in render():
+  - Draws all floatingTexts after particles
+  - Uses save/restore for isolated alpha
+  - Bold font with black stroke for readability
+  - Text color from floatingText properties
+  - 3px black outline prevents text from getting lost
+  - Centered alignment on hit position
+  - Renders before towers for proper z-order
+- update() method enhanced:
+  - Calls updateComboSystem() each frame
+  - Calls updateFloatingTexts() each frame
+  - Both called after particles update
+  - Both called before updateVisualEffects()
+  - Maintains proper update order for cascading effects
+- render() method enhanced:
+  - Calls drawComboUI() after achievement notifications
+  - Only draws when combo is active and count > 1
+  - Draws before pause overlay (correct z-order)
+  - Integrates seamlessly with existing UI
+- Welcome screen updated:
+  - Title: "Commit 24: Critical Hits & Combo System Active ✓"
+  - Description: "Land critical hits and build combos for massive gold rewards!"
+  - Highlights exciting new combat systems
+- Strategic depth added:
+  - **Archer tower crit strategy**: 25% crit chance = most consistent crits
+  - **Mage tower burst**: 15% chance for 3x damage = lottery ticket
+  - **Cannon AOE crits**: 20% chance × splash = multiple crit explosions
+  - **Lightning chain crits**: 30% chance per chain target = cascading crits
+  - **Combo gold farming**: Kill enemies rapidly = 3x gold income
+  - **Tower placement for combos**: Overlapping coverage = no gaps = sustained combos
+  - **Wave start timing**: Build combo early = maximize wave rewards
+  - **Boss combo maintenance**: Keep combo alive for boss = massive gold
+- Risk/reward mechanics:
+  - Maintaining combo requires consistent kills
+  - 3 second window creates tension
+  - Missing a kill breaks combo = lost multiplier
+  - Strategic maze design: keep enemies in kill zones longer
+  - Tower placement matters: gaps = dropped combos
+  - Fast towers (archer) better for combo maintenance
+  - High damage towers (mage) better for crit burst
+- Visual feedback excellence:
+  - Critical hits: gold particles, large damage numbers, "!" exclamation
+  - Normal hits: tower-colored particles, regular damage numbers
+  - Combo UI: pulsing panel, color-coded timer, real-time multiplier
+  - Floating text: smooth upward motion, readable stroke
+  - All feedback clearly communicates what's happening
+- Balance considerations:
+  - Crit chances balanced per tower role and attack speed
+  - Fast towers get lower multipliers (archer 1.8x)
+  - Slow towers get higher multipliers (mage 3.0x)
+  - Combo thresholds achievable but challenging
+  - 3 second window = skill expression, not RNG
+  - Extreme combo (30 kills) requires excellent play
+  - Gold scaling rewards skillful tower placement
+  - Doesn't break economy (still requires tower investment)
+- Performance optimizations:
+  - Crit calculation only on hit (not per frame)
+  - Combo timestamp check (simple comparison)
+  - Floating texts pruned when expired
+  - No memory leaks in text arrays
+  - Combo UI only drawn when active
+  - No performance impact from new systems
+- Economic impact:
+  - Base game income unchanged
+  - Combo system rewards skillful play with bonus gold
+  - 30-kill combo = 3x gold = massive economic advantage
+  - Early game: combos help afford first few towers
+  - Mid game: combo gold funds upgrades faster
+  - Late game: combo income keeps pace with difficulty
+  - Boss kills with combo = huge gold spikes
+  - Incentivizes aggressive tower placement
+- Code architecture:
+  - Clean separation of crit and combo systems
+  - CONFIG defines all numerical values
+  - No magic numbers in gameplay code
+  - Easy to tune without touching logic
+  - Modular methods for each feature
+  - Floating text system reusable for future features
+  - Foundation for hit streak achievements
+  - Expandable for combo-based abilities
+
 ### 📋 Planned Features (4+ commits remaining)
 
 2. Game class and core initialization
@@ -1137,6 +1322,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 23/25+ Complete
+**Status:** 🚧 In Development - Commit 24/25+ Complete
 
-**Last Updated:** Commit 23 - Status effects system implemented
+**Last Updated:** Commit 24 - Critical hits and combo system implemented
