@@ -4183,8 +4183,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 24: Critical Hits & Combo System Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Land critical hits and build combos for massive gold rewards!', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 25: Tower Auras & Synergies Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Towers now buff each other when placed nearby - build strategic formations!', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
@@ -4232,9 +4232,22 @@ class Game {
         const tower = this.selectedTower;
         document.getElementById('tower-name').textContent = `${tower.config.icon} ${tower.type.toUpperCase()}`;
         document.getElementById('tower-level').textContent = `Level ${tower.level}`;
-        document.getElementById('tower-damage').textContent = `💥 Damage: ${Math.floor(tower.damage)}`;
-        document.getElementById('tower-range').textContent = `🎯 Range: ${Math.floor(tower.range)}`;
-        document.getElementById('tower-fire-rate').textContent = `⚡ Fire Rate: ${tower.fireRate.toFixed(1)}/s`;
+        
+        // Show base stats and effective stats with aura bonuses
+        const baseDamage = Math.floor(tower.damage);
+        const effectiveDamage = tower.getEffectiveDamage();
+        const damageBonus = effectiveDamage > baseDamage ? ` (+${effectiveDamage - baseDamage})` : '';
+        document.getElementById('tower-damage').textContent = `💥 Damage: ${effectiveDamage}${damageBonus}`;
+        
+        const baseRange = Math.floor(tower.range);
+        const effectiveRange = Math.floor(tower.getEffectiveRange());
+        const rangeBonus = effectiveRange > baseRange ? ` (+${effectiveRange - baseRange})` : '';
+        document.getElementById('tower-range').textContent = `🎯 Range: ${effectiveRange}${rangeBonus}`;
+        
+        const baseFireRate = tower.fireRate;
+        const effectiveFireRate = tower.getEffectiveFireRate();
+        const fireRateBonus = effectiveFireRate > baseFireRate ? ` (+${(effectiveFireRate - baseFireRate).toFixed(1)})` : '';
+        document.getElementById('tower-fire-rate').textContent = `⚡ Fire Rate: ${effectiveFireRate.toFixed(1)}/s${fireRateBonus}`;
         
         // Update upgrade button
         const upgradeBtn = document.getElementById('upgrade-btn');
