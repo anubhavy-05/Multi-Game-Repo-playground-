@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 23: Status effects system
+// Commit 24: Tower synergy and combo system
 
 // ============================================
 // GAME CONFIGURATION
@@ -200,6 +200,71 @@ const CONFIG = {
             speedMultiplier: 0,  // Complete immobilization
             duration: 1000,  // 1 second
             stackable: false
+        }
+    },
+    
+    // Tower Synergy and Combo System
+    SYNERGIES: {
+        // Adjacent tower bonuses (within range)
+        ADJACENCY_RANGE: 150,  // Pixels - towers within this range synergize
+        
+        // Type-specific synergy bonuses
+        TOWER_SYNERGIES: {
+            // Same type synergies
+            archer_archer: {
+                name: 'Volley Formation',
+                damageBonus: 0.15,  // +15% damage per adjacent archer
+                fireRateBonus: 0.10,  // +10% fire rate per adjacent archer
+                description: 'Multiple archers create a deadly barrage'
+            },
+            mage_mage: {
+                name: 'Arcane Resonance',
+                damageBonus: 0.20,  // +20% damage per adjacent mage
+                rangeBonus: 0.15,  // +15% range per adjacent mage
+                description: 'Magical energies amplify each other'
+            },
+            cannon_cannon: {
+                name: 'Artillery Battery',
+                damageBonus: 0.25,  // +25% damage per adjacent cannon
+                description: 'Coordinated bombardment devastates enemies'
+            },
+            lightning_lightning: {
+                name: 'Storm Nexus',
+                damageBonus: 0.18,  // +18% damage per adjacent lightning
+                fireRateBonus: 0.12,  // +12% fire rate per adjacent lightning
+                description: 'Chain lightning jumps farther and faster'
+            },
+            
+            // Cross-type synergies
+            mage_cannon: {
+                name: 'Elemental Infusion',
+                damageBonus: 0.12,  // +12% damage
+                description: 'Magic enhances explosive power'
+            },
+            archer_lightning: {
+                name: 'Precision Strike',
+                damageBonus: 0.10,  // +10% damage
+                fireRateBonus: 0.08,  // +8% fire rate
+                description: 'Speed and power combined'
+            },
+            mage_lightning: {
+                name: 'Elemental Mastery',
+                damageBonus: 0.15,  // +15% damage
+                description: 'Elemental forces combine'
+            },
+            archer_cannon: {
+                name: 'Mixed Barrage',
+                damageBonus: 0.08,  // +8% damage
+                description: 'Varied attacks confuse enemies'
+            }
+        },
+        
+        // Combo system - multiple towers hitting same target
+        COMBO: {
+            WINDOW: 1000,  // 1 second window for combos
+            DAMAGE_BONUS_PER_HIT: 0.10,  // +10% per additional tower in combo
+            MAX_COMBO_MULTIPLIER: 2.0,  // Cap at 200% damage (10 hits)
+            MIN_HITS_FOR_COMBO: 2  // Need at least 2 hits for a combo
         }
     },
     
@@ -542,6 +607,15 @@ class Tower {
         this.rotation = 0;
         this.shootRecoil = 0;  // Recoil animation when shooting
         
+        // Synergy tracking
+        this.synergyBonuses = {
+            damage: 0,      // Bonus damage multiplier
+            range: 0,       // Bonus range multiplier
+            fireRate: 0     // Bonus fire rate multiplier
+        };
+        this.adjacentTowers = [];  // List of towers providing synergies
+        this.synergyNames = [];    // Names of active synergies
+        
         // Visual effects
         this.pulsePhase = Math.random() * Math.PI * 2;
     }
@@ -566,6 +640,69 @@ class Tower {
             const dy = this.target.y - this.y;
             this.rotation = Math.atan2(dy, dx);
         }
+    }
+    
+    // Calculate synergy bonuses from adjacent towers
+    calculateSynergies(allTowers) {
+        // Reset bonuses
+        this.synergyBonuses = {
+            damage: 0,
+            range: 0,
+            fireRate: 0
+        };
+        this.adjacentTowers = [];
+        this.synergyNames = [];
+        
+        // Find adjacent towers within synergy range
+        for (const tower of allTowers) {
+            if (tower === this) continue;  // Skip self
+            
+            const dx = tower.x - this.x;
+            const dy = tower.y - this.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            if (distance <= CONFIG.SYNERGIES.ADJACENCY_RANGE) {
+                // Check for synergy between tower types
+                const synergyKey1 = `${this.type}_${tower.type}`;
+                const synergyKey2 = `${tower.type}_${this.type}`;
+                
+                const synergy = CONFIG.SYNERGIES.TOWER_SYNERGIES[synergyKey1] || 
+                               CONFIG.SYNERGIES.TOWER_SYNERGIES[synergyKey2];
+                
+                if (synergy) {
+                    this.adjacentTowers.push(tower);
+                    
+                    // Add synergy name (avoid duplicates)
+                    if (!this.synergyNames.includes(synergy.name)) {
+                        this.synergyNames.push(synergy.name);
+                    }
+                    
+                    // Apply bonuses
+                    if (synergy.damageBonus) {
+                        this.synergyBonuses.damage += synergy.damageBonus;
+                    }
+                    if (synergy.rangeBonus) {
+                        this.synergyBonuses.range += synergy.rangeBonus;
+                    }
+                    if (synergy.fireRateBonus) {
+                        this.synergyBonuses.fireRate += synergy.fireRateBonus;
+                    }
+                }
+            }
+        }
+    }
+    
+    // Get effective stats with synergy bonuses applied
+    getEffectiveDamage() {
+        return this.damage * (1 + this.synergyBonuses.damage);
+    }
+    
+    getEffectiveRange() {
+        return this.range * (1 + this.synergyBonuses.range);
+    }
+    
+    getEffectiveFireRate() {
+        return this.fireRate * (1 + this.synergyBonuses.fireRate);
     }
     
     // Find nearest enemy in range
@@ -638,8 +775,8 @@ class Tower {
     tryShoot(game) {
         if (!this.target || !this.target.isAlive) return null;
         
-        // Check fire rate
-        const fireInterval = 1 / this.fireRate;
+        // Check fire rate (use effective fire rate with synergy bonuses)
+        const fireInterval = 1 / this.getEffectiveFireRate();
         if (this.timeSinceLastShot < fireInterval) return null;
         
         // Fire!
@@ -659,7 +796,7 @@ class Tower {
         const dx = enemy.x - this.x;
         const dy = enemy.y - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        return distance <= this.range;
+        return distance <= this.getEffectiveRange();
     }
     
     // Get upgrade cost
@@ -1093,6 +1230,12 @@ class Enemy {
             stun: { active: false, duration: 0, stacks: 0 }
         };
         this.baseSpeed = this.speed;  // Store base speed for status calculations
+        
+        // Combo tracking
+        this.comboHits = [];  // Track recent hits: { time, tower, damage }
+        this.comboMultiplier = 1;  // Current combo multiplier
+        this.showCombo = false;  // Visual flag to show combo
+        this.comboDisplayTime = 0;  // Timer for combo display
         
         // Visual effects
         this.rotation = 0;
