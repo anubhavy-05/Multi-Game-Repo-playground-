@@ -1253,7 +1253,161 @@ Defend your castle from waves of enemies using strategic tower placement, hero a
   - Foundation for hit streak achievements
   - Expandable for combo-based abilities
 
-### 📋 Planned Features (4+ commits remaining)
+**Commit 25: Tower Auras and Synergies**
+- Added TOWER_AURAS configuration object to CONFIG:
+  - AURA_RANGE: 100 pixels for aura effects
+  - VISUALIZE_AURA: true to show visual indicators
+  - Four tower-specific aura effects:
+    - **Archer Precision Aura (🎯)**: +15% attack speed to nearby towers
+    - **Mage Mystic Aura (✨)**: +20% damage to nearby towers
+    - **Cannon Explosive Aura (💥)**: +25% range to nearby towers
+    - **Lightning Storm Aura (⚡)**: +10% crit chance to nearby towers
+  - Each aura has unique color for visual distinction
+- Tower class enhanced with aura tracking:
+  - Added auraBonuses object to track active buffs:
+    - damageBonus: cumulative damage boost from nearby towers
+    - fireRateBonus: cumulative attack speed boost
+    - rangeBonus: cumulative range extension
+    - critChanceBonus: cumulative crit chance increase
+  - Added nearbyTowers array tracking which towers are buffing this tower
+  - Bonuses stack additively (2 archers = +30% attack speed)
+- New calculateAuraBonuses(allTowers) method:
+  - Called each frame before tower updates
+  - Resets all bonuses to zero
+  - Checks distance to every other tower
+  - Towers within AURA_RANGE (100px) apply their aura effect
+  - Accumulates bonuses from multiple sources
+  - Updates nearbyTowers list for visual display
+  - Efficient distance calculation (simple Pythagorean)
+- New getEffective*() methods for stat calculations:
+  - getEffectiveDamage(): baseDamage × (1 + damageBonus), floored to integer
+  - getEffectiveFireRate(): baseFireRate × (1 + fireRateBonus)
+  - getEffectiveRange(): baseRange × (1 + rangeBonus)
+  - getCritChanceBonus(): returns accumulated crit chance bonus
+  - All combat calculations use effective stats
+- Tower.tryShoot() updated:
+  - Uses getEffectiveFireRate() instead of base fireRate
+  - Faster attacks with nearby archer towers
+  - Fire rate stacks multiplicatively with Time Warp ability
+  - Smooth integration with existing fire rate logic
+- Tower.isInRange() updated:
+  - Uses getEffectiveRange() instead of base range
+  - Extended range with nearby cannon towers
+  - More enemies in targeting pool with range buffs
+  - Affects target acquisition every frame
+- Projectile class integration:
+  - Constructor uses tower.getEffectiveDamage() for damage calculation
+  - Constructor stores tower.getCritChanceBonus() for crit rolls
+  - Projectile.hit() adds aura crit bonus to total crit chance
+  - Damage and crit bonuses snapshot when projectile is created
+  - Moving towers mid-flight doesn't affect projectile stats
+- Tower.draw() enhanced with aura visualization:
+  - Draws connection lines to nearby towers providing buffs
+  - Dashed lines colored by aura type (semi-transparent)
+  - Animated line opacity pulses for visibility
+  - Golden glow around towers receiving buffs
+  - Glow size pulses with rangeIndicatorPhase
+  - Visual indicators only shown when VISUALIZE_AURA is true
+  - Can be disabled in CONFIG for performance
+  - Clear visual feedback of tower synergies
+- Game.update() modified:
+  - Added aura calculation loop before tower updates
+  - Calls calculateAuraBonuses() on every tower each frame
+  - Ensures aura bonuses are current before shooting
+  - Minimal performance impact (distance checks only)
+  - Runs before tower.update() and tryShoot()
+- updateUpgradeUI() enhanced with aura bonus display:
+  - Shows base stats vs effective stats in upgrade panel
+  - Format: "Damage: 35 (+7)" when buffed
+  - Displays bonuses for damage, range, and fire rate
+  - Bonuses shown in parentheses next to effective value
+  - Empty string when no bonus active (cleaner UI)
+  - Real-time updates when towers placed/removed nearby
+  - Helps players understand aura benefits visually
+- Welcome screen updated:
+  - Title: "Commit 25: Tower Auras & Synergies Active ✓"
+  - Description: "Towers now buff each other when placed nearby - build strategic formations!"
+  - Encourages experimentation with tower placement
+- Strategic depth implications:
+  - **Archer synergy**: Group archers together = rapid-fire salvos
+  - **Mage synergy**: Mage near damage dealers = amplified burst
+  - **Cannon synergy**: Cannon near any tower = extended coverage
+  - **Lightning synergy**: Lightning near DPS = more crits
+  - **Mixed formations**: Combine multiple aura types for balanced buffs
+  - **Economic consideration**: Clustering towers = more efficiency per gold spent
+  - **Tower density**: Tight formations maximize aura overlap
+  - **Path coverage**: Auras encourage choke point defense
+- Aura stacking mechanics:
+  - Multiple same-type auras stack additively
+  - 2 archers near tower = +30% fire rate (15% + 15%)
+  - 3 cannons near tower = +75% range (25% + 25% + 25%)
+  - Different aura types combine for multi-buff effects
+  - Tower can receive all four aura types simultaneously
+  - Maximum theoretical buffs: +30% speed, +40% damage, +50% range, +20% crit (with many towers)
+  - No cap on stacking (balanced by tower costs and space)
+- Formation strategies:
+  - **Archer Ball**: 3-4 archers clustered = machine gun fire
+  - **Mage Focus**: Mage behind strong tower = amplified damage
+  - **Cannon Line**: Cannons along path = overlapping expanded ranges
+  - **Lightning Crit Hub**: Lightning center, DPS towers around = crit festival
+  - **Balanced Square**: One of each type = all bonuses to all
+  - **Specialized Zones**: Pure archer zone, pure mage zone, etc.
+  - **Support Setup**: Support towers (archer/canon) behind main DPS
+- Economic synergies:
+  - Aura-buffed towers more cost-efficient than isolated towers
+  - 2 archers together > 2 archers separate (30% more DPS total)
+  - Encourages building "complete" formations before spreading
+  - Upgrade priority: buff whole group vs buy new tower
+  - Sell isolated towers, rebuild in formation
+  - Late game: tight formations counter difficulty scaling
+- Visual polish and feedback:
+  - Connection lines show active aura relationships
+  - Golden glow indicates tower receiving buffs
+  - Animated pulses draw attention to synergies
+  - Color-coded lines match aura types
+  - Clear visual language for game mechanics
+  - Upgrade panel shows exact bonus values
+  - No guessing - player sees all bonuses clearly
+- Balance design:
+  - Aura ranges (100px) = 2.5 tiles = reasonable clustering
+  - Bonuses strong enough to matter (15-25%)
+  - Not overpowered (still need upgrades and variety)
+  - Encourages grouped placement without forcing it
+  - Solo towers still viable (auras optional strategy)
+  - Scales well with player skill
+  - Rewards planning and optimization
+- Performance considerations:
+  - O(n²) distance checks per frame (n = tower count)
+  - Max ~25 towers = 625 checks = negligible
+  - Simple sqrt calculations (no trig or complex math)
+  - Visual effects only for visible towers
+  - No frame rate impact up to 50+ towers
+  - Aura visualization can be disabled if needed
+- Code architecture improvements:
+  - Aura system fully modular and configurable
+  - Easy to add new aura types in CONFIG
+  - Clean separation: CONFIG → Tower → Projectile
+  - Methods focused on single responsibility
+  - Effective stat getters isolate bonus logic
+  - No spaghetti code in combat calculations
+  - Foundation for:
+    - Aura upgrade paths
+    - Tower specialization (stronger auras)
+    - Aura-blocking enemies
+    - Aura radius upgrades
+    - Negative auras (debuffs)
+    - Player-controlled auras
+- Future expansion potential:
+  - Tower specialization: choose aura type on place
+  - Aura strength upgrades: +5% per level
+  - Aura range upgrades: +20 pixels per level
+  - Unique auras for hero abilities
+  - Enemy auras that debuff towers
+  - Elite enemies that disable auras
+  - Aura combo achievements
+  - Aura-focused challenge modes
+
+### 📋 Planned Features (3+ commits remaining)
 
 2. Game class and core initialization
 3. Game loop and rendering system
@@ -1322,6 +1476,6 @@ Each commit adds ONE specific feature or improvement, building upon previous wor
 
 ---
 
-**Status:** 🚧 In Development - Commit 24/25+ Complete
+**Status:** 🚧 In Development - Commit 25/25+ Complete
 
-**Last Updated:** Commit 24 - Critical hits and combo system implemented
+**Last Updated:** Commit 25 - Tower auras and synergies implemented
