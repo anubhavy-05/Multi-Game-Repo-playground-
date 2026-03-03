@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 24: Critical hits and combo system
+// Commit 25: Tower auras and synergies
 
 // ============================================
 // GAME CONFIGURATION
@@ -226,6 +226,43 @@ const CONFIG = {
             EXTREME: { threshold: 30, multiplier: 3.0 } // 30+ kills: 3.0x gold
         },
         MAX_COMBO_DISPLAY: 99  // Cap display at 99 for UI
+    },
+    
+    // Tower Auras and Synergies
+    TOWER_AURAS: {
+        AURA_RANGE: 100,  // Range for aura effects (pixels)
+        VISUALIZE_AURA: true,  // Show aura visual indicators
+        // Aura effects per tower type
+        EFFECTS: {
+            archer: {
+                name: 'Precision Aura',
+                icon: '🎯',
+                description: '+15% attack speed to nearby towers',
+                fireRateBonus: 0.15,  // 15% faster attacks
+                color: 'rgba(139, 69, 19, 0.15)'
+            },
+            mage: {
+                name: 'Mystic Aura',
+                icon: '✨',
+                description: '+20% damage to nearby towers',
+                damageBonus: 0.20,  // 20% more damage
+                color: 'rgba(147, 112, 219, 0.15)'
+            },
+            cannon: {
+                name: 'Explosive Aura',
+                icon: '💥',
+                description: '+25% range to nearby towers',
+                rangeBonus: 0.25,  // 25% more range
+                color: 'rgba(105, 105, 105, 0.15)'
+            },
+            lightning: {
+                name: 'Storm Aura',
+                icon: '⚡',
+                description: '+10% crit chance to nearby towers',
+                critChanceBonus: 0.10,  // +10% crit chance
+                color: 'rgba(255, 215, 0, 0.15)'
+            }
+        }
     },
     
     // Enemy types
@@ -561,6 +598,15 @@ class Tower {
         // Targeting priority: 'closest', 'first', 'last', 'strongest', 'weakest'
         this.targetPriority = 'closest';
         
+        // Aura bonuses (calculated from nearby towers)
+        this.auraBonuses = {
+            damageBonus: 0,
+            fireRateBonus: 0,
+            rangeBonus: 0,
+            critChanceBonus: 0
+        };
+        this.nearbyTowers = [];  // Towers affecting this tower
+        
         // Shooting logic
         this.timeSinceLastShot = 0;
         this.target = null;
@@ -663,8 +709,9 @@ class Tower {
     tryShoot(game) {
         if (!this.target || !this.target.isAlive) return null;
         
-        // Check fire rate
-        const fireInterval = 1 / this.fireRate;
+        // Check fire rate (using effective fire rate with aura bonuses)
+        const effectiveFireRate = this.getEffectiveFireRate();
+        const fireInterval = 1 / effectiveFireRate;
         if (this.timeSinceLastShot < fireInterval) return null;
         
         // Fire!
@@ -684,7 +731,7 @@ class Tower {
         const dx = enemy.x - this.x;
         const dy = enemy.y - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        return distance <= this.range;
+        return distance <= this.getEffectiveRange();  // Use effective range with aura bonuses
     }
     
     // Get upgrade cost
@@ -727,6 +774,69 @@ class Tower {
         return Math.floor(totalInvestment * refundPercent);
     }
     
+    // Calculate aura bonuses from all nearby towers
+    calculateAuraBonuses(allTowers) {
+        // Reset bonuses
+        this.auraBonuses = {
+            damageBonus: 0,
+            fireRateBonus: 0,
+            rangeBonus: 0,
+            critChanceBonus: 0
+        };
+        this.nearbyTowers = [];
+        
+        // Check each tower for aura range
+        allTowers.forEach(tower => {
+            if (tower === this) return;  // Skip self
+            
+            const dx = tower.x - this.x;
+            const dy = tower.y - this.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Check if tower is in aura range
+            if (distance <= CONFIG.TOWER_AURAS.AURA_RANGE) {
+                this.nearbyTowers.push(tower);
+                const auraEffect = CONFIG.TOWER_AURAS.EFFECTS[tower.type];
+                
+                if (auraEffect) {
+                    // Apply bonuses from this tower's aura
+                    if (auraEffect.damageBonus) {
+                        this.auraBonuses.damageBonus += auraEffect.damageBonus;
+                    }
+                    if (auraEffect.fireRateBonus) {
+                        this.auraBonuses.fireRateBonus += auraEffect.fireRateBonus;
+                    }
+                    if (auraEffect.rangeBonus) {
+                        this.auraBonuses.rangeBonus += auraEffect.rangeBonus;
+                    }
+                    if (auraEffect.critChanceBonus) {
+                        this.auraBonuses.critChanceBonus += auraEffect.critChanceBonus;
+                    }
+                }
+            }
+        });
+    }
+    
+    // Get effective damage with aura bonuses
+    getEffectiveDamage() {
+        return Math.floor(this.damage * (1 + this.auraBonuses.damageBonus));
+    }
+    
+    // Get effective fire rate with aura bonuses
+    getEffectiveFireRate() {
+        return this.fireRate * (1 + this.auraBonuses.fireRateBonus);
+    }
+    
+    // Get effective range with aura bonuses
+    getEffectiveRange() {
+        return this.range * (1 + this.auraBonuses.rangeBonus);
+    }
+    
+    // Get effective crit chance bonus from auras
+    getCritChanceBonus() {
+        return this.auraBonuses.critChanceBonus;
+    }
+    
     // Draw the tower
     draw(ctx, game) {
         const size = CONFIG.GRID_SIZE;
@@ -751,6 +861,36 @@ class Tower {
             ctx.strokeStyle = `rgba(100, 200, 255, ${pulseAlpha * 3})`;
             ctx.lineWidth = 2;
             ctx.stroke();
+        }
+        
+        // Draw aura indicators if tower has nearby towers buffing it
+        if (CONFIG.TOWER_AURAS.VISUALIZE_AURA && this.nearbyTowers.length > 0 && game) {
+            const auraAlpha = Math.sin(game.rangeIndicatorPhase * 0.7) * 0.1 + 0.2;
+            
+            // Draw connection lines to nearby towers
+            this.nearbyTowers.forEach(nearbyTower => {
+                const auraEffect = CONFIG.TOWER_AURAS.EFFECTS[nearbyTower.type];
+                if (auraEffect) {
+                    ctx.strokeStyle = auraEffect.color.replace('0.15', auraAlpha.toString());
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([5, 5]);
+                    ctx.beginPath();
+                    ctx.moveTo(this.x, this.y);
+                    ctx.lineTo(nearbyTower.x, nearbyTower.y);
+                    ctx.stroke();
+                    ctx.setLineDash([]);
+                }
+            });
+            
+            // Draw aura glow around buffed tower
+            if (this.nearbyTowers.length > 0) {
+                const glowSize = size * 0.5 + Math.sin(game.rangeIndicatorPhase * 1.5) * 3;
+                ctx.strokeStyle = `rgba(255, 215, 0, ${auraAlpha})`;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, glowSize, 0, Math.PI * 2);
+                ctx.stroke();
+            }
         }
         
         // Apply recoil to tower position
@@ -820,8 +960,9 @@ class Projectile {
         this.game = game;
         
         this.speed = tower.config.projectileSpeed;
-        this.damage = tower.damage;
+        this.damage = tower.getEffectiveDamage();  // Use effective damage with aura bonuses
         this.type = tower.type;
+        this.critChanceBonus = tower.getCritChanceBonus();  // Get aura crit bonus
         
         // Visual
         this.size = 4;
@@ -870,7 +1011,8 @@ class Projectile {
             const baseCritMultiplier = CONFIG.CRITICAL_HIT.BASE_MULTIPLIER;
             const towerBonus = CONFIG.CRITICAL_HIT.TOWER_BONUSES[this.type] || { chance: 0, multiplier: 1 };
             
-            const totalCritChance = baseCritChance + towerBonus.chance;
+            // Add aura crit chance bonus from nearby towers
+            const totalCritChance = baseCritChance + towerBonus.chance + this.critChanceBonus;
             const totalCritMultiplier = baseCritMultiplier + (towerBonus.multiplier - baseCritMultiplier);
             
             // Roll for critical hit
@@ -3185,6 +3327,11 @@ class Game {
         
         // Update wave spawning
         this.updateWave(adjustedDeltaTime);
+        
+        // Calculate aura bonuses for all towers
+        this.towers.forEach(tower => {
+            tower.calculateAuraBonuses(this.towers);
+        });
         
         // Update towers and let them shoot
         this.towers.forEach(tower => {
