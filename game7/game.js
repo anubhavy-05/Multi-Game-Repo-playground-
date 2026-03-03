@@ -3301,6 +3301,12 @@ class Game {
             }
         }
         
+        // Update combo system
+        this.updateComboSystem(adjustedDeltaTime);
+        
+        // Update floating texts
+        this.updateFloatingTexts(adjustedDeltaTime);
+        
         // Update visual effects
         this.updateVisualEffects(adjustedDeltaTime);
     }
@@ -3339,6 +3345,11 @@ class Game {
             
             // Draw achievement notifications
             this.drawAchievementNotifications();
+            
+            // Draw combo UI
+            if (this.combo.active && this.combo.count > 1) {
+                this.drawComboUI();
+            }
             
             // Draw pause overlay if paused
             if (this.state.isPaused) {
@@ -3554,6 +3565,25 @@ class Game {
         // Draw particles
         this.particles.forEach(particle => {
             particle.draw(this.ctx);
+        });
+        
+        // Draw floating texts (damage numbers, combo text)
+        this.floatingTexts.forEach(text => {
+            this.ctx.save();
+            this.ctx.globalAlpha = text.alpha;
+            this.ctx.font = `bold ${text.fontSize}px Arial`;
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            
+            // Stroke for readability
+            this.ctx.strokeStyle = '#000';
+            this.ctx.lineWidth = 3;
+            this.ctx.strokeText(text.text, text.x, text.y);
+            
+            // Fill text
+            this.ctx.fillStyle = text.color;
+            this.ctx.fillText(text.text, text.x, text.y);
+            this.ctx.restore();
         });
         
         // Draw towers
@@ -3913,6 +3943,79 @@ class Game {
         });
     }
     
+    // Draw combo UI
+    drawComboUI() {
+        const currentTime = Date.now();
+        const timeSinceLastKill = currentTime - this.combo.lastKillTime;
+        const timeRemaining = CONFIG.COMBO.TIME_WINDOW - timeSinceLastKill;
+        const timePercent = timeRemaining / CONFIG.COMBO.TIME_WINDOW;
+        
+        // Position at top-right of screen
+        const x = this.canvas.width - 180;
+        const y = 60;
+        const width = 160;
+        const height = 80;
+        
+        // Background with pulse effect
+        const pulseScale = 0.95 + Math.sin(Date.now() / 200) * 0.05;
+        this.ctx.save();
+        this.ctx.globalAlpha = 0.9 * pulseScale;
+        
+        // Gradient background
+        const gradient = this.ctx.createLinearGradient(x, y, x, y + height);
+        gradient.addColorStop(0, '#7C3AED');
+        gradient.addColorStop(1, '#4C1D95');
+        this.ctx.fillStyle = gradient;
+        this.ctx.fillRect(x, y, width, height);
+        
+        // Border with glow
+        this.ctx.strokeStyle = '#FFD700';
+        this.ctx.lineWidth = 3;
+        this.ctx.shadowBlur = 10;
+        this.ctx.shadowColor = '#FFD700';
+        this.ctx.strokeRect(x, y, width, height);
+        this.ctx.shadowBlur = 0;
+        this.ctx.restore();
+        
+        // Combo text
+        this.ctx.fillStyle = '#FFD700';
+        this.ctx.font = 'bold 18px Arial';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText('⚔️ COMBO', x + width / 2, y + 22);
+        
+        // Combo count
+        const displayCount = Math.min(this.combo.count, CONFIG.COMBO.MAX_COMBO_DISPLAY);
+        this.ctx.fillStyle = '#FFF';
+        this.ctx.font = 'bold 28px Arial';
+        this.ctx.fillText(`${displayCount}x`, x + width / 2, y + 48);
+        
+        // Gold multiplier
+        this.ctx.fillStyle = '#4ade80';
+        this.ctx.font = 'bold 14px Arial';
+        this.ctx.fillText(`+${Math.round((this.combo.multiplier - 1) * 100)}% Gold`, x + width / 2, y + 66);
+        
+        // Time remaining bar
+        const barX = x + 10;
+        const barY = y + height - 8;
+        const barWidth = width - 20;
+        const barHeight = 4;
+        
+        // Background bar
+        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        this.ctx.fillRect(barX, barY, barWidth, barHeight);
+        
+        // Progress bar (changes color based on time remaining)
+        let barColor = '#4ade80'; // Green
+        if (timePercent < 0.3) {
+            barColor = '#f87171'; // Red
+        } else if (timePercent < 0.6) {
+            barColor = '#fbbf24'; // Yellow
+        }
+        
+        this.ctx.fillStyle = barColor;
+        this.ctx.fillRect(barX, barY, barWidth * timePercent, barHeight);
+    }
+    
     // Draw welcome screen
     drawWelcomeScreen() {
         this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
@@ -3933,8 +4036,8 @@ class Game {
         
         this.ctx.font = '14px Arial';
         this.ctx.fillStyle = '#a0aec0';
-        this.ctx.fillText('Commit 23: Status Effects System Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
-        this.ctx.fillText('Towers now inflict slow, burn, stun, and poison effects on enemies!', this.canvas.width / 2, this.canvas.height / 2 + 90);
+        this.ctx.fillText('Commit 24: Critical Hits & Combo System Active ✓', this.canvas.width / 2, this.canvas.height / 2 + 70);
+        this.ctx.fillText('Land critical hits and build combos for massive gold rewards!', this.canvas.width / 2, this.canvas.height / 2 + 90);
         this.ctx.fillText('P: Pause | R: Restart', this.canvas.width / 2, this.canvas.height / 2 + 110);
     }
     
