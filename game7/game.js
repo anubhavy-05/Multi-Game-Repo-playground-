@@ -1,5 +1,5 @@
 // Castle Defenders - Tower Defense RPG
-// Commit 24: Tower synergy and combo system
+// Commit 24: Critical hits and combo system
 
 // ============================================
 // GAME CONFIGURATION
@@ -203,69 +203,29 @@ const CONFIG = {
         }
     },
     
-    // Tower Synergy and Combo System
-    SYNERGIES: {
-        // Adjacent tower bonuses (within range)
-        ADJACENCY_RANGE: 150,  // Pixels - towers within this range synergize
-        
-        // Type-specific synergy bonuses
-        TOWER_SYNERGIES: {
-            // Same type synergies
-            archer_archer: {
-                name: 'Volley Formation',
-                damageBonus: 0.15,  // +15% damage per adjacent archer
-                fireRateBonus: 0.10,  // +10% fire rate per adjacent archer
-                description: 'Multiple archers create a deadly barrage'
-            },
-            mage_mage: {
-                name: 'Arcane Resonance',
-                damageBonus: 0.20,  // +20% damage per adjacent mage
-                rangeBonus: 0.15,  // +15% range per adjacent mage
-                description: 'Magical energies amplify each other'
-            },
-            cannon_cannon: {
-                name: 'Artillery Battery',
-                damageBonus: 0.25,  // +25% damage per adjacent cannon
-                description: 'Coordinated bombardment devastates enemies'
-            },
-            lightning_lightning: {
-                name: 'Storm Nexus',
-                damageBonus: 0.18,  // +18% damage per adjacent lightning
-                fireRateBonus: 0.12,  // +12% fire rate per adjacent lightning
-                description: 'Chain lightning jumps farther and faster'
-            },
-            
-            // Cross-type synergies
-            mage_cannon: {
-                name: 'Elemental Infusion',
-                damageBonus: 0.12,  // +12% damage
-                description: 'Magic enhances explosive power'
-            },
-            archer_lightning: {
-                name: 'Precision Strike',
-                damageBonus: 0.10,  // +10% damage
-                fireRateBonus: 0.08,  // +8% fire rate
-                description: 'Speed and power combined'
-            },
-            mage_lightning: {
-                name: 'Elemental Mastery',
-                damageBonus: 0.15,  // +15% damage
-                description: 'Elemental forces combine'
-            },
-            archer_cannon: {
-                name: 'Mixed Barrage',
-                damageBonus: 0.08,  // +8% damage
-                description: 'Varied attacks confuse enemies'
-            }
-        },
-        
-        // Combo system - multiple towers hitting same target
-        COMBO: {
-            WINDOW: 1000,  // 1 second window for combos
-            DAMAGE_BONUS_PER_HIT: 0.10,  // +10% per additional tower in combo
-            MAX_COMBO_MULTIPLIER: 2.0,  // Cap at 200% damage (10 hits)
-            MIN_HITS_FOR_COMBO: 2  // Need at least 2 hits for a combo
+    // Critical Hit System
+    CRITICAL_HIT: {
+        BASE_CHANCE: 0.1,  // 10% base crit chance
+        BASE_MULTIPLIER: 2.0,  // 2x damage on crit
+        // Per-tower crit bonuses
+        TOWER_BONUSES: {
+            archer: { chance: 0.15, multiplier: 1.8 },  // 25% chance, 1.8x (fast light crits)
+            mage: { chance: 0.05, multiplier: 3.0 },    // 15% chance, 3.0x (rare devastating crits)
+            cannon: { chance: 0.10, multiplier: 2.5 },  // 20% chance, 2.5x (explosive crits)
+            lightning: { chance: 0.20, multiplier: 2.0 } // 30% chance, 2.0x (frequent chain crits)
         }
+    },
+    
+    // Combo System
+    COMBO: {
+        TIME_WINDOW: 3000,  // 3 seconds to maintain combo
+        GOLD_MULTIPLIERS: {
+            LOW: { threshold: 5, multiplier: 1.2 },   // 5+ kills: 1.2x gold
+            MEDIUM: { threshold: 10, multiplier: 1.5 }, // 10+ kills: 1.5x gold
+            HIGH: { threshold: 20, multiplier: 2.0 },   // 20+ kills: 2.0x gold
+            EXTREME: { threshold: 30, multiplier: 3.0 } // 30+ kills: 3.0x gold
+        },
+        MAX_COMBO_DISPLAY: 99  // Cap display at 99 for UI
     },
     
     // Enemy types
@@ -607,15 +567,6 @@ class Tower {
         this.rotation = 0;
         this.shootRecoil = 0;  // Recoil animation when shooting
         
-        // Synergy tracking
-        this.synergyBonuses = {
-            damage: 0,      // Bonus damage multiplier
-            range: 0,       // Bonus range multiplier
-            fireRate: 0     // Bonus fire rate multiplier
-        };
-        this.adjacentTowers = [];  // List of towers providing synergies
-        this.synergyNames = [];    // Names of active synergies
-        
         // Visual effects
         this.pulsePhase = Math.random() * Math.PI * 2;
     }
@@ -640,69 +591,6 @@ class Tower {
             const dy = this.target.y - this.y;
             this.rotation = Math.atan2(dy, dx);
         }
-    }
-    
-    // Calculate synergy bonuses from adjacent towers
-    calculateSynergies(allTowers) {
-        // Reset bonuses
-        this.synergyBonuses = {
-            damage: 0,
-            range: 0,
-            fireRate: 0
-        };
-        this.adjacentTowers = [];
-        this.synergyNames = [];
-        
-        // Find adjacent towers within synergy range
-        for (const tower of allTowers) {
-            if (tower === this) continue;  // Skip self
-            
-            const dx = tower.x - this.x;
-            const dy = tower.y - this.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            
-            if (distance <= CONFIG.SYNERGIES.ADJACENCY_RANGE) {
-                // Check for synergy between tower types
-                const synergyKey1 = `${this.type}_${tower.type}`;
-                const synergyKey2 = `${tower.type}_${this.type}`;
-                
-                const synergy = CONFIG.SYNERGIES.TOWER_SYNERGIES[synergyKey1] || 
-                               CONFIG.SYNERGIES.TOWER_SYNERGIES[synergyKey2];
-                
-                if (synergy) {
-                    this.adjacentTowers.push(tower);
-                    
-                    // Add synergy name (avoid duplicates)
-                    if (!this.synergyNames.includes(synergy.name)) {
-                        this.synergyNames.push(synergy.name);
-                    }
-                    
-                    // Apply bonuses
-                    if (synergy.damageBonus) {
-                        this.synergyBonuses.damage += synergy.damageBonus;
-                    }
-                    if (synergy.rangeBonus) {
-                        this.synergyBonuses.range += synergy.rangeBonus;
-                    }
-                    if (synergy.fireRateBonus) {
-                        this.synergyBonuses.fireRate += synergy.fireRateBonus;
-                    }
-                }
-            }
-        }
-    }
-    
-    // Get effective stats with synergy bonuses applied
-    getEffectiveDamage() {
-        return this.damage * (1 + this.synergyBonuses.damage);
-    }
-    
-    getEffectiveRange() {
-        return this.range * (1 + this.synergyBonuses.range);
-    }
-    
-    getEffectiveFireRate() {
-        return this.fireRate * (1 + this.synergyBonuses.fireRate);
     }
     
     // Find nearest enemy in range
@@ -775,8 +663,8 @@ class Tower {
     tryShoot(game) {
         if (!this.target || !this.target.isAlive) return null;
         
-        // Check fire rate (use effective fire rate with synergy bonuses)
-        const fireInterval = 1 / this.getEffectiveFireRate();
+        // Check fire rate
+        const fireInterval = 1 / this.fireRate;
         if (this.timeSinceLastShot < fireInterval) return null;
         
         // Fire!
@@ -796,7 +684,7 @@ class Tower {
         const dx = enemy.x - this.x;
         const dy = enemy.y - this.y;
         const distance = Math.sqrt(dx * dx + dy * dy);
-        return distance <= this.getEffectiveRange();
+        return distance <= this.range;
     }
     
     // Get upgrade cost
@@ -974,7 +862,30 @@ class Projectile {
         
         // Deal damage
         if (this.target && this.target.isAlive) {
-            this.target.takeDamage(this.damage);
+            // Calculate critical hit
+            let finalDamage = this.damage;
+            let isCritical = false;
+            
+            const baseCritChance = CONFIG.CRITICAL_HIT.BASE_CHANCE;
+            const baseCritMultiplier = CONFIG.CRITICAL_HIT.BASE_MULTIPLIER;
+            const towerBonus = CONFIG.CRITICAL_HIT.TOWER_BONUSES[this.type] || { chance: 0, multiplier: 1 };
+            
+            const totalCritChance = baseCritChance + towerBonus.chance;
+            const totalCritMultiplier = baseCritMultiplier + (towerBonus.multiplier - baseCritMultiplier);
+            
+            // Roll for critical hit
+            if (Math.random() < totalCritChance) {
+                isCritical = true;
+                finalDamage = Math.floor(this.damage * totalCritMultiplier);
+            }
+            
+            // Apply damage
+            this.target.takeDamage(finalDamage);
+            
+            // Create floating damage text
+            if (this.game) {
+                this.createDamageText(finalDamage, isCritical);
+            }
             
             // Apply status effect if tower has one
             if (this.tower.config.statusEffect && this.tower.config.statusChance) {
@@ -986,13 +897,29 @@ class Projectile {
             
             // Create hit particles
             if (this.game) {
-                this.createHitParticles();
+                this.createHitParticles(isCritical);
             }
         }
     }
     
+    // Create floating damage text
+    createDamageText(damage, isCritical) {
+        const floatingText = {
+            x: this.x,
+            y: this.y,
+            text: isCritical ? `${damage}!` : `${damage}`,
+            color: isCritical ? '#FFD700' : '#FFF',
+            fontSize: isCritical ? 20 : 14,
+            alpha: 1.0,
+            lifetime: 1000,  // 1 second
+            velocityY: -50,  // Float upward
+            isCritical: isCritical
+        };
+        this.game.floatingTexts.push(floatingText);
+    }
+    
     // Create hit particles
-    createHitParticles() {
+    createHitParticles(isCritical) {
         const colors = {
             'archer': '#8B4513',
             'mage': '#9370DB',
@@ -1000,14 +927,15 @@ class Projectile {
             'lightning': '#FFD700'
         };
         
-        const color = colors[this.type] || '#FFF';
-        const count = this.type === 'cannon' ? 12 : 8;
+        const color = isCritical ? '#FFD700' : (colors[this.type] || '#FFF');
+        let count = this.type === 'cannon' ? 12 : 8;
+        if (isCritical) count *= 2;  // Double particles for crits
         
         for (let i = 0; i < count; i++) {
             const particle = new Particle(this.x, this.y, 'hit', {
                 color: color,
-                size: 2 + Math.random() * 3,
-                speed: 50 + Math.random() * 100,
+                size: isCritical ? 3 + Math.random() * 4 : 2 + Math.random() * 3,
+                speed: isCritical ? 100 + Math.random() * 150 : 50 + Math.random() * 100,
                 lifetime: 0.3 + Math.random() * 0.3,
                 gravity: 100
             });
@@ -1230,12 +1158,6 @@ class Enemy {
             stun: { active: false, duration: 0, stacks: 0 }
         };
         this.baseSpeed = this.speed;  // Store base speed for status calculations
-        
-        // Combo tracking
-        this.comboHits = [];  // Track recent hits: { time, tower, damage }
-        this.comboMultiplier = 1;  // Current combo multiplier
-        this.showCombo = false;  // Visual flag to show combo
-        this.comboDisplayTime = 0;  // Timer for combo display
         
         // Visual effects
         this.rotation = 0;
@@ -1616,6 +1538,15 @@ class Game {
         this.castlePulse = 0;  // Animation phase for castle
         this.rangeIndicatorPhase = 0;  // Animation for range indicators
         
+        // Combo system
+        this.combo = {
+            count: 0,
+            multiplier: 1.0,
+            lastKillTime: 0,
+            active: false
+        };
+        this.floatingTexts = [];  // For damage numbers and combo text
+        
         // Initialize grid and path
         this.initializeGrid();
         
@@ -1976,6 +1907,92 @@ class Game {
                 friction: 0.9
             });
             this.particles.push(particle);
+        }
+    }
+    
+    // ============================================
+    // COMBO SYSTEM
+    // ============================================
+    
+    // Update combo on kill
+    updateCombo() {
+        const currentTime = Date.now();
+        const timeSinceLastKill = currentTime - this.combo.lastKillTime;
+        
+        // Check if combo is maintained
+        if (timeSinceLastKill <= CONFIG.COMBO.TIME_WINDOW) {
+            this.combo.count++;
+        } else {
+            // Combo broken, reset
+            this.combo.count = 1;
+        }
+        
+        this.combo.lastKillTime = currentTime;
+        this.combo.active = true;
+        
+        // Calculate combo multiplier
+        this.combo.multiplier = 1.0;
+        const multipliers = CONFIG.COMBO.GOLD_MULTIPLIERS;
+        
+        if (this.combo.count >= multipliers.EXTREME.threshold) {
+            this.combo.multiplier = multipliers.EXTREME.multiplier;
+        } else if (this.combo.count >= multipliers.HIGH.threshold) {
+            this.combo.multiplier = multipliers.HIGH.multiplier;
+        } else if (this.combo.count >= multipliers.MEDIUM.threshold) {
+            this.combo.multiplier = multipliers.MEDIUM.multiplier;
+        } else if (this.combo.count >= multipliers.LOW.threshold) {
+            this.combo.multiplier = multipliers.LOW.multiplier;
+        }
+    }
+    
+    // Create floating combo text
+    createComboText(enemy, goldAmount) {
+        const floatingText = {
+            x: enemy.x,
+            y: enemy.y - 20,
+            text: `+${goldAmount} (x${this.combo.multiplier})`,
+            color: '#FFD700',
+            fontSize: 16,
+            alpha: 1.0,
+            lifetime: 1500,
+            velocityY: -30,
+            isCritical: false,
+            isCombo: true
+        };
+        this.floatingTexts.push(floatingText);
+    }
+    
+    // Update combo system (called each frame)
+    updateComboSystem(deltaTime) {
+        if (!this.combo.active) return;
+        
+        const currentTime = Date.now();
+        const timeSinceLastKill = currentTime - this.combo.lastKillTime;
+        
+        // Break combo if time window exceeded
+        if (timeSinceLastKill > CONFIG.COMBO.TIME_WINDOW) {
+            this.combo.active = false;
+            this.combo.count = 0;
+            this.combo.multiplier = 1.0;
+        }
+    }
+    
+    // Update floating texts
+    updateFloatingTexts(deltaTime) {
+        for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+            const text = this.floatingTexts[i];
+            
+            // Update position
+            text.y += text.velocityY * (deltaTime / 1000);
+            
+            // Update alpha
+            text.lifetime -= deltaTime;
+            text.alpha = Math.max(0, text.lifetime / (text.isCritical ? 1000 : 1500));
+            
+            // Remove if expired
+            if (text.lifetime <= 0) {
+                this.floatingTexts.splice(i, 1);
+            }
         }
     }
     
@@ -3225,6 +3242,9 @@ class Game {
                 // Check if this was the boss
                 const wasBoss = enemy.config.isBoss;
                 
+                // Update combo system
+                this.updateCombo();
+                
                 // Create death particles
                 this.createDeathParticles(enemy);
                 
@@ -3241,9 +3261,9 @@ class Game {
                     this.soundManager.playSound('enemyDeath');
                 }
                 
-                // Apply gold rush multiplier
+                // Apply gold rush multiplier + combo multiplier
                 const goldMultiplier = this.abilities.goldRush.isActive ? CONFIG.ABILITIES.goldRush.multiplier : 1;
-                let goldReward = Math.floor(enemy.goldReward * goldMultiplier);
+                let goldReward = Math.floor(enemy.goldReward * goldMultiplier * this.combo.multiplier);
                 
                 // Boss defeated - extra rewards
                 if (wasBoss) {
@@ -3257,6 +3277,12 @@ class Game {
                 this.addGold(goldReward);
                 this.addMana(CONFIG.MANA_PER_KILL);
                 this.createManaParticles(enemy);
+                
+                // Show combo gold text if combo is active
+                if (this.combo.active && this.combo.multiplier > 1) {
+                    this.createComboText(enemy, goldReward);
+                }
+                
                 this.state.score += goldReward * 10;
                 this.state.totalKills++;  // Increment kill counter
                 this.enemies.splice(i, 1);
