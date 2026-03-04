@@ -42,82 +42,48 @@ Explore procedurally generated dungeons, fight enemies, collect loot, level up y
 - ✅ Game loop foundation
 
 **Commit 2: Create Game Class and Core Initialization** ✓
-- Added CONFIG object with comprehensive game constants
-  - Canvas, tile, and FPS settings
-  - Player starting stats (health, attack, defense, speed, gold, level)
-  - Dungeon generation parameters (room size, count ranges)
-  - Camera settings (smooth factor, deadzone)
-  - Combat parameters (cooldown, knockback, damage variance)
-  - Item drop chances (gold, potions, equipment)
-- Implemented utility functions (Utils class)
-  - Random number generation (float and integer)
-  - Distance and angle calculations
-  - Clamping and linear interpolation (lerp)
-  - Rectangle overlap detection (AABB collision)
-- Created InputManager class
-  - Keyboard input tracking (keys pressed/released)
-  - Mouse position tracking (screen and world coordinates)
-  - Mouse button states
-  - Movement input helpers (WASD/Arrow keys)
-  - Context menu prevention for right-click
-- Implemented Camera system
-  - Smooth camera following with lerp
-  - Target tracking (follows player)
-  - Camera transform application to canvas
-  - Screen-to-world coordinate conversion
-- Added GameStats class
-  - Tracks enemies killed, gold collected, damage dealt/taken
-  - Floors cleared, bosses killed, items collected
-  - Time played counter with formatted display
-  - Statistics reset functionality
-- Enhanced Game class initialization
-  - Integrated input manager, camera, and stats systems
-  - Created entity arrays (enemies, items, projectiles, particles)
-  - Added player resource tracking (gold, health, attack, defense, level, XP)
-  - Dungeon state management (floor number, dungeon reference)
-- Improved game loop
-  - Delta time clamping to prevent physics bugs
-  - Stats update (time tracking)
-  - Camera update and mouse world position calculation
-  - Entity update loops (prepared for future commits)
-  - Automatic game over detection
-- Enhanced rendering pipeline
-  - Camera transform for world rendering
-  - Separate world and UI rendering
-  - Debug overlays (camera position, mouse world coords)
-  - Prepared render loops for all entity types
-- Comprehensive reset system
-  - Resets all player stats and resources
-  - Clears all entity arrays
-  - Resets camera position
-  - Resets game statistics
-- Game over system with statistics display
+- Configuration constants (CONFIG object)
+- Game constants for tiles, grid, player, floor difficulty
+- Color palette for consistent theming
+- Utility functions (Utils object)
+- Distance, angle, lerp calculations
+- Random number generators
+- AABB collision checking
+- Grid/world coordinate conversions
+- Input Manager system
+- Keyboard input tracking (WASD, arrows, ESC, I, C keys)
+- Mouse position tracking (canvas and world space)
+- Mouse click detection
+- Camera system
+- Smooth camera follow with lerp
+- Camera transform for world/screen space separation
+- Target tracking for player following
+- Game Statistics tracker
+- Time played, enemies killed, gold collected
+- Damage dealt/taken, items collected, floors cleared
+- Enhanced Game class
+- Entity arrays (enemies, items, projectiles, particles)
+- Game data initialization
+- Camera and input integration
+- Improved game loop with delta time clamping
+- Separate update/render pipelines
+- World space and screen space rendering
+- Game over system
 
 **Features in Commit 2:**
-- ✅ CONFIG object with 50+ game constants
-- ✅ Utility functions for math and collision
-- ✅ Input manager for keyboard and mouse
+- ✅ CONFIG object with 50+ constants
+- ✅ Utils library with 10+ helper functions
+- ✅ Input Manager with keyboard/mouse tracking
 - ✅ Camera system with smooth following
-- ✅ Statistics tracking system
-- ✅ Entity arrays for game objects
-- ✅ Player resource management
-- ✅ Enhanced game loop with delta clamping
-- ✅ Camera-based rendering pipeline
-- ✅ World-to-screen coordinate conversion
-- ✅ Comprehensive reset functionality
+- ✅ Game Statistics tracking
+- ✅ Entity management arrays
+- ✅ World/screen space separation
+- ✅ Delta time clamping (prevent spiral of death)
+- ✅ Enhanced event listeners (I, C, ESC keys)
 - ✅ Game over system
+- ✅ Resource management foundation
 
 ### 📋 Planned Commits (3-20+)
-
-**Commit 2: Create Game Class and Core Initialization**
-- Configuration constants for game mechanics
-- Utility functions (math, collision, random)
-- Enhanced input handling (keyboard, mouse with world coords)
-- Camera system with smooth following
-- Game statistics tracking (kills, gold, time, etc.)
-- Entity arrays for all game objects
-- Resource management (health, gold, XP, etc.)
-- Delta time clamping for stable physics
 
 **Commit 3: Implement Player Character and Rendering**
 - Player class with position and stats
@@ -300,32 +266,45 @@ game8/
 ## 🎯 Current Testing Instructions (Commit 2)
 
 1. **Open the game** - Load `index.html` in a modern browser
-2. **Check UI updates** - Header should show "Commit 2"
-3. **Open browser console** (F12) - Should see:
+2. **Check UI** - Verify all UI elements are visible:
+   - Stats panel (top-left) showing placeholder values from CONFIG
+   - Control buttons (bottom-right)
+   - Welcome screen showing "Commit 2: Core Systems Active ✓"
+3. **Test buttons**:
+   - Click "Start Adventure" - Should hide welcome screen and start game loop
+   - Watch FPS counter update in debug info
+   - Click "Pause" - Should show pause overlay
+   - Click "Resume" or press ESC - Should continue game
+   - Click "Reset" - Should return to welcome screen
+4. **Test keyboard**:
+   - Press **ESC** during gameplay - Should pause/unpause
+   - Press **I** - Should log "Inventory (coming in Commit 10)" to console
+   - Press **C** - Should log "Character stats (coming in Commit 12)" to console
+5. **Check console (F12)** - Should see:
    - "🎮 Dungeon Crawler RPG - Commit 2: Core Initialization"
-   - "Systems initialized: Input, Camera, Stats"
-4. **Test game start**:
-   - Click "Start Adventure"
-   - Canvas should show "Commit 2: Core Systems Active ✓"
-   - Should see "✓ Input Manager ✓ Camera System ✓ Stats Tracker"
-5. **Test input system**:
-   - Move mouse over canvas - Check bottom-left for mouse coordinates
-   - Press WASD keys - Input manager is tracking (will be used in Commit 4)
-6. **Test camera system**:
-   - Camera position shown at bottom-left: "Camera: (0, 0)"
-   - Mouse world position shown: "Mouse: (x, y)"
-7. **Test stats tracking**:
-   - Stats panel shows initial values (HP: 100/100, ATK: 10, DEF: 5, etc.)
-   - All values should be populated from CONFIG constants
-8. **Test game controls**:
-   - Pause/Resume should work
-   - ESC key should pause
-   - Reset should reset all stats to initial values
-9. **Check FPS counter** - Should display steady 60 FPS
-10. **Verify systems**:
-    - Input system tracks keyboard/mouse
-    - Camera system ready for player following
-    - Stats system tracking time played (will increment when playing)
+   - Canvas dimensions: 800x600
+   - Grid dimensions: 20x15
+   - Tile size: 40
+   - "✓ Event listeners setup"
+   - "✓ Game data initialized"
+   - "✓ Game started - Floor 1" (when starting)
+6. **Visual checks**:
+   - Canvas shows golden grid pattern (20x15 tiles)
+   - Center text: "🗡️ DUNGEON CRAWLER RPG"
+   - "Commit 2: Core Systems Active ✓"
+   - Bottom-left debug text showing "✓ CONFIG system, Input Manager, Camera System, Game Stats"
+7. **Mouse tracking** - Move mouse over canvas:
+   - Mouse position updates internally (check in console if needed)
+   - Mouse clicks register (check console for click events)
+8. **Stats panel verification**:
+   - HP: 100/100 (from CONFIG.PLAYER.START_HEALTH)
+   - ATK: 10 (from CONFIG.PLAYER.START_ATTACK)
+   - DEF: 5 (from CONFIG.PLAYER.START_DEFENSE)
+   - LVL: 1 (from CONFIG.PLAYER.START_LEVEL)
+   - Gold: 0 (from CONFIG.PLAYER.START_GOLD)
+   - Floor: 1 (from CONFIG.FLOOR.START_FLOOR)
+9. **FPS monitoring** - FPS should be close to 60 in debug panel
+10. **Responsive design** - Resize browser window to test mobile layout
 
 ## 📊 Commit Progress
 
@@ -366,29 +345,37 @@ game8/
 - Responsive breakpoints at 768px for mobile devices
 
 ### Commit 2 Details
-- CONFIG object contains all tunable game parameters in one place
-- Input manager tracks all keys simultaneously (no polling delay)
-- Mouse coordinates converted to world space automatically
-- Camera uses lerp for smooth following (factor: 0.1)
-- Delta time clamped to 0.1s max to prevent physics tunneling
-- Stats tracker updates time played every frame
-- Entity arrays use reverse iteration for safe removal during updates
-- Utils class provides reusable math functions across all game code
-- Camera transform applied before world rendering, reset before UI
-- Game over automatically triggers when health <= 0
-- All systems initialized in constructor for immediate availability
-- Resource values (gold, health, etc.) stored in Game class for easy access
-- Experience system prepared with experienceToNext calculation
-- Floor progression system ready for dungeon generation
+- CONFIG object contains 50+ game constants organized by category
+- Tile size: 40px, Grid: 20x15, Target FPS: 60
+- Player starting stats: 100 HP, 10 ATK, 5 DEF, 150 speed
+- Floor difficulty multiplier: 1.2 (20% harder each floor)
+- Utils library provides reusable math functions
+- Distance, angle, lerp, clamp helpers
+- Random int/float generators
+- AABB collision detection
+- Grid/world coordinate conversion
+- InputManager tracks all keyboard and mouse input
+- Supports WASD, arrows, ESC, I, C keys
+- Mouse position in canvas and world space
+- Click detection for combat
+- Camera system with smooth following
+- Lerp-based smooth movement (speed: 5)
+- Dead zone: 100px from center
+- Separate world/screen space transforms
+- GameStats tracks 7 different statistics
+- Time played, kills, gold, damage, items, floors
+- Updates in real-time during gameplay
+- Enhanced game loop prevents "spiral of death"
+- Delta time clamping to MAX_DELTA_TIME (0.1s)
+- Separate update/render for all entity types
+- Entity arrays ready for future systems
 
 ### Next Steps (Commit 3)
-- Create Player class with position, size, and sprite
-- Implement player rendering with color/shape
-- Add player stats integration (health, attack, defense from Game class)
-- Display player at spawn position
-- Add player direction facing (for animation)
-- Initialize player when game starts
-- Camera will automatically follow player (system ready)
+- Create Player class with position and movement
+- Implement sprite rendering (circle placeholder initially)
+- Add health bar display above player
+- Set up player starting position
+- Prepare for movement controls in Commit 4
 
 ## 📝 License
 
@@ -403,4 +390,4 @@ This game is part of the Multi-Game-Repo-playground collection.
 ---
 
 **Current Status:** Commit 2/20+ Complete ✓  
-**Next Commit:** Player Character and Rendering System
+**Next Commit:** Player Character and Rendering
