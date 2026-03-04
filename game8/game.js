@@ -1,86 +1,67 @@
 // Commit 2: Create Game Class and Core Initialization
 
-// ============================================
-// Configuration Constants
-// ============================================
+// ===== CONFIGURATION =====
 const CONFIG = {
-    // Canvas settings
+    // Canvas
     CANVAS_WIDTH: 800,
     CANVAS_HEIGHT: 600,
     TILE_SIZE: 40,
     
+    // Grid dimensions
+    GRID_WIDTH: 20,  // 800 / 40
+    GRID_HEIGHT: 15, // 600 / 40
+    
     // Game settings
     TARGET_FPS: 60,
-    MAX_DELTA_TIME: 0.1, // Prevent huge jumps
+    MAX_DELTA_TIME: 0.1, // Prevent spiral of death
     
-    // Player settings (will be fully used in Commit 3)
+    // Player settings
     PLAYER: {
         START_HEALTH: 100,
         START_ATTACK: 10,
         START_DEFENSE: 5,
         START_SPEED: 150, // pixels per second
         START_GOLD: 0,
-        START_LEVEL: 1
+        START_LEVEL: 1,
+        SIZE: 16, // Half tile size for better collision
     },
     
-    // Dungeon settings (will be used in Commit 5)
-    DUNGEON: {
-        ROOM_WIDTH: 20, // tiles
-        ROOM_HEIGHT: 15, // tiles
-        MIN_ROOMS: 5,
-        MAX_ROOMS: 10
+    // Game progression
+    FLOOR: {
+        START_FLOOR: 1,
+        DIFFICULTY_MULTIPLIER: 1.2, // Each floor enemies get 20% stronger
     },
     
-    // Camera settings
+    // Camera
     CAMERA: {
-        SMOOTH_FACTOR: 0.1, // Camera smoothing
-        DEADZONE: 100 // Pixels before camera moves
+        SMOOTH_SPEED: 5, // Camera smoothing factor
+        DEAD_ZONE: 100, // Pixels from center before camera moves
     },
     
-    // Combat settings (will be used in Commit 8)
-    COMBAT: {
-        ATTACK_COOLDOWN: 0.5, // seconds
-        KNOCKBACK_FORCE: 200,
-        DAMAGE_VARIANCE: 0.2 // ±20% damage variance
-    },
-    
-    // Item settings (will be used in Commit 9)
-    ITEMS: {
-        GOLD_DROP_CHANCE: 0.8,
-        POTION_DROP_CHANCE: 0.3,
-        EQUIPMENT_DROP_CHANCE: 0.1
+    // Colors
+    COLORS: {
+        BACKGROUND: '#1a1a1a',
+        GRID: 'rgba(255, 215, 0, 0.1)',
+        FLOOR: '#2a2a2a',
+        WALL: '#404040',
+        PLAYER: '#4a9eff',
+        ENEMY: '#ff4a4a',
+        GOLD: '#ffd700',
+        HEALTH: '#4aff4a',
+        TEXT: '#ffffff',
     }
 };
 
-// ============================================
-// Utility Functions
-// ============================================
+// ===== UTILITY FUNCTIONS =====
 const Utils = {
-    // Random number between min and max
-    random(min, max) {
-        return Math.random() * (max - min) + min;
-    },
-    
-    // Random integer between min and max (inclusive)
-    randomInt(min, max) {
-        return Math.floor(Math.random() * (max - min + 1)) + min;
-    },
-    
     // Distance between two points
     distance(x1, y1, x2, y2) {
-        const dx = x2 - x1;
-        const dy = y2 - y1;
-        return Math.sqrt(dx * dx + dy * dy);
+        return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
     },
     
-    // Angle between two points (in radians)
+    // Angle between two points
     angle(x1, y1, x2, y2) {
         return Math.atan2(y2 - y1, x2 - x1);
-    },
-    
-    // Clamp value between min and max
-    clamp(value, min, max) {
-        return Math.max(min, Math.min(max, value));
     },
     
     // Lerp (linear interpolation)
@@ -88,18 +69,45 @@ const Utils = {
         return start + (end - start) * factor;
     },
     
-    // Check if two rectangles overlap (AABB collision)
-    rectOverlap(x1, y1, w1, h1, x2, y2, w2, h2) {
-        return x1 < x2 + w2 &&
-               x1 + w1 > x2 &&
-               y1 < y2 + h2 &&
-               y1 + h1 > y2;
+    // Clamp value between min and max
+    clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    },
+    
+    // Random integer between min and max (inclusive)
+    randomInt(min, max) {
+        return Math.floor(Math.random() * (max - min + 1)) + min;
+    },
+    
+    // Random float between min and max
+    randomFloat(min, max) {
+        return Math.random() * (max - min) + min;
+    },
+    
+    // Check AABB collision
+    checkCollision(x1, y1, w1, h1, x2, y2, w2, h2) {
+        return x1 < x2 + w2 && x1 + w1 > x2 &&
+               y1 < y2 + h2 && y1 + h1 > y2;
+    },
+    
+    // Grid to world coordinates
+    gridToWorld(gridX, gridY) {
+        return {
+            x: gridX * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
+            y: gridY * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2
+        };
+    },
+    
+    // World to grid coordinates
+    worldToGrid(worldX, worldY) {
+        return {
+            x: Math.floor(worldX / CONFIG.TILE_SIZE),
+            y: Math.floor(worldY / CONFIG.TILE_SIZE)
+        };
     }
 };
 
-// ============================================
-// Input Manager
-// ============================================
+// ===== INPUT MANAGER =====
 class InputManager {
     constructor() {
         this.keys = {};
@@ -116,24 +124,25 @@ class InputManager {
     }
     
     setupListeners() {
-        // Keyboard events
-        document.addEventListener('keydown', (e) => {
+        // Keyboard
+        window.addEventListener('keydown', (e) => {
             this.keys[e.key.toLowerCase()] = true;
             this.keys[e.code] = true;
         });
         
-        document.addEventListener('keyup', (e) => {
+        window.addEventListener('keyup', (e) => {
             this.keys[e.key.toLowerCase()] = false;
             this.keys[e.code] = false;
         });
         
-        // Mouse events on canvas
+        // Mouse
         const canvas = document.getElementById('gameCanvas');
-        
         canvas.addEventListener('mousemove', (e) => {
             const rect = canvas.getBoundingClientRect();
-            this.mouse.x = e.clientX - rect.left;
-            this.mouse.y = e.clientY - rect.top;
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            this.mouse.x = (e.clientX - rect.left) * scaleX;
+            this.mouse.y = (e.clientY - rect.top) * scaleY;
         });
         
         canvas.addEventListener('mousedown', (e) => {
@@ -146,76 +155,50 @@ class InputManager {
             this.mouse.button = -1;
         });
         
-        canvas.addEventListener('contextmenu', (e) => {
-            e.preventDefault(); // Prevent right-click menu
+        canvas.addEventListener('mouseleave', () => {
+            this.mouse.isDown = false;
         });
     }
     
-    // Check if key is pressed
     isKeyDown(key) {
-        return this.keys[key.toLowerCase()] || this.keys[key] || false;
+        return this.keys[key.toLowerCase()] || this.keys[key];
     }
     
-    // Check WASD or Arrow keys for movement
-    getMovementInput() {
-        return {
-            up: this.isKeyDown('w') || this.isKeyDown('ArrowUp'),
-            down: this.isKeyDown('s') || this.isKeyDown('ArrowDown'),
-            left: this.isKeyDown('a') || this.isKeyDown('ArrowLeft'),
-            right: this.isKeyDown('d') || this.isKeyDown('ArrowRight')
-        };
+    updateMouseWorld(camera) {
+        this.mouse.worldX = this.mouse.x + camera.x;
+        this.mouse.worldY = this.mouse.y + camera.y;
     }
 }
 
-// ============================================
-// Camera System
-// ============================================
+// ===== CAMERA =====
 class Camera {
-    constructor(width, height) {
-        this.x = 0;
-        this.y = 0;
-        this.targetX = 0;
-        this.targetY = 0;
-        this.width = width;
-        this.height = height;
+    constructor(x = 0, y = 0) {
+        this.x = x;
+        this.y = y;
+        this.targetX = x;
+        this.targetY = y;
     }
     
-    // Set camera target (usually the player)
-    setTarget(x, y) {
-        this.targetX = x - this.width / 2;
-        this.targetY = y - this.height / 2;
+    follow(targetX, targetY, deltaTime) {
+        // Smooth camera follow
+        const smoothSpeed = CONFIG.CAMERA.SMOOTH_SPEED * deltaTime;
+        this.targetX = targetX - CONFIG.CANVAS_WIDTH / 2;
+        this.targetY = targetY - CONFIG.CANVAS_HEIGHT / 2;
+        
+        this.x = Utils.lerp(this.x, this.targetX, smoothSpeed);
+        this.y = Utils.lerp(this.y, this.targetY, smoothSpeed);
     }
     
-    // Update camera position with smooth following
-    update(deltaTime) {
-        // Smooth camera movement
-        this.x = Utils.lerp(this.x, this.targetX, CONFIG.CAMERA.SMOOTH_FACTOR);
-        this.y = Utils.lerp(this.y, this.targetY, CONFIG.CAMERA.SMOOTH_FACTOR);
-    }
-    
-    // Apply camera transform to canvas context
     apply(ctx) {
-        ctx.save();
         ctx.translate(-this.x, -this.y);
     }
     
-    // Remove camera transform
     reset(ctx) {
-        ctx.restore();
-    }
-    
-    // Convert screen coordinates to world coordinates
-    screenToWorld(screenX, screenY) {
-        return {
-            x: screenX + this.x,
-            y: screenY + this.y
-        };
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
     }
 }
 
-// ============================================
-// Game Statistics
-// ============================================
+// ===== GAME STATISTICS =====
 class GameStats {
     constructor() {
         this.reset();
@@ -224,31 +207,19 @@ class GameStats {
     reset() {
         this.enemiesKilled = 0;
         this.goldCollected = 0;
+        this.floorsCleared = 0;
+        this.timePlayed = 0;
         this.damageDealt = 0;
         this.damageTaken = 0;
-        this.floorsCleared = 0;
-        this.bossesKilled = 0;
         this.itemsCollected = 0;
-        this.timePlayed = 0; // in seconds
-        this.highestFloor = 1;
     }
     
     update(deltaTime) {
-        if (deltaTime > 0) {
-            this.timePlayed += deltaTime;
-        }
-    }
-    
-    getFormattedTime() {
-        const minutes = Math.floor(this.timePlayed / 60);
-        const seconds = Math.floor(this.timePlayed % 60);
-        return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        this.timePlayed += deltaTime;
     }
 }
 
-// ============================================
-// Main Game Class
-// ============================================
+// ===== MAIN GAME CLASS =====
 class Game {
     constructor() {
         // Canvas setup
@@ -264,31 +235,21 @@ class Game {
         this.fps = 0;
         this.fpsTimer = 0;
         
-        // Core systems (Commit 2)
+        // Core systems
         this.input = new InputManager();
-        this.camera = new Camera(this.width, this.height);
+        this.camera = new Camera(0, 0);
         this.stats = new GameStats();
         
         // Game entities (will be populated in future commits)
-        this.player = null; // Commit 3
-        this.enemies = [];  // Commit 7
-        this.items = [];    // Commit 9
-        this.projectiles = []; // Commit 8
-        this.particles = []; // Commit 18
+        this.player = null;
+        this.enemies = [];
+        this.items = [];
+        this.projectiles = [];
+        this.particles = [];
         
-        // Player resources
-        this.gold = CONFIG.PLAYER.START_GOLD;
-        this.health = CONFIG.PLAYER.START_HEALTH;
-        this.maxHealth = CONFIG.PLAYER.START_HEALTH;
-        this.attack = CONFIG.PLAYER.START_ATTACK;
-        this.defense = CONFIG.PLAYER.START_DEFENSE;
-        this.level = CONFIG.PLAYER.START_LEVEL;
-        this.experience = 0;
-        this.experienceToNext = 100;
-        
-        // Dungeon state
-        this.currentFloor = 1;
-        this.dungeon = null; // Commit 5
+        // Game data
+        this.currentFloor = CONFIG.FLOOR.START_FLOOR;
+        this.dungeon = null; // Will be populated in Commit 5
 
         // Initialize
         this.init();
@@ -297,7 +258,8 @@ class Game {
     init() {
         console.log('🎮 Dungeon Crawler RPG - Commit 2: Core Initialization');
         console.log('Canvas:', this.width, 'x', this.height);
-        console.log('Systems initialized: Input, Camera, Stats');
+        console.log('Grid:', CONFIG.GRID_WIDTH, 'x', CONFIG.GRID_HEIGHT);
+        console.log('Tile size:', CONFIG.TILE_SIZE);
         
         // Setup event listeners
         this.setupEventListeners();
@@ -307,6 +269,26 @@ class Game {
         
         // Update UI
         this.updateUI();
+    }
+    
+    initGameData() {
+        // Reset game data
+        this.currentFloor = CONFIG.FLOOR.START_FLOOR;
+        this.stats.reset();
+        
+        // Clear all entity arrays
+        this.enemies = [];
+        this.items = [];
+        this.projectiles = [];
+        this.particles = [];
+        
+        // Player will be initialized in Commit 3
+        this.player = null;
+        
+        // Dungeon will be generated in Commit 5
+        this.dungeon = null;
+        
+        console.log('✓ Game data initialized');
     }
 
     setupEventListeners() {
@@ -319,21 +301,40 @@ class Game {
         // Reset button
         document.getElementById('resetBtn').addEventListener('click', () => this.reset());
         
-        // Keyboard controls (ESC for pause, I for inventory - to be implemented)
+        // Keyboard controls
         document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.state === 'playing') {
-                this.togglePause();
+            // Pause with ESC
+            if (e.key === 'Escape') {
+                if (this.state === 'playing') {
+                    this.togglePause();
+                }
             }
-            // Inventory will be added in Commit 10
-            // if (e.key.toLowerCase() === 'i' && this.state === 'playing') {
-            //     this.toggleInventory();
-            // }
+            
+            // Inventory (will be implemented in Commit 10)
+            if (e.key.toLowerCase() === 'i') {
+                if (this.state === 'playing') {
+                    console.log('💼 Inventory (coming in Commit 10)');
+                }
+            }
+            
+            // Character stats (will be implemented in Commit 12)
+            if (e.key.toLowerCase() === 'c') {
+                if (this.state === 'playing') {
+                    console.log('📊 Character stats (coming in Commit 12)');
+                }
+            }
         });
+        
+        console.log('✓ Event listeners setup');
     }
 
     start() {
         if (this.state === 'stopped' || this.state === 'gameOver') {
             console.log('🎮 Starting game...');
+            
+            // Initialize game data
+            this.initGameData();
+            
             this.state = 'playing';
             
             // Hide welcome/game over screens
@@ -348,6 +349,7 @@ class Game {
             this.gameLoop(this.lastTime);
             
             this.updateUI();
+            console.log('✓ Game started - Floor', this.currentFloor);
         }
     }
 
@@ -372,33 +374,8 @@ class Game {
         this.frameCount = 0;
         this.fps = 0;
         
-        // Reset player resources
-        this.gold = CONFIG.PLAYER.START_GOLD;
-        this.health = CONFIG.PLAYER.START_HEALTH;
-        this.maxHealth = CONFIG.PLAYER.START_HEALTH;
-        this.attack = CONFIG.PLAYER.START_ATTACK;
-        this.defense = CONFIG.PLAYER.START_DEFENSE;
-        this.level = CONFIG.PLAYER.START_LEVEL;
-        this.experience = 0;
-        this.experienceToNext = 100;
-        this.currentFloor = 1;
-        
-        // Reset game statistics
-        this.stats.reset();
-        
-        // Clear all entities
-        this.enemies = [];
-        this.items = [];
-        this.projectiles = [];
-        this.particles = [];
-        this.player = null;
-        this.dungeon = null;
-        
-        // Reset camera
-        this.camera.x = 0;
-        this.camera.y = 0;
-        this.camera.targetX = 0;
-        this.camera.targetY = 0;
+        // Reset game data
+        this.initGameData();
         
         // Show welcome screen
         document.getElementById('welcomeScreen').style.display = 'flex';
@@ -410,6 +387,7 @@ class Game {
         
         this.render();
         this.updateUI();
+        console.log('✓ Game reset complete');
     }
 
     gameLoop(currentTime) {
@@ -417,8 +395,10 @@ class Game {
 
         // Calculate delta time
         let deltaTime = (currentTime - this.lastTime) / 1000; // Convert to seconds
-        deltaTime = Math.min(deltaTime, CONFIG.MAX_DELTA_TIME); // Clamp to prevent huge jumps
         this.lastTime = currentTime;
+        
+        // Clamp delta time to prevent spiral of death
+        deltaTime = Math.min(deltaTime, CONFIG.MAX_DELTA_TIME);
 
         // Update FPS counter
         this.fpsTimer += deltaTime;
@@ -429,8 +409,11 @@ class Game {
             this.updateUI();
         }
         this.frameCount++;
+        
+        // Update game statistics
+        this.stats.update(deltaTime);
 
-        // Update game systems
+        // Update game logic
         this.update(deltaTime);
 
         // Render game
@@ -441,167 +424,154 @@ class Game {
     }
 
     update(deltaTime) {
-        // Update game statistics (time played)
-        this.stats.update(deltaTime);
+        // Update input manager with camera position
+        this.input.updateMouseWorld(this.camera);
         
-        // Update camera
+        // Update player (will be implemented in Commit 3)
         if (this.player) {
-            this.camera.setTarget(this.player.x, this.player.y);
-        }
-        this.camera.update(deltaTime);
-        
-        // Update mouse world position
-        const worldPos = this.camera.screenToWorld(this.input.mouse.x, this.input.mouse.y);
-        this.input.mouse.worldX = worldPos.x;
-        this.input.mouse.worldY = worldPos.y;
-        
-        // Update player (Commit 3)
-        if (this.player) {
-            // this.player.update(deltaTime);
+            this.player.update(deltaTime);
+            // Camera follows player
+            this.camera.follow(this.player.x, this.player.y, deltaTime);
         }
         
-        // Update enemies (Commit 7)
+        // Update enemies (will be implemented in Commit 7)
         for (let i = this.enemies.length - 1; i >= 0; i--) {
-            // this.enemies[i].update(deltaTime);
+            this.enemies[i].update(deltaTime);
+            // Remove dead enemies
+            if (this.enemies[i].isDead) {
+                this.enemies.splice(i, 1);
+            }
         }
         
-        // Update projectiles (Commit 8)
+        // Update projectiles (will be implemented in Commit 8)
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
-            // this.projectiles[i].update(deltaTime);
+            this.projectiles[i].update(deltaTime);
+            // Remove expired projectiles
+            if (this.projectiles[i].isDead) {
+                this.projectiles.splice(i, 1);
+            }
         }
         
-        // Update particles (Commit 18)
+        // Update particles (will be implemented in Commit 18)
         for (let i = this.particles.length - 1; i >= 0; i--) {
-            // this.particles[i].update(deltaTime);
-        }
-        
-        // Check for game over
-        if (this.health <= 0 && this.state === 'playing') {
-            this.gameOver();
+            this.particles[i].update(deltaTime);
+            // Remove dead particles
+            if (this.particles[i].isDead) {
+                this.particles.splice(i, 1);
+            }
         }
     }
 
     render() {
         // Clear canvas
-        this.ctx.fillStyle = '#1a1a1a';
+        this.ctx.fillStyle = CONFIG.COLORS.BACKGROUND;
         this.ctx.fillRect(0, 0, this.width, this.height);
-
-        // Apply camera transform for world rendering
+        
+        // Save context state
+        this.ctx.save();
+        
+        // Apply camera transform
         this.camera.apply(this.ctx);
         
-        // Draw world elements (with camera)
-        this.drawWorld();
+        // === WORLD SPACE RENDERING ===
         
-        // Draw items (Commit 9)
-        for (let item of this.items) {
-            // item.render(this.ctx);
+        // Draw dungeon (will be implemented in Commit 5)
+        if (this.dungeon) {
+            this.dungeon.render(this.ctx);
+        } else {
+            // Draw grid pattern for visualization
+            this.drawGrid();
         }
         
-        // Draw enemies (Commit 7)
-        for (let enemy of this.enemies) {
-            // enemy.render(this.ctx);
+        // Draw items (will be implemented in Commit 9)
+        for (const item of this.items) {
+            item.render(this.ctx);
         }
         
-        // Draw player (Commit 3)
+        // Draw enemies (will be implemented in Commit 7)
+        for (const enemy of this.enemies) {
+            enemy.render(this.ctx);
+        }
+        
+        // Draw player (will be implemented in Commit 3)
         if (this.player) {
-            // this.player.render(this.ctx);
+            this.player.render(this.ctx);
         }
         
-        // Draw projectiles (Commit 8)
-        for (let projectile of this.projectiles) {
-            // projectile.render(this.ctx);
+        // Draw projectiles (will be implemented in Commit 8)
+        for (const projectile of this.projectiles) {
+            projectile.render(this.ctx);
         }
         
-        // Draw particles (Commit 18)
-        for (let particle of this.particles) {
-            // particle.render(this.ctx);
+        // Draw particles (will be implemented in Commit 18)
+        for (const particle of this.particles) {
+            particle.render(this.ctx);
         }
         
-        // Reset camera transform for UI rendering
+        // Reset camera transform
         this.camera.reset(this.ctx);
         
-        // Draw UI elements (no camera transform)
-        this.drawUI();
-    }
-    
-    drawWorld() {
-        // Draw grid pattern (for visualization in Commit 2)
-        this.drawGrid();
+        // === SCREEN SPACE RENDERING ===
         
-        // Draw dungeon (Commit 5)
-        if (this.dungeon) {
-            // this.dungeon.render(this.ctx);
-        }
-
-        // Draw center text for early commits
-        if (!this.player) {
-            this.drawCenterText();
-        }
-    }
-    
-    drawUI() {
-        // Draw mini-map in future (Commit 21+)
-        // Draw ability cooldowns in future (Commit 17)
+        // Draw UI elements that don't move with camera
+        this.drawScreenUI();
         
-        // Debug info for development
-        if (this.state === 'playing') {
-            // Show camera position
-            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            this.ctx.font = '12px monospace';
-            this.ctx.fillText(`Camera: (${Math.round(this.camera.x)}, ${Math.round(this.camera.y)})`, 10, this.height - 10);
-            
-            // Show mouse world position
-            this.ctx.fillText(`Mouse: (${Math.round(this.input.mouse.worldX)}, ${Math.round(this.input.mouse.worldY)})`, 10, this.height - 30);
-        }
+        // Restore context state
+        this.ctx.restore();
     }
 
     drawGrid() {
-        const gridSize = 40;
+        const gridSize = CONFIG.TILE_SIZE;
+        const startX = Math.floor(this.camera.x / gridSize) * gridSize;
+        const startY = Math.floor(this.camera.y / gridSize) * gridSize;
+        const endX = startX + this.width + gridSize;
+        const endY = startY + this.height + gridSize;
         
-        this.ctx.strokeStyle = 'rgba(255, 215, 0, 0.1)';
+        this.ctx.strokeStyle = CONFIG.COLORS.GRID;
         this.ctx.lineWidth = 1;
 
         // Vertical lines
-        for (let x = 0; x <= this.width; x += gridSize) {
+        for (let x = startX; x <= endX; x += gridSize) {
             this.ctx.beginPath();
-            this.ctx.moveTo(x, 0);
-            this.ctx.lineTo(x, this.height);
+            this.ctx.moveTo(x, startY);
+            this.ctx.lineTo(x, endY);
             this.ctx.stroke();
         }
 
         // Horizontal lines
-        for (let y = 0; y <= this.height; y += gridSize) {
+        for (let y = startY; y <= endY; y += gridSize) {
             this.ctx.beginPath();
-            this.ctx.moveTo(0, y);
-            this.ctx.lineTo(this.width, y);
+            this.ctx.moveTo(startX, y);
+            this.ctx.lineTo(endX, y);
             this.ctx.stroke();
         }
     }
-
-    drawCenterText() {
+    
+    drawScreenUI() {
         if (this.state === 'playing') {
+            // Draw center text (temporary until player is added)
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
             this.ctx.font = 'bold 30px Arial';
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'middle';
-            
-            // Position text in world space at center of starting view
-            const centerX = this.camera.x + this.width / 2;
-            const centerY = this.camera.y + this.height / 2;
-            
-            this.ctx.fillText('🗡️ DUNGEON CRAWLER RPG', centerX, centerY - 40);
+            this.ctx.fillText('🗡️ DUNGEON CRAWLER RPG', this.width / 2, this.height / 2 - 20);
             
             this.ctx.font = '20px Arial';
             this.ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-            this.ctx.fillText('Commit 2: Core Systems Active ✓', centerX, centerY);
+            this.ctx.fillText('Commit 2: Core Systems Active ✓', this.width / 2, this.height / 2 + 20);
             
             this.ctx.font = '16px Arial';
-            this.ctx.fillText('Player character coming in Commit 3...', centerX, centerY + 30);
+            this.ctx.fillText('Player character coming in Commit 3...', this.width / 2, this.height / 2 + 50);
             
-            // Show system status
-            this.ctx.font = '14px Arial';
-            this.ctx.fillStyle = 'rgba(0, 255, 0, 0.6)';
-            this.ctx.fillText('✓ Input Manager  ✓ Camera System  ✓ Stats Tracker', centerX, centerY + 60);
+            // Show some debug info about systems
+            this.ctx.font = '14px Courier New';
+            this.ctx.textAlign = 'left';
+            this.ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
+            const debugY = this.height - 80;
+            this.ctx.fillText(`✓ CONFIG system`, 10, debugY);
+            this.ctx.fillText(`✓ Input Manager`, 10, debugY + 15);
+            this.ctx.fillText(`✓ Camera System`, 10, debugY + 30);
+            this.ctx.fillText(`✓ Game Stats`, 10, debugY + 45);
         }
     }
 
@@ -610,13 +580,32 @@ class Game {
         document.getElementById('fps').textContent = this.fps;
         document.getElementById('gameState').textContent = this.state;
         
-        // Update player stats
-        document.getElementById('playerHealth').textContent = `${Math.round(this.health)}/${this.maxHealth}`;
-        document.getElementById('playerAttack').textContent = this.attack;
-        document.getElementById('playerDefense').textContent = this.defense;
-        document.getElementById('playerLevel').textContent = this.level;
-        document.getElementById('playerGold').textContent = this.gold;
+        // Update player stats (placeholder values until player is implemented)
+        if (this.player) {
+            document.getElementById('playerHealth').textContent = 
+                `${Math.ceil(this.player.health)}/${this.player.maxHealth}`;
+            document.getElementById('playerAttack').textContent = this.player.attack;
+            document.getElementById('playerDefense').textContent = this.player.defense;
+            document.getElementById('playerLevel').textContent = this.player.level;
+            document.getElementById('playerGold').textContent = this.player.gold;
+        } else {
+            // Placeholder values from CONFIG
+            document.getElementById('playerHealth').textContent = 
+                `${CONFIG.PLAYER.START_HEALTH}/${CONFIG.PLAYER.START_HEALTH}`;
+            document.getElementById('playerAttack').textContent = CONFIG.PLAYER.START_ATTACK;
+            document.getElementById('playerDefense').textContent = CONFIG.PLAYER.START_DEFENSE;
+            document.getElementById('playerLevel').textContent = CONFIG.PLAYER.START_LEVEL;
+            document.getElementById('playerGold').textContent = CONFIG.PLAYER.START_GOLD;
+        }
+        
         document.getElementById('currentFloor').textContent = this.currentFloor;
+        
+        // Update game over screen stats
+        if (this.state === 'gameOver') {
+            document.getElementById('finalFloor').textContent = this.currentFloor;
+            document.getElementById('finalGold').textContent = this.stats.goldCollected;
+            document.getElementById('finalKills').textContent = this.stats.enemiesKilled;
+        }
     }
     
     gameOver() {
@@ -624,9 +613,7 @@ class Game {
         this.state = 'gameOver';
         
         // Update final stats
-        document.getElementById('finalFloor').textContent = this.currentFloor;
-        document.getElementById('finalGold').textContent = this.gold;
-        document.getElementById('finalKills').textContent = this.stats.enemiesKilled;
+        this.updateUI();
         
         // Show game over screen
         document.getElementById('gameOverScreen').style.display = 'flex';
