@@ -219,6 +219,129 @@ class GameStats {
     }
 }
 
+// ===== PLAYER =====
+class Player {
+    constructor(x, y) {
+        // Position
+        this.x = x;
+        this.y = y;
+        
+        // Stats
+        this.maxHealth = CONFIG.PLAYER.START_HEALTH;
+        this.health = this.maxHealth;
+        this.attack = CONFIG.PLAYER.START_ATTACK;
+        this.defense = CONFIG.PLAYER.START_DEFENSE;
+        this.speed = CONFIG.PLAYER.START_SPEED;
+        this.gold = CONFIG.PLAYER.START_GOLD;
+        this.level = CONFIG.PLAYER.START_LEVEL;
+        
+        // Display
+        this.size = CONFIG.PLAYER.SIZE;
+        this.color = CONFIG.COLORS.PLAYER;
+        
+        // State
+        this.isDead = false;
+        this.direction = 0; // Angle in radians (for future animation facing)
+        
+        // Animation (for future use)
+        this.animationState = 'idle'; // idle, walk, attack
+        this.animationTimer = 0;
+    }
+    
+    update(deltaTime) {
+        // Check death
+        if (this.health <= 0 && !this.isDead) {
+            this.isDead = true;
+            console.log('💀 Player has died!');
+        }
+        
+        // Update animation timer (will be used in future commits)
+        this.animationTimer += deltaTime;
+    }
+    
+    render(ctx) {
+        // Draw player body (simple circle for now)
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw player border
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        // Draw direction indicator (small dot showing facing direction)
+        const indicatorDist = this.size - 4;
+        const indicatorX = this.x + Math.cos(this.direction) * indicatorDist;
+        const indicatorY = this.y + Math.sin(this.direction) * indicatorDist;
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(indicatorX, indicatorY, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw health bar above player
+        this.drawHealthBar(ctx);
+    }
+    
+    drawHealthBar(ctx) {
+        const barWidth = 40;
+        const barHeight = 6;
+        const barX = this.x - barWidth / 2;
+        const barY = this.y - this.size - 15;
+        
+        // Background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+        
+        // Health
+        const healthPercent = this.health / this.maxHealth;
+        const healthWidth = barWidth * healthPercent;
+        
+        // Color based on health percentage
+        if (healthPercent > 0.6) {
+            ctx.fillStyle = CONFIG.COLORS.HEALTH; // Green
+        } else if (healthPercent > 0.3) {
+            ctx.fillStyle = '#ffd700'; // Yellow
+        } else {
+            ctx.fillStyle = '#ff4a4a'; // Red
+        }
+        
+        ctx.fillRect(barX, barY, healthWidth, barHeight);
+        
+        // Border
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX, barY, barWidth, barHeight);
+    }
+    
+    takeDamage(amount) {
+        // Apply defense reduction (will be enhanced in Commit 8)
+        const finalDamage = Math.max(1, amount - this.defense);
+        this.health -= finalDamage;
+        this.health = Math.max(0, this.health);
+        
+        console.log(`💔 Player took ${finalDamage} damage (${this.health}/${this.maxHealth} HP)`);
+        
+        return finalDamage;
+    }
+    
+    heal(amount) {
+        const oldHealth = this.health;
+        this.health = Math.min(this.maxHealth, this.health + amount);
+        const healed = this.health - oldHealth;
+        
+        console.log(`💚 Player healed ${healed} HP (${this.health}/${this.maxHealth} HP)`);
+        
+        return healed;
+    }
+    
+    addGold(amount) {
+        this.gold += amount;
+        console.log(`💰 +${amount} gold (Total: ${this.gold})`);
+    }
+}
+
 // ===== MAIN GAME CLASS =====
 class Game {
     constructor() {
@@ -282,8 +405,11 @@ class Game {
         this.projectiles = [];
         this.particles = [];
         
-        // Player will be initialized in Commit 3
-        this.player = null;
+        // Initialize player at center of canvas
+        const startX = this.width / 2;
+        const startY = this.height / 2;
+        this.player = new Player(startX, startY);
+        console.log(`✓ Player spawned at (${startX}, ${startY})`);
         
         // Dungeon will be generated in Commit 5
         this.dungeon = null;
@@ -427,11 +553,17 @@ class Game {
         // Update input manager with camera position
         this.input.updateMouseWorld(this.camera);
         
-        // Update player (will be implemented in Commit 3)
+        // Update player
         if (this.player) {
             this.player.update(deltaTime);
             // Camera follows player
             this.camera.follow(this.player.x, this.player.y, deltaTime);
+            
+            // Check for player death
+            if (this.player.isDead) {
+                this.gameOver();
+                return;
+            }
         }
         
         // Update enemies (will be implemented in Commit 7)
@@ -548,30 +680,24 @@ class Game {
     }
     
     drawScreenUI() {
-        if (this.state === 'playing') {
-            // Draw center text (temporary until player is added)
-            this.ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
-            this.ctx.font = 'bold 30px Arial';
+        if (this.state === 'playing' && this.player) {
+            // Show instructions for next features
+            this.ctx.font = '14px Arial';
             this.ctx.textAlign = 'center';
-            this.ctx.textBaseline = 'middle';
-            this.ctx.fillText('🗡️ DUNGEON CRAWLER RPG', this.width / 2, this.height / 2 - 20);
+            this.ctx.textBaseline = 'top';
+            this.ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
+            this.ctx.fillText('Movement controls coming in Commit 4...', this.width / 2, 10);
             
-            this.ctx.font = '20px Arial';
-            this.ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-            this.ctx.fillText('Commit 2: Core Systems Active ✓', this.width / 2, this.height / 2 + 20);
-            
-            this.ctx.font = '16px Arial';
-            this.ctx.fillText('Player character coming in Commit 3...', this.width / 2, this.height / 2 + 50);
-            
-            // Show some debug info about systems
+            // Show some debug info about active systems
             this.ctx.font = '14px Courier New';
             this.ctx.textAlign = 'left';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
-            const debugY = this.height - 80;
+            const debugY = this.height - 95;
             this.ctx.fillText(`✓ CONFIG system`, 10, debugY);
             this.ctx.fillText(`✓ Input Manager`, 10, debugY + 15);
             this.ctx.fillText(`✓ Camera System`, 10, debugY + 30);
             this.ctx.fillText(`✓ Game Stats`, 10, debugY + 45);
+            this.ctx.fillText(`✓ Player System`, 10, debugY + 60);
         }
     }
 
