@@ -111,13 +111,34 @@ Explore procedurally generated dungeons, fight enemies, collect loot, level up y
 - ✅ Console debugging for actions
 - ✅ Ready for movement in Commit 4
 
-### 📋 Planned Commits (4-20+)
+**Commit 4: Movement Controls and Player Physics** ✓
+- Velocity-based movement system
+- WASD and Arrow key support
+- Smooth delta time-based movement
+- Diagonal movement normalization (1/√2)
+- Direction updates based on movement
+- Animation state changes (idle ↔ walk)
+- Canvas boundary checking (temporary)
+- Instant stop when releasing keys
+- Speed: 150 pixels per second
+- Player velocity tracking (vx, vy)
+- Direction indicator updates in real-time
+- isMoving flag for state detection
+- Movement debug display (position, velocity, state)
 
-**Commit 4: Movement Controls and Player Physics**
-- WASD/Arrow key movement
-- Smooth movement with delta time
-- Speed and acceleration
-- Direction facing
+**Features in Commit 4:**
+- ✅ WASD/Arrow key input handling
+- ✅ Velocity properties (vx, vy)
+- ✅ Delta time integration for smooth movement
+- ✅ Diagonal movement normalized
+- ✅ Direction auto-updates with movement
+- ✅ Animation state: idle/walk
+- ✅ Canvas boundary clamping
+- ✅ Debug UI showing position/velocity
+- ✅ Camera auto-follows player smoothly
+- ✅ 60 FPS smooth movement
+
+### 📋 Planned Commits (5-20+)
 
 **Commit 5: Dungeon Room Generation System**
 - Procedural dungeon layout
@@ -285,81 +306,108 @@ game8/
 - **CSS3** - UI styling with animations
 - **LocalStorage** - (Commit 20) Save system
 
-## 🎯 Current Testing Instructions (Commit 3)
+## 🎯 Current Testing Instructions (Commit 4)
 
 1. **Open the game** - Load `index.html` in a modern browser
 2. **Check UI** - Verify all UI elements are visible:
-   - Stats panel (top-left) now showing real player values
+   - Stats panel (top-left) showing player values
    - Health: 100/100, ATK: 10, DEF: 5, LVL: 1, Gold: 0, Floor: 1
    - Control buttons (bottom-right)
-   - Welcome screen showing "Commit 3: Player Character Live ✓"
-3. **Test buttons**:
+   - Welcome screen showing "Commit 4: Movement Controls Active ✓"
+3. **Test basic controls**:
    - Click "Start Adventure" - Should spawn player at center
    - Watch player render as blue circle with white border
    - Observe health bar above player (green, full)
    - Camera should be centered on player
    - FPS counter should update (~60 FPS)
-   - Click "Pause" - Should show pause overlay
-   - Click "Resume" or press ESC - Should continue
-   - Click "Reset" - Should return to welcome screen
-4. **Visual checks**:
-   - Canvas shows grid pattern
-   - Player renders at center (400, 300)
-   - Player is blue circle, 16px radius
-   - White border around player (2px)
-   - Small white dot inside player (direction indicator)
-   - Green health bar above player (40px wide, 6px tall)
-   - Top instruction text: "Movement controls coming in Commit 4..."
-   - Bottom-left debug shows 5 active systems (including "✓ Player System")
-5. **Check console (F12)** - Should see:
-   - "🎮 Dungeon Crawler RPG - Commit 2: Core Initialization"
-   - "✓ Player spawned at (400, 300)"
-   - "✓ Game data initialized"
-   - "✓ Game started - Floor 1" (when starting)
-6. **Test player methods** (via console):
-   ```javascript
-   // Access player
-   game.player
-   
-   // Test damage
-   game.player.takeDamage(20)  // Should show: "💔 Player took 15 damage (85/100 HP)"
-   
-   // Test healing
-   game.player.heal(10)  // Should show: "💚 Player healed 10 HP (95/100 HP)"
-   
-   // Test gold
-   game.player.addGold(50)  // Should show: "💰 +50 gold (Total: 50)"
-   
-   // Test death
-   game.player.takeDamage(200)  // Should trigger game over
-   ```
-7. **Health bar color changes**:
-   - Full health (100): Green bar
-   - Damage to 50 HP: Yellow bar
-   - Damage to 20 HP: Red bar
-8. **Camera following**:
-   - Camera should be centered on player
-   - Stats panel stays in place (screen space)
-   - Grid scrolls with camera (world space)
-9. **Stats panel values**:
-   - HP shows real player health (changes with damage/healing)
-   - ATK: 10 (from player.attack)
-   - DEF: 5 (from player.defense)
-   - LVL: 1 (from player.level)
-   - Gold: updates when using addGold()
-   - Floor: 1 (from game.currentFloor)
-10. **Game over test**:
-    - Deal enough damage to kill player: `game.player.takeDamage(200)`
-    - Should see "💀 Player has died!" in console
-    - Game over screen should appear automatically
-    - Final stats should show on game over screen
+   - Top instruction text: "Use WASD or Arrow Keys to move"
+   - Bottom-left debug shows 6 active systems (including "✓ Movement Controls")
+4. **Test movement (MAIN TEST)**:
+   - **W or ↑**: Player moves UP
+   - **S or ↓**: Player moves DOWN
+   - **A or ←**: Player moves LEFT
+   - **D or →**: Player moves RIGHT
+   - **W+D or ↑+→**: Player moves NORTHEAST (diagonal)
+   - **W+A or ↑+←**: Player moves NORTHWEST (diagonal)
+   - **S+D or ↓+→**: Player moves SOUTHEAST (diagonal)
+   - **S+A or ↓+←**: Player moves SOUTHWEST (diagonal)
+   - All 8 directions should work smoothly
+   - Movement speed should feel consistent (150 px/s)
+5. **Visual feedback during movement**:
+   - Player's direction indicator (white dot) rotates to face movement direction
+   - Player animationState changes to "walk" (visible in debug)
+   - Player position updates in debug UI: "Pos: (x, y)"
+   - Velocity shows in debug UI: "Vel: (vx, vy)"
+   - Camera smoothly follows player movement
+   - Grid scrolls as player moves (world space)
+6. **Boundary testing**:
+   - Move to TOP edge - Player should stop at top boundary
+   - Move to BOTTOM edge - Player should stop at bottom boundary
+   - Move to LEFT edge - Player should stop at left boundary
+   - Move to RIGHT edge - Player should stop at right boundary
+   - Player should never leave the visible canvas area
+7. **Diagonal movement verification**:
+   - Press W+D together (northeast diagonal)
+   - Speed should be SAME as moving straight (not faster)
+   - Direction indicator should point northeast (45° angle)
+   - Velocity should be ~106 px/s in both X and Y (normalized)
+8. **Idle state testing**:
+   - Move player, then release all keys
+   - animationState should change to "idle"
+   - Velocity should show (0, 0)
+   - Direction indicator should remain at last movement direction
+   - Player should stop immediately (no sliding/momentum)
+9. **Debug UI checks** (bottom-left):
+   - Should show "✓ Movement Controls" in system list
+   - Player state shows: "State: walk" when moving, "State: idle" when stopped
+   - Position updates in real-time: "Pos: (x, y)"
+   - Velocity shows: "Vel: (0, 0)" when idle, "(vx, vy)" when moving
+10. **Camera following**:
+    - Move player around canvas
+    - Camera should smoothly follow player with slight lag
+    - Stats panel stays in place (screen space)
+    - Grid scrolls with camera (world space)
+11. **Pause/Resume with movement**:
+    - While moving, click "Pause" - Movement should stop
+    - Click "Resume" or press ESC - Can move again
+    - Movement state should persist correctly
+12. **Console testing** (F12):
+    ```javascript
+    // Access player
+    game.player
+    
+    // Check velocity properties
+    game.player.vx  // Should be 0 when idle, non-zero when moving
+    game.player.vy  // Should be 0 when idle, non-zero when moving
+    
+    // Check animation state
+    game.player.animationState  // "idle" or "walk"
+    
+    // Check direction (in radians)
+    game.player.direction  // Updates based on movement direction
+    
+    // Test movement methods still work
+    game.player.takeDamage(20)  // Health should decrease
+    game.player.heal(10)  // Health should increase
+    game.player.addGold(50)  // Gold should increase
+    ```
+13. **Performance test**:
+    - Move continuously in all directions
+    - FPS should stay around 60 FPS
+    - No lag or stuttering
+    - Smooth camera follow
+14. **Edge case tests**:
+    - Press multiple keys simultaneously (W+A+S+D) - Should handle gracefully
+    - Rapidly switch directions - Should respond immediately
+    - Hold key at boundary - Should stay at edge without jittering
+    - Move to corner (top-left, top-right, etc.) - Should clamp correctly
 
 ## 📊 Commit Progress
 
 - [x] **Commit 1** - Basic HTML Structure and Canvas Setup
 - [x] **Commit 2** - Game Class and Core Initialization
 - [x] **Commit 3** - Player Character and Rendering
-- [ ] **Commit 4** - Movement Controls and Physics
+- [x] **Commit 4** - Movement Controls and Physics
 - [ ] **Commit 5** - Dungeon Room Generation
 - [ ] **Commit 6** - Collision Detection
 - [ ] **Commit 7** - Enemy System
@@ -439,14 +487,35 @@ game8/
 - Integrated with game update loop and render pipeline
 - Stats panel now shows real player values instead of CONFIG placeholders
 
-### Next Steps (Commit 4)
-- Implement WASD/Arrow key movement
-- Add velocity and acceleration for smooth movement
-- Delta time-based movement for consistent speed
-- Update player direction based on movement
-- Prevent movement outside canvas bounds (temporary before Commit 5)
-- Add movement animation state changes
-- Smooth stopping with deceleration
+### Commit 4 Details
+- Movement system uses velocity-based physics (vx, vy properties)
+- Input handling: WASD (w/a/s/d) and Arrow keys (ArrowUp/ArrowDown/ArrowLeft/ArrowRight)
+- Diagonal movement normalized: multiplied by 0.707 (1/√2) for consistent speed
+- Direction calculation: Math.atan2(moveY, moveX) in radians
+- Position update: x += vx * deltaTime, y += vy * deltaTime
+- Speed: 150 pixels per second from CONFIG.PLAYER.START_SPEED
+- Canvas boundary clamping: keeps player within bounds (temporary until walls)
+- Min X/Y: player.size (16px), Max X/Y: canvas dimension - player.size
+- Animation state: 'idle' when stationary, 'walk' when moving
+- isMoving flag: true when moveX !== 0 or moveY !== 0
+- Instant velocity change: no acceleration/deceleration (arcade-style)
+- Direction indicator updates in real-time with movement
+- handleMovement() method: processes input, calculates movement, applies physics
+- Update signature: update(deltaTime, input, canvas) - passes required systems
+- Debug UI additions: State, Position (x,y), Velocity (vx,vy)
+- Movement works immediately on key press, stops on key release
+- Camera smoothly follows player movement via existing camera system
+- Grid scrolls correctly as player moves around canvas
+- All 8 directions supported (N, NE, E, SE, S, SW, W, NW)
+
+### Next Steps (Commit 5)
+- Generate procedural dungeon layout
+- Create room system with walls and floors
+- Tile-based dungeon rendering
+- Room connections and doorways
+- Remove canvas boundary check (use dungeon walls)
+- Player collision with dungeon walls
+- Starting room design
 
 ## 📝 License
 
@@ -460,5 +529,5 @@ This game is part of the Multi-Game-Repo-playground collection.
 
 ---
 
-**Current Status:** Commit 3/20+ Complete ✓  
-**Next Commit:** Movement Controls and Player Physics
+**Current Status:** Commit 4/20+ Complete ✓  
+**Next Commit:** Dungeon Room Generation System
