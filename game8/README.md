@@ -166,13 +166,32 @@ Explore procedurally generated dungeons, fight enemies, collect loot, level up y
 - ✅ Tile rendering with borders and highlights
 - ✅ Debug UI shows current room info
 
-### 📋 Planned Commits (6-20+)
+**Commit 6: Enhanced Collision Detection System** ✓
+- Advanced collision detection utilities
+- Circle-to-circle collision
+- Circle-to-rectangle collision
+- Point containment checks
+- Collision response system
+- Collision layers and masks
+- Debug visualization mode
+- Collision debugger class
 
-**Commit 6: Collision Detection System**
-- AABB collision detection
-- Wall collision
-- Tile-based collision system
-- Player boundary checking
+**Features in Commit 6:**
+- ✅ Circle-to-circle collision detection
+- ✅ Circle-to-rectangle collision detection
+- ✅ Point-in-circle and point-in-rectangle checks
+- ✅ Rectangle overlap detection
+- ✅ Circle penetration depth calculation
+- ✅ Push-apart collision response
+- ✅ Collision layer system (6 layers)
+- ✅ Collision matrix for layer filtering
+- ✅ CollisionDebugger class for visualization
+- ✅ Toggle collision debug with V key
+- ✅ Toggle grid debug with G key
+- ✅ Player collision layer assignment
+- ✅ Debug UI shows collision status
+
+### 📋 Planned Commits (7-20+)
 
 **Commit 7: Enemy System Implementation**
 - Enemy classes (slime, skeleton, goblin)
