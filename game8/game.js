@@ -219,6 +219,255 @@ class GameStats {
     }
 }
 
+// ===== DUNGEON SYSTEM (Commit 5) =====
+
+// Tile types
+const TILE_TYPE = {
+    FLOOR: 0,
+    WALL: 1,
+    DOOR: 2,
+};
+
+// Room types
+const ROOM_TYPE = {
+    START: 'start',
+    NORMAL: 'normal',
+    TREASURE: 'treasure',
+    BOSS: 'boss',
+};
+
+// Tile class - represents a single tile in the dungeon
+class Tile {
+    constructor(x, y, type) {
+        this.x = x; // Grid x position
+        this.y = y; // Grid y position
+        this.type = type; // TILE_TYPE
+        this.worldX = x * CONFIG.TILE_SIZE; // World position
+        this.worldY = y * CONFIG.TILE_SIZE;
+    }
+    
+    isWalkable() {
+        return this.type === TILE_TYPE.FLOOR || this.type === TILE_TYPE.DOOR;
+    }
+    
+    isSolid() {
+        return this.type === TILE_TYPE.WALL;
+    }
+    
+    getColor() {
+        switch (this.type) {
+            case TILE_TYPE.FLOOR: return CONFIG.COLORS.FLOOR;
+            case TILE_TYPE.WALL: return CONFIG.COLORS.WALL;
+            case TILE_TYPE.DOOR: return '#8b4513'; // Brown for doors
+            default: return CONFIG.COLORS.BACKGROUND;
+        }
+    }
+}
+
+// Room class - represents a rectangular room
+class Room {
+    constructor(x, y, width, height, type = ROOM_TYPE.NORMAL) {
+        this.x = x; // Grid position
+        this.y = y;
+        this.width = width; // In tiles
+        this.height = height;
+        this.type = type;
+        this.tiles = [];
+        this.doors = []; // Array of door positions {x, y, direction}
+        
+        this.generateTiles();
+    }
+    
+    generateTiles() {
+        // Create tiles for the room
+        for (let y = this.y; y < this.y + this.height; y++) {
+            for (let x = this.x; x < this.x + this.width; x++) {
+                // Walls on the edges
+                if (x === this.x || x === this.x + this.width - 1 || 
+                    y === this.y || y === this.y + this.height - 1) {
+                    this.tiles.push(new Tile(x, y, TILE_TYPE.WALL));
+                } else {
+                    // Floor in the middle
+                    this.tiles.push(new Tile(x, y, TILE_TYPE.FLOOR));
+                }
+            }
+        }
+    }
+    
+    // Add a door at a specific position
+    addDoor(x, y, direction) {
+        const tile = this.getTileAt(x, y);
+        if (tile && tile.type === TILE_TYPE.WALL) {
+            tile.type = TILE_TYPE.DOOR;
+            this.doors.push({ x, y, direction });
+        }
+    }
+    
+    getTileAt(x, y) {
+        return this.tiles.find(t => t.x === x && t.y === y);
+    }
+    
+    getCenterWorld() {
+        const centerX = (this.x + this.width / 2) * CONFIG.TILE_SIZE;
+        const centerY = (this.y + this.height / 2) * CONFIG.TILE_SIZE;
+        return { x: centerX, y: centerY };
+    }
+    
+    containsPoint(worldX, worldY) {
+        const minX = this.x * CONFIG.TILE_SIZE;
+        const minY = this.y * CONFIG.TILE_SIZE;
+        const maxX = (this.x + this.width) * CONFIG.TILE_SIZE;
+        const maxY = (this.y + this.height) * CONFIG.TILE_SIZE;
+        return worldX >= minX && worldX < maxX && worldY >= minY && worldY < maxY;
+    }
+}
+
+// Dungeon class - manages the entire dungeon
+class Dungeon {
+    constructor(floor = 1) {
+        this.floor = floor;
+        this.rooms = [];
+        this.tiles = new Map(); // Map of "x,y" -> Tile for quick lookup
+        this.startRoom = null;
+        this.currentRoom = null;
+        
+        this.generate();
+    }
+    
+    generate() {
+        console.log(`🏰 Generating dungeon for Floor ${this.floor}...`);
+        
+        // For Commit 5, we'll create a simple 3-room dungeon
+        // Start room (left)
+        const startRoom = new Room(2, 5, 8, 7, ROOM_TYPE.START);
+        
+        // Normal room (center)
+        const normalRoom = new Room(12, 4, 10, 9, ROOM_TYPE.NORMAL);
+        
+        // Boss room (right)
+        const bossRoom = new Room(24, 5, 8, 7, ROOM_TYPE.BOSS);
+        
+        // Add doors connecting rooms
+        // Door from start room to normal room (right side of start room)
+        startRoom.addDoor(9, 8, 'east');
+        normalRoom.addDoor(12, 8, 'west');
+        
+        // Door from normal room to boss room
+        normalRoom.addDoor(21, 8, 'east');
+        bossRoom.addDoor(24, 8, 'west');
+        
+        // Add rooms to dungeon
+        this.rooms.push(startRoom, normalRoom, bossRoom);
+        this.startRoom = startRoom;
+        this.currentRoom = startRoom;
+        
+        // Build tile map for collision detection
+        this.buildTileMap();
+        
+        console.log(`✓ Dungeon generated with ${this.rooms.length} rooms`);
+    }
+    
+    buildTileMap() {
+        // Create a map of all tiles for quick collision lookup
+        this.tiles.clear();
+        
+        for (const room of this.rooms) {
+            for (const tile of room.tiles) {
+                const key = `${tile.x},${tile.y}`;
+                this.tiles.set(key, tile);
+            }
+        }
+    }
+    
+    getTileAt(gridX, gridY) {
+        const key = `${gridX},${gridY}`;
+        return this.tiles.get(key);
+    }
+    
+    getTileAtWorld(worldX, worldY) {
+        const gridX = Math.floor(worldX / CONFIG.TILE_SIZE);
+        const gridY = Math.floor(worldY / CONFIG.TILE_SIZE);
+        return this.getTileAt(gridX, gridY);
+    }
+    
+    isWalkable(worldX, worldY) {
+        const tile = this.getTileAtWorld(worldX, worldY);
+        return tile ? tile.isWalkable() : false;
+    }
+    
+    isSolid(worldX, worldY) {
+        const tile = this.getTileAtWorld(worldX, worldY);
+        return tile ? tile.isSolid() : true; // Default to solid if no tile
+    }
+    
+    // Check circle collision with dungeon walls
+    checkCircleCollision(x, y, radius) {
+        // Check the 4 cardinal points and corners of the circle
+        const points = [
+            { x: x, y: y - radius }, // Top
+            { x: x, y: y + radius }, // Bottom
+            { x: x - radius, y: y }, // Left
+            { x: x + radius, y: y }, // Right
+            { x: x - radius * 0.707, y: y - radius * 0.707 }, // Top-left
+            { x: x + radius * 0.707, y: y - radius * 0.707 }, // Top-right
+            { x: x - radius * 0.707, y: y + radius * 0.707 }, // Bottom-left
+            { x: x + radius * 0.707, y: y + radius * 0.707 }, // Bottom-right
+        ];
+        
+        // If any point is in a solid tile, there's a collision
+        for (const point of points) {
+            if (this.isSolid(point.x, point.y)) {
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    getRoomAt(worldX, worldY) {
+        return this.rooms.find(room => room.containsPoint(worldX, worldY));
+    }
+    
+    render(ctx) {
+        // Render all tiles in all rooms
+        for (const room of this.rooms) {
+            for (const tile of room.tiles) {
+                ctx.fillStyle = tile.getColor();
+                ctx.fillRect(
+                    tile.worldX,
+                    tile.worldY,
+                    CONFIG.TILE_SIZE,
+                    CONFIG.TILE_SIZE
+                );
+                
+                // Draw subtle borders on walls for depth
+                if (tile.type === TILE_TYPE.WALL) {
+                    ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+                    ctx.lineWidth = 1;
+                    ctx.strokeRect(
+                        tile.worldX,
+                        tile.worldY,
+                        CONFIG.TILE_SIZE,
+                        CONFIG.TILE_SIZE
+                    );
+                }
+                
+                // Draw door highlight
+                if (tile.type === TILE_TYPE.DOOR) {
+                    ctx.strokeStyle = 'rgba(255, 215, 0, 0.5)';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(
+                        tile.worldX + 2,
+                        tile.worldY + 2,
+                        CONFIG.TILE_SIZE - 4,
+                        CONFIG.TILE_SIZE - 4
+                    );
+                }
+            }
+        }
+    }
+}
+
 // ===== PLAYER =====
 class Player {
     constructor(x, y) {
@@ -312,14 +561,29 @@ class Player {
             // Update direction (angle in radians)
             this.direction = Math.atan2(moveY, moveX);
             
-            // Update position with delta time
-            this.x += this.vx * deltaTime;
-            this.y += this.vy * deltaTime;
+            // Calculate new position
+            const newX = this.x + this.vx * deltaTime;
+            const newY = this.y + this.vy * deltaTime;
             
-            // Boundary checking (temporary until dungeon walls in Commit 5)
-            // Keep player within canvas bounds
-            this.x = Math.max(this.size, Math.min(canvas.width - this.size, this.x));
-            this.y = Math.max(this.size, Math.min(canvas.height - this.size, this.y));
+            // Collision detection with dungeon walls (Commit 5)
+            // canvas parameter is now expected to be the dungeon object
+            const dungeon = canvas; // Renamed for clarity - this is the dungeon
+            
+            if (dungeon && dungeon.checkCircleCollision) {
+                // Check if new position collides with walls
+                // Test horizontal movement
+                if (!dungeon.checkCircleCollision(newX, this.y, this.size)) {
+                    this.x = newX; // Move horizontally if no collision
+                }
+                // Test vertical movement
+                if (!dungeon.checkCircleCollision(this.x, newY, this.size)) {
+                    this.y = newY; // Move vertically if no collision
+                }
+            } else {
+                // Fallback: no dungeon collision (shouldn't happen in Commit 5+)
+                this.x = newX;
+                this.y = newY;
+            }
         } else {
             // Deceleration when not moving
             this.vx = 0;
@@ -473,14 +737,13 @@ class Game {
         this.projectiles = [];
         this.particles = [];
         
-        // Initialize player at center of canvas
-        const startX = this.width / 2;
-        const startY = this.height / 2;
-        this.player = new Player(startX, startY);
-        console.log(`✓ Player spawned at (${startX}, ${startY})`);
+        // Generate dungeon (Commit 5)
+        this.dungeon = new Dungeon(this.currentFloor);
         
-        // Dungeon will be generated in Commit 5
-        this.dungeon = null;
+        // Spawn player in the center of the start room
+        const startPos = this.dungeon.startRoom.getCenterWorld();
+        this.player = new Player(startPos.x, startPos.y);
+        console.log(`✓ Player spawned at (${Math.round(startPos.x)}, ${Math.round(startPos.y)}) in start room`);
         
         console.log('✓ Game data initialized');
     }
@@ -623,7 +886,7 @@ class Game {
         
         // Update player
         if (this.player) {
-            this.player.update(deltaTime, this.input, this.canvas);
+            this.player.update(deltaTime, this.input, this.dungeon);
             // Camera follows player
             this.camera.follow(this.player.x, this.player.y, deltaTime);
             
@@ -754,25 +1017,34 @@ class Game {
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'top';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
-            this.ctx.fillText('Use WASD or Arrow Keys to move • Dungeon generation coming in Commit 5...', this.width / 2, 10);
+            this.ctx.fillText('Use WASD or Arrow Keys to move • Explore the dungeon • Enemies coming in Commit 7...', this.width / 2, 10);
             
             // Show some debug info about active systems
             this.ctx.font = '14px Courier New';
             this.ctx.textAlign = 'left';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
-            const debugY = this.height - 110;
+            const debugY = this.height - 125;
             this.ctx.fillText(`✓ CONFIG system`, 10, debugY);
             this.ctx.fillText(`✓ Input Manager`, 10, debugY + 15);
             this.ctx.fillText(`✓ Camera System`, 10, debugY + 30);
             this.ctx.fillText(`✓ Game Stats`, 10, debugY + 45);
             this.ctx.fillText(`✓ Player System`, 10, debugY + 60);
             this.ctx.fillText(`✓ Movement Controls`, 10, debugY + 75);
+            this.ctx.fillText(`✓ Dungeon Generation`, 10, debugY + 90);
             
             // Show player state
             this.ctx.fillStyle = 'rgba(74, 158, 255, 0.4)';
             this.ctx.fillText(`State: ${this.player.animationState}`, this.width - 150, debugY);
             this.ctx.fillText(`Pos: (${Math.floor(this.player.x)}, ${Math.floor(this.player.y)})`, this.width - 150, debugY + 15);
             this.ctx.fillText(`Vel: (${Math.floor(this.player.vx)}, ${Math.floor(this.player.vy)})`, this.width - 150, debugY + 30);
+            
+            // Show dungeon info
+            if (this.dungeon) {
+                const currentRoom = this.dungeon.getRoomAt(this.player.x, this.player.y);
+                const roomType = currentRoom ? currentRoom.type : 'unknown';
+                this.ctx.fillText(`Room: ${roomType}`, this.width - 150, debugY + 45);
+                this.ctx.fillText(`Rooms: ${this.dungeon.rooms.length}`, this.width - 150, debugY + 60);
+            }
         }
     }
 
