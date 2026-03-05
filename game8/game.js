@@ -38,6 +38,15 @@ const CONFIG = {
         DEAD_ZONE: 100, // Pixels from center before camera moves
     },
     
+    // Debug settings (Commit 6)
+    DEBUG: {
+        SHOW_COLLISION: false, // Toggle with 'C' key
+        SHOW_GRID: false,      // Toggle with 'G' key
+        SHOW_FPS: true,
+        COLLISION_COLOR: 'rgba(0, 255, 0, 0.5)',
+        GRID_COLOR: 'rgba(255, 215, 0, 0.1)',
+    },
+    
     // Colors
     COLORS: {
         BACKGROUND: '#1a1a1a',
@@ -51,6 +60,34 @@ const CONFIG = {
         TEXT: '#ffffff',
     }
 };
+
+// ===== COLLISION LAYERS (Commit 6) =====
+const COLLISION_LAYER = {
+    NONE: 0,
+    PLAYER: 1 << 0,      // 1
+    ENEMY: 1 << 1,       // 2
+    PROJECTILE: 1 << 2,  // 4
+    ITEM: 1 << 3,        // 8
+    WALL: 1 << 4,        // 16
+    TRIGGER: 1 << 5,     // 32
+    ALL: 0xFFFF          // All layers
+};
+
+// Collision matrix - defines which layers can collide with each other
+const COLLISION_MATRIX = {
+    [COLLISION_LAYER.PLAYER]: COLLISION_LAYER.ENEMY | COLLISION_LAYER.ITEM | COLLISION_LAYER.WALL | COLLISION_LAYER.TRIGGER,
+    [COLLISION_LAYER.ENEMY]: COLLISION_LAYER.PLAYER | COLLISION_LAYER.PROJECTILE | COLLISION_LAYER.WALL,
+    [COLLISION_LAYER.PROJECTILE]: COLLISION_LAYER.ENEMY | COLLISION_LAYER.WALL,
+    [COLLISION_LAYER.ITEM]: COLLISION_LAYER.PLAYER,
+    [COLLISION_LAYER.WALL]: COLLISION_LAYER.PLAYER | COLLISION_LAYER.ENEMY | COLLISION_LAYER.PROJECTILE,
+    [COLLISION_LAYER.TRIGGER]: COLLISION_LAYER.PLAYER,
+};
+
+// Check if two collision layers should collide
+function canCollide(layer1, layer2) {
+    const mask1 = COLLISION_MATRIX[layer1] || 0;
+    return (mask1 & layer2) !== 0;
+}
 
 // ===== UTILITY FUNCTIONS =====
 const Utils = {
@@ -84,10 +121,73 @@ const Utils = {
         return Math.random() * (max - min) + min;
     },
     
-    // Check AABB collision
+    // Check AABB collision (rectangle to rectangle)
     checkCollision(x1, y1, w1, h1, x2, y2, w2, h2) {
         return x1 < x2 + w2 && x1 + w1 > x2 &&
                y1 < y2 + h2 && y1 + h1 > y2;
+    },
+    
+    // Circle to circle collision
+    circleCollision(x1, y1, r1, x2, y2, r2) {
+        const dist = this.distance(x1, y1, x2, y2);
+        return dist < r1 + r2;
+    },
+    
+    // Circle to rectangle collision
+    circleRectCollision(cx, cy, radius, rx, ry, rw, rh) {
+        // Find the closest point on the rectangle to the circle
+        const closestX = this.clamp(cx, rx, rx + rw);
+        const closestY = this.clamp(cy, ry, ry + rh);
+        
+        // Calculate distance between circle center and closest point
+        const dist = this.distance(cx, cy, closestX, closestY);
+        
+        return dist < radius;
+    },
+    
+    // Point in circle
+    pointInCircle(px, py, cx, cy, radius) {
+        return this.distance(px, py, cx, cy) < radius;
+    },
+    
+    // Point in rectangle
+    pointInRect(px, py, rx, ry, rw, rh) {
+        return px >= rx && px <= rx + rw && py >= ry && py <= ry + rh;
+    },
+    
+    // Get overlap between two rectangles (for collision response)
+    getRectOverlap(x1, y1, w1, h1, x2, y2, w2, h2) {
+        const overlapX = Math.min(x1 + w1, x2 + w2) - Math.max(x1, x2);
+        const overlapY = Math.min(y1 + h1, y2 + h2) - Math.max(y1, y2);
+        
+        if (overlapX > 0 && overlapY > 0) {
+            return { x: overlapX, y: overlapY };
+        }
+        return null;
+    },
+    
+    // Get penetration depth between two circles
+    getCirclePenetration(x1, y1, r1, x2, y2, r2) {
+        const dist = this.distance(x1, y1, x2, y2);
+        const minDist = r1 + r2;
+        
+        if (dist < minDist) {
+            return minDist - dist; // Penetration depth
+        }
+        return 0;
+    },
+    
+    // Push two circles apart (collision response)
+    pushCirclesApart(obj1, obj2, penetration) {
+        // Calculate direction from obj2 to obj1
+        const angle = this.angle(obj2.x, obj2.y, obj1.x, obj1.y);
+        const pushDist = penetration / 2;
+        
+        // Push both objects apart equally
+        obj1.x += Math.cos(angle) * pushDist;
+        obj1.y += Math.sin(angle) * pushDist;
+        obj2.x -= Math.cos(angle) * pushDist;
+        obj2.y -= Math.sin(angle) * pushDist;
     },
     
     // Grid to world coordinates
@@ -106,6 +206,59 @@ const Utils = {
         };
     }
 };
+
+// ===== COLLISION DEBUGGER (Commit 6) =====
+class CollisionDebugger {
+    static drawCircle(ctx, x, y, radius, color = CONFIG.DEBUG.COLLISION_COLOR) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        
+        // Draw center point
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    static drawRect(ctx, x, y, width, height, color = CONFIG.DEBUG.COLLISION_COLOR) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x, y, width, height);
+        
+        // Draw center point
+        ctx.fillStyle = color;
+        const centerX = x + width / 2;
+        const centerY = y + height / 2;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    static drawLine(ctx, x1, y1, x2, y2, color = CONFIG.DEBUG.COLLISION_COLOR) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x2, y2);
+        ctx.stroke();
+    }
+    
+    static drawPoint(ctx, x, y, color = CONFIG.DEBUG.COLLISION_COLOR) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    static drawText(ctx, text, x, y, color = CONFIG.DEBUG.COLLISION_COLOR) {
+        ctx.fillStyle = color;
+        ctx.font = '12px monospace';
+        ctx.fillText(text, x, y);
+    }
+}
 
 // ===== INPUT MANAGER =====
 class InputManager {
@@ -500,6 +653,10 @@ class Player {
         // Animation
         this.animationState = 'idle'; // idle, walk, attack
         this.animationTimer = 0;
+        
+        // Collision (Commit 6)
+        this.collisionLayer = COLLISION_LAYER.PLAYER;
+        this.collisionMask = COLLISION_MATRIX[COLLISION_LAYER.PLAYER];
     }
     
     update(deltaTime, input, canvas) {
@@ -614,6 +771,12 @@ class Player {
         
         // Draw health bar above player
         this.drawHealthBar(ctx);
+        
+        // Debug: Draw collision circle (Commit 6)
+        if (CONFIG.DEBUG.SHOW_COLLISION) {
+            CollisionDebugger.drawCircle(ctx, this.x, this.y, this.size, 'rgba(0, 255, 0, 0.6)');
+            CollisionDebugger.drawText(ctx, 'PLAYER', this.x + this.size + 5, this.y, 'lime');
+        }
     }
     
     drawHealthBar(ctx) {
@@ -765,6 +928,18 @@ class Game {
                 if (this.state === 'playing') {
                     this.togglePause();
                 }
+            }
+            
+            // Toggle collision debug (Commit 6)
+            if (e.key.toLowerCase() === 'v') {
+                CONFIG.DEBUG.SHOW_COLLISION = !CONFIG.DEBUG.SHOW_COLLISION;
+                console.log(`🔍 Collision debug: ${CONFIG.DEBUG.SHOW_COLLISION ? 'ON' : 'OFF'}`);
+            }
+            
+            // Toggle grid debug (Commit 6)
+            if (e.key.toLowerCase() === 'g') {
+                CONFIG.DEBUG.SHOW_GRID = !CONFIG.DEBUG.SHOW_GRID;
+                console.log(`📐 Grid debug: ${CONFIG.DEBUG.SHOW_GRID ? 'ON' : 'OFF'}`);
             }
             
             // Inventory (will be implemented in Commit 10)
@@ -1017,13 +1192,13 @@ class Game {
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'top';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
-            this.ctx.fillText('Use WASD or Arrow Keys to move • Explore the dungeon • Enemies coming in Commit 7...', this.width / 2, 10);
+            this.ctx.fillText('WASD: Move • V: Toggle Collision Debug • G: Toggle Grid • Enemies coming in Commit 7...', this.width / 2, 10);
             
             // Show some debug info about active systems
             this.ctx.font = '14px Courier New';
             this.ctx.textAlign = 'left';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
-            const debugY = this.height - 125;
+            const debugY = this.height - 155;
             this.ctx.fillText(`✓ CONFIG system`, 10, debugY);
             this.ctx.fillText(`✓ Input Manager`, 10, debugY + 15);
             this.ctx.fillText(`✓ Camera System`, 10, debugY + 30);
@@ -1031,6 +1206,20 @@ class Game {
             this.ctx.fillText(`✓ Player System`, 10, debugY + 60);
             this.ctx.fillText(`✓ Movement Controls`, 10, debugY + 75);
             this.ctx.fillText(`✓ Dungeon Generation`, 10, debugY + 90);
+            this.ctx.fillText(`✓ Collision System`, 10, debugY + 105);
+            
+            // Show debug mode indicators (Commit 6)
+            if (CONFIG.DEBUG.SHOW_COLLISION || CONFIG.DEBUG.SHOW_GRID) {
+                this.ctx.fillStyle = 'rgba(0, 255, 0, 0.6)';
+                let debugIndicatorY = debugY + 120;
+                if (CONFIG.DEBUG.SHOW_COLLISION) {
+                    this.ctx.fillText(`[V] Collision: ON`, 10, debugIndicatorY);
+                    debugIndicatorY += 15;
+                }
+                if (CONFIG.DEBUG.SHOW_GRID) {
+                    this.ctx.fillText(`[G] Grid: ON`, 10, debugIndicatorY);
+                }
+            }
             
             // Show player state
             this.ctx.fillStyle = 'rgba(74, 158, 255, 0.4)';
@@ -1044,6 +1233,11 @@ class Game {
                 const roomType = currentRoom ? currentRoom.type : 'unknown';
                 this.ctx.fillText(`Room: ${roomType}`, this.width - 150, debugY + 45);
                 this.ctx.fillText(`Rooms: ${this.dungeon.rooms.length}`, this.width - 150, debugY + 60);
+            }
+            
+            // Show collision layer info (Commit 6)
+            if (CONFIG.DEBUG.SHOW_COLLISION && this.player) {
+                this.ctx.fillText(`Layer: PLAYER`, this.width - 150, debugY + 75);
             }
         }
     }
