@@ -138,13 +138,35 @@ Explore procedurally generated dungeons, fight enemies, collect loot, level up y
 - ✅ Camera auto-follows player smoothly
 - ✅ 60 FPS smooth movement
 
-### 📋 Planned Commits (5-20+)
+**Commit 5: Dungeon Room Generation System** ✓
+- Tile-based dungeon system
+- Three connected rooms (start, normal, boss)
+- Tile class for individual tiles
+- Room class for room generation
+- Dungeon class for layout management
+- Wall collision detection
+- Door connections between rooms
+- Room-specific tile rendering
+- Player spawns in start room center
+- Dungeon rendering with visual depth
+- Current room tracking system
 
-**Commit 5: Dungeon Room Generation System**
-- Procedural dungeon layout
-- Room templates (start, normal, boss, treasure)
-- Wall and floor tiles
-- Doors between rooms
+**Features in Commit 5:**
+- ✅ Tile class (grid position, world position, type)
+- ✅ Room class (walls, floors, doors, boundaries)
+- ✅ Dungeon class (multiple rooms, tile map)
+- ✅ 3 room types: START, NORMAL, BOSS
+- ✅ Tile types: FLOOR, WALL, DOOR
+- ✅ Procedural room layout
+- ✅ Door connections between rooms
+- ✅ Circle-to-tile collision detection
+- ✅ Player spawns at start room center
+- ✅ Wall boundaries replace canvas bounds
+- ✅ Room detection (know which room player is in)
+- ✅ Tile rendering with borders and highlights
+- ✅ Debug UI shows current room info
+
+### 📋 Planned Commits (6-20+)
 
 **Commit 6: Collision Detection System**
 - AABB collision detection
@@ -306,101 +328,117 @@ game8/
 - **CSS3** - UI styling with animations
 - **LocalStorage** - (Commit 20) Save system
 
-## 🎯 Current Testing Instructions (Commit 4)
+## 🎯 Current Testing Instructions (Commit 5)
 
 1. **Open the game** - Load `index.html` in a modern browser
 2. **Check UI** - Verify all UI elements are visible:
    - Stats panel (top-left) showing player values
    - Health: 100/100, ATK: 10, DEF: 5, LVL: 1, Gold: 0, Floor: 1
    - Control buttons (bottom-right)
-   - Welcome screen showing "Commit 4: Movement Controls Active ✓"
+   - Welcome screen showing "Commit 5: Dungeon Rooms Generated ✓"
 3. **Test basic controls**:
-   - Click "Start Adventure" - Should spawn player at center
-   - Watch player render as blue circle with white border
-   - Observe health bar above player (green, full)
-   - Camera should be centered on player
+   - Click "Start Adventure" - Should generate dungeon and spawn player
+   - Watch dungeon render with 3 visible rooms
+   - Player spawns in left room (start room) center
+   - Observe dungeon tiles: walls (gray), floors (darker gray), doors (brown)
+   - Camera centered on player in start room
    - FPS counter should update (~60 FPS)
-   - Top instruction text: "Use WASD or Arrow Keys to move"
-   - Bottom-left debug shows 6 active systems (including "✓ Movement Controls")
-4. **Test movement (MAIN TEST)**:
-   - **W or ↑**: Player moves UP
-   - **S or ↓**: Player moves DOWN
-   - **A or ←**: Player moves LEFT
-   - **D or →**: Player moves RIGHT
-   - **W+D or ↑+→**: Player moves NORTHEAST (diagonal)
-   - **W+A or ↑+←**: Player moves NORTHWEST (diagonal)
-   - **S+D or ↓+→**: Player moves SOUTHEAST (diagonal)
-   - **S+A or ↓+←**: Player moves SOUTHWEST (diagonal)
-   - All 8 directions should work smoothly
-   - Movement speed should feel consistent (150 px/s)
-5. **Visual feedback during movement**:
-   - Player's direction indicator (white dot) rotates to face movement direction
-   - Player animationState changes to "walk" (visible in debug)
-   - Player position updates in debug UI: "Pos: (x, y)"
-   - Velocity shows in debug UI: "Vel: (vx, vy)"
-   - Camera smoothly follows player movement
-   - Grid scrolls as player moves (world space)
-6. **Boundary testing**:
-   - Move to TOP edge - Player should stop at top boundary
-   - Move to BOTTOM edge - Player should stop at bottom boundary
-   - Move to LEFT edge - Player should stop at left boundary
-   - Move to RIGHT edge - Player should stop at right boundary
-   - Player should never leave the visible canvas area
-7. **Diagonal movement verification**:
-   - Press W+D together (northeast diagonal)
-   - Speed should be SAME as moving straight (not faster)
-   - Direction indicator should point northeast (45° angle)
-   - Velocity should be ~106 px/s in both X and Y (normalized)
-8. **Idle state testing**:
-   - Move player, then release all keys
-   - animationState should change to "idle"
-   - Velocity should show (0, 0)
-   - Direction indicator should remain at last movement direction
-   - Player should stop immediately (no sliding/momentum)
-9. **Debug UI checks** (bottom-left):
-   - Should show "✓ Movement Controls" in system list
-   - Player state shows: "State: walk" when moving, "State: idle" when stopped
-   - Position updates in real-time: "Pos: (x, y)"
-   - Velocity shows: "Vel: (0, 0)" when idle, "(vx, vy)" when moving
-10. **Camera following**:
-    - Move player around canvas
-    - Camera should smoothly follow player with slight lag
+   - Top instruction text: "Use WASD or Arrow Keys to move • Explore the dungeon"
+   - Bottom-left debug shows 7 active systems (including "✓ Dungeon Generation")
+4. **Test dungeon rendering (MAIN TEST)**:
+   - **Start room (left)**: 8x7 tiles, rectangular, gray walls, dark floors
+   - **Normal room (center)**: 10x9 tiles, larger than start, connected by door
+   - **Boss room (right)**: 8x7 tiles, same size as start, connected by door
+   - **Doors**: Brown tiles with golden highlights connecting rooms
+   - **Walls**: Dark gray (#404040) with subtle black borders for depth
+   - **Floors**: Darker gray (#2a2a2a) for contrast
+   - All tiles should be 40x40 pixels (CONFIG.TILE_SIZE)
+5. **Test wall collision**:
+   - Try moving into walls in any direction
+   - Player should STOP at walls, not pass through
+   - Player can slide along walls (move parallel to them)
+   - Collision should feel solid and responsive
+   - Test all 4 walls of each room
+   - Test corners - player shouldn't get stuck
+6. **Test door traversal**:
+   - Move player to door between start room and normal room
+   - Player should walk through door freely (no collision)
+   - Move to door between normal room and boss room
+   - Player should walk through door to boss room
+   - Doors act as walkable connectors between rooms
+   - Camera follows smoothly through doors
+7. **Test room exploration**:
+   - Explore all 3 rooms (start, normal, boss)
+   - Debug UI should show current room type:
+     * "Room: start" when in left room
+     * "Room: normal" when in center room
+     * "Room: boss" when in right room
+   - Debug UI shows "Rooms: 3" (total room count)
+   - Player position updates correctly in all rooms
+8. **Test player spawn**:
+   - Click "Reset" button
+   - Player should respawn at start room center (not canvas center)
+   - Start room is always the left room
+   - Player spawns away from walls (in open floor space)
+9. **Visual checks**:
+   - Walls have subtle borders for depth
+   - Doors have golden highlight borders (rgba(255, 215, 0, 0.5))
+   - Floor tiles are uniformly colored
+   - No visual glitches or tile gaps
+   - Tiles align perfectly to 40px grid
+10. **Camera and scrolling**:
+    - Move player around dungeon
+    - Camera smoothly follows player
     - Stats panel stays in place (screen space)
-    - Grid scrolls with camera (world space)
-11. **Pause/Resume with movement**:
-    - While moving, click "Pause" - Movement should stop
-    - Click "Resume" or press ESC - Can move again
-    - Movement state should persist correctly
+    - Dungeon tiles scroll with camera (world space)
+    - Can see all 3 rooms when zoomed out
+11. **Movement with collision**:
+    - Test 8-directional movement still works
+    - Diagonal movement into walls should slide along wall
+    - Movement speed unchanged (150 px/s)
+    - Animation states still work (idle/walk)
+    - Direction indicator updates correctly
 12. **Console testing** (F12):
     ```javascript
-    // Access player
-    game.player
+    // Access dungeon
+    game.dungeon
     
-    // Check velocity properties
-    game.player.vx  // Should be 0 when idle, non-zero when moving
-    game.player.vy  // Should be 0 when idle, non-zero when moving
+    // Check dungeon properties
+    game.dungeon.rooms.length  // Should be 3
+    game.dungeon.floor  // Should be 1
     
-    // Check animation state
-    game.player.animationState  // "idle" or "walk"
+    // Check current room
+    game.dungeon.getRoomAt(game.player.x, game.player.y)
+    // Should return room object with type: 'start', 'normal', or 'boss'
     
-    // Check direction (in radians)
-    game.player.direction  // Updates based on movement direction
+    // Test collision detection
+    game.dungeon.checkCircleCollision(game.player.x, game.player.y, 16)
+    // Should be false (player not in wall)
     
-    // Test movement methods still work
-    game.player.takeDamage(20)  // Health should decrease
-    game.player.heal(10)  // Health should increase
-    game.player.addGold(50)  // Gold should increase
+    // Check tiles
+    game.dungeon.tiles.size  // Should show total tile count
+    
+    // Test isWalkable
+    game.dungeon.isWalkable(game.player.x, game.player.y)  // Should be true
     ```
 13. **Performance test**:
-    - Move continuously in all directions
+    - Move continuously through all rooms
     - FPS should stay around 60 FPS
-    - No lag or stuttering
-    - Smooth camera follow
+    - No lag when rendering dungeon
+    - Smooth collision detection
+    - No stuttering when crossing doors
 14. **Edge case tests**:
-    - Press multiple keys simultaneously (W+A+S+D) - Should handle gracefully
-    - Rapidly switch directions - Should respond immediately
-    - Hold key at boundary - Should stay at edge without jittering
-    - Move to corner (top-left, top-right, etc.) - Should clamp correctly
+    - Try walking diagonally into corners - Should not get stuck
+    - Rapid direction changes near walls - Should handle smoothly
+    - Walk along entire perimeter of each room
+    - Test all door entrances from both sides
+    - Try moving into walls from all angles
+15. **Dungeon structure verification**:
+    - Verify 3 rooms are visible and connected
+    - No floating walls or disconnected tiles
+    - Door alignment is correct (rooms connect properly)
+    - Room sizes are correct (start: 8x7, normal: 10x9, boss: 8x7)
+    - Rooms don't overlap each other
 
 ## 📊 Commit Progress
 
@@ -408,7 +446,7 @@ game8/
 - [x] **Commit 2** - Game Class and Core Initialization
 - [x] **Commit 3** - Player Character and Rendering
 - [x] **Commit 4** - Movement Controls and Physics
-- [ ] **Commit 5** - Dungeon Room Generation
+- [x] **Commit 5** - Dungeon Room Generation
 - [ ] **Commit 6** - Collision Detection
 - [ ] **Commit 7** - Enemy System
 - [ ] **Commit 8** - Combat and Health
@@ -508,14 +546,47 @@ game8/
 - Grid scrolls correctly as player moves around canvas
 - All 8 directions supported (N, NE, E, SE, S, SW, W, NW)
 
-### Next Steps (Commit 5)
-- Generate procedural dungeon layout
-- Create room system with walls and floors
-- Tile-based dungeon rendering
-- Room connections and doorways
-- Remove canvas boundary check (use dungeon walls)
-- Player collision with dungeon walls
-- Starting room design
+### Commit 5 Details
+- Tile-based dungeon system with 40x40px tiles (matching CONFIG.TILE_SIZE)
+- Three tile types: FLOOR (walkable), WALL (solid), DOOR (walkable connector)
+- Tile class: stores grid position (x,y), world position, type, and color
+- Room class: generates rectangular rooms with walls on edges, floors inside
+- Dungeon class: manages multiple rooms, tile map (Map for O(1) lookup)
+- Simple 3-room linear layout for Commit 5:
+  * Start room (left): 8x7 tiles at grid position (2, 5)
+  * Normal room (center): 10x9 tiles at grid position (12, 4)
+  * Boss room (right): 8x7 tiles at grid position (24, 5)
+- Door connections: Start↔Normal, Normal↔Boss at aligned positions
+- Room.addDoor(x, y, direction): converts wall tile to door tile
+- Dungeon.buildTileMap(): creates Map of "x,y" -> Tile for fast collision
+- Dungeon.getTileAt(gridX, gridY): retrieves tile from map
+- Dungeon.getTileAtWorld(worldX, worldY): converts world coords to grid, gets tile
+- Dungeon.isWalkable(worldX, worldY): checks if position is FLOOR or DOOR
+- Dungeon.isSolid(worldX, worldY): checks if position is WALL
+- Dungeon.checkCircleCollision(x, y, radius): checks 8 points around circle edge
+- Circle collision checks: 4 cardinal points + 4 diagonal points (* 0.707)
+- Player.handleMovement() updated: uses dungeon.checkCircleCollision()
+- Separate X and Y collision checks: allows sliding along walls
+- Player spawns at start room center: startRoom.getCenterWorld()
+- Dungeon.render(ctx): draws all tiles in all rooms with colors
+- Wall tiles: dark gray (#404040) with subtle black borders for depth
+- Floor tiles: darker gray (#2a2a2a) for contrast
+- Door tiles: brown (#8b4513) with golden highlight borders
+- Dungeon.getRoomAt(worldX, worldY): determines which room player is in
+- Room.containsPoint(worldX, worldY): checks if world position is inside room
+- Debug UI shows: current room type, total room count
+- Canvas boundary checking removed: dungeon walls now handle all collision
+- Game.initGameData() generates new Dungeon(currentFloor)
+- Game.update() passes dungeon to player.update() instead of canvas
+- Collision is smooth: player can't phase through walls or into rooms without doors
+
+### Next Steps (Commit 6)
+- Enhanced collision detection for various shapes
+- Collision layers for different entity types
+- Trigger zones for room transitions
+- Collision optimization with spatial partitioning
+- Collision debug visualization
+- Sliding collision improvements
 
 ## 📝 License
 
@@ -529,5 +600,5 @@ This game is part of the Multi-Game-Repo-playground collection.
 
 ---
 
-**Current Status:** Commit 4/20+ Complete ✓  
-**Next Commit:** Dungeon Room Generation System
+**Current Status:** Commit 5/20+ Complete ✓  
+**Next Commit:** Enhanced Collision Detection System
