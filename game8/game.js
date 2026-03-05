@@ -226,6 +226,10 @@ class Player {
         this.x = x;
         this.y = y;
         
+        // Velocity
+        this.vx = 0;
+        this.vy = 0;
+        
         // Stats
         this.maxHealth = CONFIG.PLAYER.START_HEALTH;
         this.health = this.maxHealth;
@@ -241,22 +245,86 @@ class Player {
         
         // State
         this.isDead = false;
-        this.direction = 0; // Angle in radians (for future animation facing)
+        this.direction = 0; // Angle in radians
+        this.isMoving = false;
         
-        // Animation (for future use)
+        // Animation
         this.animationState = 'idle'; // idle, walk, attack
         this.animationTimer = 0;
     }
     
-    update(deltaTime) {
+    update(deltaTime, input, canvas) {
         // Check death
         if (this.health <= 0 && !this.isDead) {
             this.isDead = true;
             console.log('💀 Player has died!');
+            return;
         }
         
-        // Update animation timer (will be used in future commits)
+        // Handle movement input
+        this.handleMovement(deltaTime, input, canvas);
+        
+        // Update animation timer
         this.animationTimer += deltaTime;
+    }
+    
+    handleMovement(deltaTime, input, canvas) {
+        // Get input direction
+        let moveX = 0;
+        let moveY = 0;
+        
+        // WASD keys
+        if (input.isKeyDown('w') || input.isKeyDown('ArrowUp')) {
+            moveY -= 1;
+        }
+        if (input.isKeyDown('s') || input.isKeyDown('ArrowDown')) {
+            moveY += 1;
+        }
+        if (input.isKeyDown('a') || input.isKeyDown('ArrowLeft')) {
+            moveX -= 1;
+        }
+        if (input.isKeyDown('d') || input.isKeyDown('ArrowRight')) {
+            moveX += 1;
+        }
+        
+        // Check if moving
+        this.isMoving = (moveX !== 0 || moveY !== 0);
+        
+        // Update animation state
+        if (this.isMoving) {
+            this.animationState = 'walk';
+        } else {
+            this.animationState = 'idle';
+        }
+        
+        // Normalize diagonal movement
+        if (moveX !== 0 && moveY !== 0) {
+            moveX *= 0.707; // 1/sqrt(2)
+            moveY *= 0.707;
+        }
+        
+        // Apply movement
+        if (this.isMoving) {
+            // Update velocity
+            this.vx = moveX * this.speed;
+            this.vy = moveY * this.speed;
+            
+            // Update direction (angle in radians)
+            this.direction = Math.atan2(moveY, moveX);
+            
+            // Update position with delta time
+            this.x += this.vx * deltaTime;
+            this.y += this.vy * deltaTime;
+            
+            // Boundary checking (temporary until dungeon walls in Commit 5)
+            // Keep player within canvas bounds
+            this.x = Math.max(this.size, Math.min(canvas.width - this.size, this.x));
+            this.y = Math.max(this.size, Math.min(canvas.height - this.size, this.y));
+        } else {
+            // Deceleration when not moving
+            this.vx = 0;
+            this.vy = 0;
+        }
     }
     
     render(ctx) {
@@ -555,7 +623,7 @@ class Game {
         
         // Update player
         if (this.player) {
-            this.player.update(deltaTime);
+            this.player.update(deltaTime, this.input, this.canvas);
             // Camera follows player
             this.camera.follow(this.player.x, this.player.y, deltaTime);
             
@@ -686,18 +754,25 @@ class Game {
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'top';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
-            this.ctx.fillText('Movement controls coming in Commit 4...', this.width / 2, 10);
+            this.ctx.fillText('Use WASD or Arrow Keys to move • Dungeon generation coming in Commit 5...', this.width / 2, 10);
             
             // Show some debug info about active systems
             this.ctx.font = '14px Courier New';
             this.ctx.textAlign = 'left';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
-            const debugY = this.height - 95;
+            const debugY = this.height - 110;
             this.ctx.fillText(`✓ CONFIG system`, 10, debugY);
             this.ctx.fillText(`✓ Input Manager`, 10, debugY + 15);
             this.ctx.fillText(`✓ Camera System`, 10, debugY + 30);
             this.ctx.fillText(`✓ Game Stats`, 10, debugY + 45);
             this.ctx.fillText(`✓ Player System`, 10, debugY + 60);
+            this.ctx.fillText(`✓ Movement Controls`, 10, debugY + 75);
+            
+            // Show player state
+            this.ctx.fillStyle = 'rgba(74, 158, 255, 0.4)';
+            this.ctx.fillText(`State: ${this.player.animationState}`, this.width - 150, debugY);
+            this.ctx.fillText(`Pos: (${Math.floor(this.player.x)}, ${Math.floor(this.player.y)})`, this.width - 150, debugY + 15);
+            this.ctx.fillText(`Vel: (${Math.floor(this.player.vx)}, ${Math.floor(this.player.vy)})`, this.width - 150, debugY + 30);
         }
     }
 
