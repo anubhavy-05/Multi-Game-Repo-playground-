@@ -517,6 +517,9 @@ class Dungeon {
         // Build tile map for collision detection
         this.buildTileMap();
         
+        // Spawn enemies (Commit 7)
+        this.spawnEnemies();
+        
         console.log(`✓ Dungeon generated with ${this.rooms.length} rooms`);
     }
     
@@ -530,6 +533,61 @@ class Dungeon {
                 this.tiles.set(key, tile);
             }
         }
+    }
+    
+    spawnEnemies() {
+        // Spawn enemies in rooms (Commit 7)
+        const enemies = [];
+        
+        // Normal room: spawn 2-3 slimes
+        const normalRoom = this.rooms[1]; // Center room
+        const slimeCount = Utils.randomInt(2, 3);
+        for (let i = 0; i < slimeCount; i++) {
+            const spawnPos = this.getRandomFloorPosition(normalRoom);
+            if (spawnPos) {
+                enemies.push(new Enemy(spawnPos.x, spawnPos.y, ENEMY_TYPE.SLIME));
+            }
+        }
+        
+        // Normal room: spawn 1-2 goblins
+        const goblinCount = Utils.randomInt(1, 2);
+        for (let i = 0; i < goblinCount; i++) {
+            const spawnPos = this.getRandomFloorPosition(normalRoom);
+            if (spawnPos) {
+                enemies.push(new Enemy(spawnPos.x, spawnPos.y, ENEMY_TYPE.GOBLIN));
+            }
+        }
+        
+        // Boss room: spawn 1 skeleton (mini-boss for now)
+        const bossRoom = this.rooms[2]; // Right room
+        const bossPos = this.getRandomFloorPosition(bossRoom);
+        if (bossPos) {
+            enemies.push(new Enemy(bossPos.x, bossPos.y, ENEMY_TYPE.SKELETON));
+        }
+        
+        console.log(`✓ Spawned ${enemies.length} enemies`);
+        
+        return enemies;
+    }
+    
+    getRandomFloorPosition(room) {
+        // Get a random floor tile position in the room
+        // Try up to 10 times to find a valid floor tile
+        for (let attempt = 0; attempt < 10; attempt++) {
+            const gridX = Utils.randomInt(room.x + 1, room.x + room.width - 2);
+            const gridY = Utils.randomInt(room.y + 1, room.y + room.height - 2);
+            
+            const tile = this.getTileAt(gridX, gridY);
+            if (tile && tile.type === TILE_TYPE.FLOOR) {
+                // Convert grid to world coordinates (center of tile)
+                return {
+                    x: gridX * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2,
+                    y: gridY * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2
+                };
+            }
+        }
+        
+        return null; // Failed to find position
     }
     
     getTileAt(gridX, gridY) {
@@ -618,6 +676,274 @@ class Dungeon {
                 }
             }
         }
+    }
+}
+
+// ===== ENEMY SYSTEM (Commit 7) =====
+
+// Enemy types
+const ENEMY_TYPE = {
+    SLIME: 'slime',
+    SKELETON: 'skeleton',
+    GOBLIN: 'goblin',
+};
+
+// Enemy configurations
+const ENEMY_CONFIG = {
+    [ENEMY_TYPE.SLIME]: {
+        name: 'Slime',
+        maxHealth: 30,
+        attack: 5,
+        defense: 0,
+        speed: 80,
+        size: 12,
+        color: '#4aff4a',
+        xpValue: 10,
+        goldValue: 5,
+    },
+    [ENEMY_TYPE.SKELETON]: {
+        name: 'Skeleton',
+        maxHealth: 50,
+        attack: 8,
+        defense: 3,
+        speed: 100,
+        size: 14,
+        color: '#cccccc',
+        xpValue: 20,
+        goldValue: 15,
+    },
+    [ENEMY_TYPE.GOBLIN]: {
+        name: 'Goblin',
+        maxHealth: 40,
+        attack: 12,
+        defense: 2,
+        speed: 120,
+        size: 13,
+        color: '#88ff44',
+        xpValue: 15,
+        goldValue: 10,
+    },
+};
+
+// Base Enemy class
+class Enemy {
+    constructor(x, y, type) {
+        this.type = type;
+        const config = ENEMY_CONFIG[type];
+        
+        // Position
+        this.x = x;
+        this.y = y;
+        
+        // Velocity
+        this.vx = 0;
+        this.vy = 0;
+        
+        // Stats
+        this.maxHealth = config.maxHealth;
+        this.health = this.maxHealth;
+        this.attack = config.attack;
+        this.defense = config.defense;
+        this.speed = config.speed;
+        this.xpValue = config.xpValue;
+        this.goldValue = config.goldValue;
+        
+        // Display
+        this.size = config.size;
+        this.color = config.color;
+        this.name = config.name;
+        
+        // State
+        this.isDead = false;
+        this.direction = 0; // Angle in radians
+        this.isMoving = false;
+        
+        // AI behavior
+        this.aggroRange = 200; // Distance at which enemy notices player
+        this.attackRange = 30; // Distance for melee attack
+        this.hasAggro = false;
+        this.updateTimer = 0;
+        
+        // Animation
+        this.animationState = 'idle'; // idle, walk, attack, death
+        this.animationTimer = 0;
+        
+        // Collision (Commit 6)
+        this.collisionLayer = COLLISION_LAYER.ENEMY;
+        this.collisionMask = COLLISION_MATRIX[COLLISION_LAYER.ENEMY];
+    }
+    
+    update(deltaTime, player, dungeon) {
+        if (this.isDead) return;
+        
+        // Check death
+        if (this.health <= 0 && !this.isDead) {
+            this.die();
+            return;
+        }
+        
+        // Update AI
+        this.updateAI(deltaTime, player, dungeon);
+        
+        // Update animation timer
+        this.animationTimer += deltaTime;
+        this.updateTimer += deltaTime;
+    }
+    
+    updateAI(deltaTime, player, dungeon) {
+        if (!player || player.isDead) {
+            this.isMoving = false;
+            this.animationState = 'idle';
+            this.vx = 0;
+            this.vy = 0;
+            return;
+        }
+        
+        // Check if player is in aggro range
+        const distToPlayer = Utils.distance(this.x, this.y, player.x, player.y);
+        
+        if (distToPlayer <= this.aggroRange) {
+            this.hasAggro = true;
+        }
+        
+        if (this.hasAggro) {
+            // Move toward player if not in attack range
+            if (distToPlayer > this.attackRange) {
+                this.moveToward(player.x, player.y, deltaTime, dungeon);
+                this.animationState = 'walk';
+                this.isMoving = true;
+            } else {
+                // In attack range - stop and prepare to attack (combat in Commit 8)
+                this.vx = 0;
+                this.vy = 0;
+                this.isMoving = false;
+                this.animationState = 'idle';
+            }
+            
+            // Update direction to face player
+            this.direction = Utils.angle(this.x, this.y, player.x, player.y);
+        } else {
+            // Idle behavior - no aggro
+            this.vx = 0;
+            this.vy = 0;
+            this.isMoving = false;
+            this.animationState = 'idle';
+        }
+    }
+    
+    moveToward(targetX, targetY, deltaTime, dungeon) {
+        // Calculate direction to target
+        const angle = Utils.angle(this.x, this.y, targetX, targetY);
+        
+        // Calculate movement
+        const moveX = Math.cos(angle);
+        const moveY = Math.sin(angle);
+        
+        // Update velocity
+        this.vx = moveX * this.speed;
+        this.vy = moveY * this.speed;
+        
+        // Calculate new position
+        const newX = this.x + this.vx * deltaTime;
+        const newY = this.y + this.vy * deltaTime;
+        
+        // Collision detection with dungeon walls
+        if (dungeon) {
+            // Check if new position collides with walls
+            if (!dungeon.checkCircleCollision(newX, this.y, this.size)) {
+                this.x = newX; // Move horizontally if no collision
+            }
+            if (!dungeon.checkCircleCollision(this.x, newY, this.size)) {
+                this.y = newY; // Move vertically if no collision
+            }
+        } else {
+            // Fallback
+            this.x = newX;
+            this.y = newY;
+        }
+    }
+    
+    render(ctx) {
+        // Draw enemy body (circle)
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw enemy border
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+        
+        // Draw direction indicator
+        const indicatorDist = this.size - 3;
+        const indicatorX = this.x + Math.cos(this.direction) * indicatorDist;
+        const indicatorY = this.y + Math.sin(this.direction) * indicatorDist;
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        ctx.arc(indicatorX, indicatorY, 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw health bar below enemy
+        this.drawHealthBar(ctx);
+        
+        // Debug: Draw collision circle (Commit 6)
+        if (CONFIG.DEBUG.SHOW_COLLISION) {
+            CollisionDebugger.drawCircle(ctx, this.x, this.y, this.size, 'rgba(255, 0, 0, 0.6)');
+            CollisionDebugger.drawText(ctx, this.name.toUpperCase(), this.x + this.size + 5, this.y, 'red');
+            
+            // Draw aggro range
+            if (this.hasAggro) {
+                CollisionDebugger.drawCircle(ctx, this.x, this.y, this.aggroRange, 'rgba(255, 100, 0, 0.2)');
+            }
+        }
+    }
+    
+    drawHealthBar(ctx) {
+        const barWidth = this.size * 2;
+        const barHeight = 4;
+        const barX = this.x - barWidth / 2;
+        const barY = this.y + this.size + 5;
+        
+        // Background
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(barX, barY, barWidth, barHeight);
+        
+        // Health
+        const healthPercent = this.health / this.maxHealth;
+        const healthWidth = barWidth * healthPercent;
+        
+        // Color based on health percentage
+        if (healthPercent > 0.6) {
+            ctx.fillStyle = '#4aff4a'; // Green
+        } else if (healthPercent > 0.3) {
+            ctx.fillStyle = '#ffd700'; // Yellow
+        } else {
+            ctx.fillStyle = '#ff4a4a'; // Red
+        }
+        
+        ctx.fillRect(barX, barY, healthWidth, barHeight);
+        
+        // Border
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(barX, barY, barWidth, barHeight);
+    }
+    
+    takeDamage(amount) {
+        const finalDamage = Math.max(1, amount - this.defense);
+        this.health -= finalDamage;
+        this.health = Math.max(0, this.health);
+        
+        console.log(`💥 ${this.name} took ${finalDamage} damage (${this.health}/${this.maxHealth} HP)`);
+        
+        return finalDamage;
+    }
+    
+    die() {
+        this.isDead = true;
+        this.animationState = 'death';
+        console.log(`☠️ ${this.name} has died!`);
     }
 }
 
@@ -903,6 +1229,9 @@ class Game {
         // Generate dungeon (Commit 5)
         this.dungeon = new Dungeon(this.currentFloor);
         
+        // Spawn enemies (Commit 7)
+        this.enemies = this.dungeon.spawnEnemies();
+        
         // Spawn player in the center of the start room
         const startPos = this.dungeon.startRoom.getCenterWorld();
         this.player = new Player(startPos.x, startPos.y);
@@ -1072,11 +1401,18 @@ class Game {
             }
         }
         
-        // Update enemies (will be implemented in Commit 7)
+        // Update enemies (Commit 7)
         for (let i = this.enemies.length - 1; i >= 0; i--) {
-            this.enemies[i].update(deltaTime);
+            this.enemies[i].update(deltaTime, this.player, this.dungeon);
             // Remove dead enemies
             if (this.enemies[i].isDead) {
+                // Award XP and gold (will be implemented fully in Commit 13)
+                const enemy = this.enemies[i];
+                this.stats.enemiesKilled++;
+                this.stats.goldCollected += enemy.goldValue;
+                if (this.player) {
+                    this.player.addGold(enemy.goldValue);
+                }
                 this.enemies.splice(i, 1);
             }
         }
@@ -1192,13 +1528,13 @@ class Game {
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'top';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
-            this.ctx.fillText('WASD: Move • V: Toggle Collision Debug • G: Toggle Grid • Enemies coming in Commit 7...', this.width / 2, 10);
+            this.ctx.fillText('WASD: Move • V: Collision Debug • Defeat enemies • Combat coming in Commit 8...', this.width / 2, 10);
             
             // Show some debug info about active systems
             this.ctx.font = '14px Courier New';
             this.ctx.textAlign = 'left';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
-            const debugY = this.height - 155;
+            const debugY = this.height - 170;
             this.ctx.fillText(`✓ CONFIG system`, 10, debugY);
             this.ctx.fillText(`✓ Input Manager`, 10, debugY + 15);
             this.ctx.fillText(`✓ Camera System`, 10, debugY + 30);
@@ -1207,11 +1543,12 @@ class Game {
             this.ctx.fillText(`✓ Movement Controls`, 10, debugY + 75);
             this.ctx.fillText(`✓ Dungeon Generation`, 10, debugY + 90);
             this.ctx.fillText(`✓ Collision System`, 10, debugY + 105);
+            this.ctx.fillText(`✓ Enemy System`, 10, debugY + 120);
             
             // Show debug mode indicators (Commit 6)
             if (CONFIG.DEBUG.SHOW_COLLISION || CONFIG.DEBUG.SHOW_GRID) {
                 this.ctx.fillStyle = 'rgba(0, 255, 0, 0.6)';
-                let debugIndicatorY = debugY + 120;
+                let debugIndicatorY = debugY + 135;
                 if (CONFIG.DEBUG.SHOW_COLLISION) {
                     this.ctx.fillText(`[V] Collision: ON`, 10, debugIndicatorY);
                     debugIndicatorY += 15;
@@ -1235,9 +1572,14 @@ class Game {
                 this.ctx.fillText(`Rooms: ${this.dungeon.rooms.length}`, this.width - 150, debugY + 60);
             }
             
+            // Show enemy info (Commit 7)
+            this.ctx.fillStyle = 'rgba(255, 74, 74, 0.4)';
+            this.ctx.fillText(`Enemies: ${this.enemies.length}`, this.width - 150, debugY + 75);
+            this.ctx.fillText(`Kills: ${this.stats.enemiesKilled}`, this.width - 150, debugY + 90);
+            
             // Show collision layer info (Commit 6)
             if (CONFIG.DEBUG.SHOW_COLLISION && this.player) {
-                this.ctx.fillText(`Layer: PLAYER`, this.width - 150, debugY + 75);
+                this.ctx.fillText(`Layer: PLAYER`, this.width - 150, debugY + 105);
             }
         }
     }
