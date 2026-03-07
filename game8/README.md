@@ -191,13 +191,40 @@ Explore procedurally generated dungeons, fight enemies, collect loot, level up y
 - ✅ Player collision layer assignment
 - ✅ Debug UI shows collision status
 
-### 📋 Planned Commits (7-20+)
+### 📋 Planned Commits (8-20+)
 
-**Commit 7: Enemy System Implementation**
-- Enemy classes (slime, skeleton, goblin)
-- Enemy spawning system
-- Enemy stats (HP, ATK, DEF, speed)
-- Enemy rendering
+**Commit 7: Enemy System Implementation** ✓
+- ENEMY_TYPE enumeration (slime, skeleton, goblin)
+- ENEMY_CONFIG system with enemy stats
+- Enemy class with full AI behavior
+- Enemy spawning system per room
+- Enemy AI with aggro detection (200px range)
+- Enemy chase behavior and pathfinding
+- Enemy attack range system (30px)
+- Enemy movement with wall collision
+- Enemy rendering (colored circles, health bars)
+- Enemy collision debug visualization
+- Random spawn position generation
+- Enemy death and rewards system
+- Enemy state tracking in game loop
+- Integration with collision layer system
+
+**Features in Commit 7:**
+- ✅ 3 enemy types (Slime, Skeleton, Goblin)
+- ✅ Enemy stats (HP, ATK, DEF, speed, size, color, XP, gold)
+- ✅ Enemy AI (aggro detection, chase, pathfinding)
+- ✅ Enemy spawning (2-4 enemies per dungeon)
+- ✅ Enemy movement with wall collision detection
+- ✅ Enemy rendering with health bars
+- ✅ Collision debug visualization for enemies
+- ✅ Random spawn position system
+- ✅ Enemy death rewards (gold, XP)
+- ✅ Enemy class with 10+ methods
+- ✅ Integration with existing collision system
+- ✅ Enemy layer assignment (ENEMY layer)
+- ✅ Debug UI shows enemy count and kills
+- ✅ Enemies render with direction indicator
+- ✅ Color-coded health bars (green/yellow/red)
 
 **Commit 8: Combat System and Health**
 - Attack mechanics
@@ -347,7 +374,220 @@ game8/
 - **CSS3** - UI styling with animations
 - **LocalStorage** - (Commit 20) Save system
 
-## 🎯 Current Testing Instructions (Commit 6)
+## 🎯 Current Testing Instructions (Commit 7)
+
+1. **Open the game** - Load `index.html` in a modern browser
+2. **Check UI updates** - Verify all UI elements show Commit 7:
+   - Header subtitle: "Commit 7: Enemy System Implementation ✓"
+   - Welcome screen shows "Commit 7: Enemy System Implemented ✓"
+   - Welcome screen features: "3 enemy types • AI behavior • Aggro detection • Pathfinding • Health bars"
+   - Info panel: "Development Stage: Commit 7/20+"
+   - Info panel status: "Enemy system active"
+   - Info panel next: "Combat & health system"
+3. **Test basic controls**:
+   - Click "Start Adventure" - Should generate dungeon, spawn player, and spawn enemies
+   - Dungeon renders with 3 rooms
+   - Player spawns in start room center
+   - Enemies spawn in rooms (2-4 total)
+   - Console shows: "✓ Spawned N enemies"
+   - FPS counter should update (~60 FPS)
+   - Top instruction text: "WASD: Move • V: Collision Debug • Defeat enemies • Combat coming in Commit 8..."
+   - Bottom-left debug shows 9 active systems (including "✓ Enemy System")
+4. **Test enemy spawning (MAIN TEST)**:
+   - **Normal room**: Should spawn 2-3 slimes (green) + 1-2 goblins (lime green)
+   - **Boss room**: Should spawn 1 skeleton (gray)
+   - Total: 3-5 enemies per game
+   - Enemies spawn on floor tiles (not in walls)
+   - Enemy positions randomized each game
+   - Console logs enemy count
+5. **Test enemy rendering**:
+   - **Slimes**: Green circles (#4aff4a), 12px radius, small
+   - **Skeletons**: Gray circles (#cccccc), 14px radius, medium
+   - **Goblins**: Lime circles (#88ff44), 13px radius, medium
+   - Each enemy has:
+     * Colored circle body
+     * Black border (2px)
+     * Direction indicator (small black dot)
+     * Health bar below (full green when spawned)
+6. **Test enemy AI behavior**:
+   - **Idle state**: Enemies don't move when player is far away
+   - **Aggro detection**: Enemies activate when player is within 200px
+   - **Chase behavior**: Activated enemies move toward player
+   - **Attack range**: Enemies stop moving when within 30px of player
+   - **Pathfinding**: Enemies navigate around walls
+   - Enemies can't walk through walls (wall collision working)
+   - Enemies stay within their room unless following player through doors
+7. **Test enemy movement speeds**:
+   - **Slimes**: Slowest (80 speed) - should be easy to outrun
+   - **Skeletons**: Medium (100 speed) - matches player speed
+   - **Goblins**: Fastest (120 speed) - should catch up to player
+   - Movement should be smooth and consistent
+8. **Test enemy health bars**:
+   - Health bar renders below each enemy
+   - Bar width = enemy size * 2
+   - Bar height = 4px
+   - Color coding (not testable until combat):
+     * Green: >60% HP
+     * Yellow: 30-60% HP
+     * Red: <30% HP
+   - All enemies start at full health (green bar)
+9. **Test collision debug visualization (V key)**:
+   - Press 'V' to enable collision debug
+   - Player: Green circle with "PLAYER" label
+   - Enemies: Red circles with "ENEMY" label
+   - Aggro range: Orange circle showing 200px detection radius
+   - All collision circles should match entity sizes
+   - Debug info updates in real-time
+10. **Test debug UI info**:
+    - Press 'V' to show collision debug
+    - Right side debug shows:
+      * "Enemies: N" (current enemy count)
+      * "Kills: 0" (no enemies killed yet - combat in Commit 8)
+    - Enemy count should match visual enemy count on screen
+11. **Test enemy death system (Console - F12)**:
+    ```javascript
+    // Kill first enemy manually
+    game.enemies[0].die()
+    // Console should log: "💀 Enemy died at (x, y)"
+    
+    // Check enemy is dead
+    game.enemies[0].isDead  // true
+    
+    // Check gold reward was given
+    game.stats.goldCollected  // Should increase
+    game.player.gold  // Should increase
+    
+    // Check kill stat
+    game.stats.enemiesKilled  // Should increase
+    ```
+12. **Test ENEMY_TYPE and ENEMY_CONFIG (Console)**:
+    ```javascript
+    // Check enemy types
+    ENEMY_TYPE.SLIME      // 'slime'
+    ENEMY_TYPE.SKELETON   // 'skeleton'
+    ENEMY_TYPE.GOBLIN     // 'goblin'
+    
+    // Check enemy configs
+    ENEMY_CONFIG.slime
+    // {health: 30, attack: 5, defense: 0, speed: 80, size: 12, 
+    //  color: '#4aff4a', xpValue: 10, goldValue: 5}
+    
+    ENEMY_CONFIG.skeleton
+    // {health: 50, attack: 8, defense: 3, speed: 100, size: 14,
+    //  color: '#cccccc', xpValue: 20, goldValue: 15}
+    
+    ENEMY_CONFIG.goblin
+    // {health: 40, attack: 12, defense: 2, speed: 120, size: 13,
+    //  color: '#88ff44', xpValue: 15, goldValue: 10}
+    ```
+13. **Test enemy methods (Console)**:
+    ```javascript
+    // Get first enemy
+    const enemy = game.enemies[0]
+    
+    // Check enemy properties
+    enemy.type          // 'slime', 'skeleton', or 'goblin'
+    enemy.health        // Current health
+    enemy.maxHealth     // Max health from config
+    enemy.attack        // Attack value
+    enemy.defense       // Defense value
+    enemy.speed         // Movement speed
+    enemy.size          // Render size
+    enemy.color         // Render color
+    enemy.aggroRange    // 200
+    enemy.attackRange   // 30
+    enemy.collisionLayer // 2 (ENEMY layer)
+    
+    // Test damage
+    enemy.takeDamage(10)
+    // Console: "Enemy took N damage (Defense: M)"
+    
+    // Check health decreased
+    enemy.health  // Should be less than maxHealth
+    ```
+14. **Test enemy spawning system (Console)**:
+    ```javascript
+    // Check dungeon spawning methods exist
+    typeof game.dungeon.spawnEnemies  // 'function'
+    typeof game.dungeon.getRandomFloorPosition  // 'function'
+    
+    // Respawn enemies manually
+    const newEnemies = game.dungeon.spawnEnemies()
+    // Returns array of enemies
+    
+    // Check spawn position validity
+    const room = game.dungeon.rooms[1]  // Normal room
+    const pos = game.dungeon.getRandomFloorPosition(room)
+    // Returns {x, y} or null
+    // x,y should be on floor tiles, not walls
+    ```
+15. **Test movement around enemies**:
+    - Walk near enemies (within 200px)
+    - Enemies should turn toward player
+    - Enemies should start chasing
+    - Walk away - enemies should continue chasing
+    - Walk through doors - enemies should follow if aggro'd
+    - Enemies should stop when within 30px (attack range)
+16. **Test enemy-wall collision**:
+    - Aggro an enemy and run toward a wall
+    - Position player on opposite side of wall
+    - Enemy should:
+      * Try to pathfind to player
+      * Stop at walls (not phase through)
+      * Attempt to navigate around walls
+    - Enemies use same collision system as player
+17. **Performance test with enemies**:
+    - Enable collision debug (V key)
+    - Aggro all enemies simultaneously
+    - Run through all rooms with enemies chasing
+    - FPS should stay around 60 FPS
+    - Enemy AI updates should be smooth
+    - No lag or stuttering
+18. **Test enemy stats variation**:
+    - Reset game multiple times (click "Try Again" button)
+    - Each spawn should randomize:
+      * Normal room: 2 OR 3 slimes
+      * Normal room: 1 OR 2 goblins
+      * Boss room: 1 skeleton (consistent)
+    - Total enemy count varies between 3-5
+    - Spawn positions should be different each time
+19. **Collision layer integration**:
+    ```javascript
+    // Check collision layer assignments
+    game.player.collisionLayer  // 1 (PLAYER)
+    game.enemies[0].collisionLayer  // 2 (ENEMY)
+    
+    // Check collision matrix
+    canCollide(COLLISION_LAYER.PLAYER, COLLISION_LAYER.ENEMY)  // true
+    canCollide(COLLISION_LAYER.ENEMY, COLLISION_LAYER.WALL)  // true
+    
+    // Enemies have collision masks set correctly
+    game.enemies[0].collisionMask  // Should include PLAYER, WALL, etc.
+    ```
+20. **Visual polish verification**:
+    - Enemy direction indicators point in movement direction
+    - Health bars always visible above enemies
+    - Enemy colors distinct and readable
+    - Slime (green) vs Goblin (lime) should be clearly different
+    - Enemies don't overlap walls when spawning
+    - All enemies visible on screen (camera should show them)
+
+### Expected Results:
+- ✅ Enemies spawn correctly (2-4 per game)
+- ✅ Enemy AI activates within 200px
+- ✅ Enemies chase player smoothly
+- ✅ Enemies stop at 30px attack range
+- ✅ Enemies can't walk through walls
+- ✅ Health bars render correctly
+- ✅ Collision debug shows enemy circles and aggro range
+- ✅ Enemy death awards gold and XP
+- ✅ Debug UI shows enemy count and kills
+- ✅ No combat damage yet (Commit 8)
+- ✅ Performance stays at 60 FPS with all enemies active
+
+---
+
+## 🎯 Previous Testing Instructions (Commit 6)
 
 1. **Open the game** - Load `index.html` in a modern browser
 2. **Check UI** - Verify all UI elements are visible:
@@ -792,5 +1032,5 @@ This game is part of the Multi-Game-Repo-playground collection.
 
 ---
 
-**Current Status:** Commit 6/20+ Complete ✓  
-**Next Commit:** Enemy System Implementation
+**Current Status:** Commit 7/20+ Complete ✓  
+**Next Commit:** Combat and Health System
