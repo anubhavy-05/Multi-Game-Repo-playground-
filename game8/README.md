@@ -347,7 +347,148 @@ game8/
 - **CSS3** - UI styling with animations
 - **LocalStorage** - (Commit 20) Save system
 
-## 🎯 Current Testing Instructions (Commit 5)
+## 🎯 Current Testing Instructions (Commit 6)
+
+1. **Open the game** - Load `index.html` in a modern browser
+2. **Check UI** - Verify all UI elements are visible:
+   - Stats panel (top-left) showing player values
+   - Health: 100/100, ATK: 10, DEF: 5, LVL: 1, Gold: 0, Floor: 1
+   - Control buttons (bottom-right)
+   - Welcome screen showing "Commit 6: Collision System Enhanced ✓"
+3. **Test basic controls**:
+   - Click "Start Adventure" - Should generate dungeon and spawn player
+   - Dungeon renders with 3 rooms
+   - Player spawns in start room center
+   - FPS counter should update (~60 FPS)
+   - Top instruction text: "WASD: Move • V: Toggle Collision Debug • G: Toggle Grid"
+   - Bottom-left debug shows 8 active systems (including "✓ Collision System")
+4. **Test collision debug visualization (MAIN TEST)**:
+   - **Press 'V' key** - Toggles collision debug mode
+   - Console should log: "🔍 Collision debug: ON" or "OFF"
+   - When ON:
+     * Green circle appears around player (collision bounds)
+     * Label "PLAYER" appears next to player
+     * Player collision circle should match player sprite size (16px radius)
+     * Debug UI shows "[V] Collision: ON" in bottom-left
+     * Debug UI shows "Layer: PLAYER" in bottom-right
+   - **Press 'V' again** - Turns OFF collision debug
+     * Green circle disappears
+     * Debug indicator disappears from UI
+5. **Test grid debug visualization**:
+   - **Press 'G' key** - Toggles grid debug mode
+   - Console should log: "📐 Grid debug: ON" or "OFF"
+   - When ON:
+     * Grid overlay appears (not yet implemented in this commit - ready for future use)
+     * Debug UI shows "[G] Grid: ON" in bottom-left
+   - **Press 'G' again** - Turns OFF grid debug
+6. **Test collision detection utilities** (Console - F12):
+   ```javascript
+   // Test circle collision
+   Utils.circleCollision(100, 100, 20, 110, 110, 20)  // true (overlapping)
+   Utils.circleCollision(100, 100, 20, 200, 200, 20)  // false (not touching)
+   
+   // Test circle-rect collision
+   Utils.circleRectCollision(100, 100, 16, 80, 80, 40, 40)  // true (overlapping)
+   Utils.circleRectCollision(100, 100, 16, 200, 200, 40, 40)  // false (not touching)
+   
+   // Test point containment
+   Utils.pointInCircle(105, 105, 100, 100, 20)  // true (inside circle)
+   Utils.pointInRect(120, 120, 100, 100, 50, 50)  // true (inside rect)
+   
+   // Test overlap detection
+   Utils.getRectOverlap(100, 100, 50, 50, 120, 120, 50, 50)
+   // Returns: {x: 30, y: 30} (overlap dimensions)
+   
+   // Test penetration depth
+   Utils.getCirclePenetration(100, 100, 20, 110, 110, 20)
+   // Returns penetration depth value
+   ```
+7. **Test collision layers**:
+   ```javascript
+   // Check collision layer constants
+   COLLISION_LAYER.PLAYER    // 1
+   COLLISION_LAYER.ENEMY     // 2
+   COLLISION_LAYER.PROJECTILE // 4
+   COLLISION_LAYER.ITEM      // 8
+   COLLISION_LAYER.WALL      // 16
+   COLLISION_LAYER.TRIGGER   // 32
+   
+   // Check player collision setup
+   game.player.collisionLayer  // 1 (PLAYER layer)
+   game.player.collisionMask   // Bitmask showing what player can collide with
+   
+   // Test canCollide function
+   canCollide(COLLISION_LAYER.PLAYER, COLLISION_LAYER.ENEMY)  // true
+   canCollide(COLLISION_LAYER.PLAYER, COLLISION_LAYER.PROJECTILE)  // false
+   ```
+8. **Test CollisionDebugger methods** (Console):
+   ```javascript
+   // Get context
+   const ctx = game.ctx
+   game.camera.apply(ctx)
+   
+   // Draw debug circle
+   CollisionDebugger.drawCircle(ctx, 200, 200, 30)
+   
+   // Draw debug rectangle
+   CollisionDebugger.drawRect(ctx, 300, 300, 60, 60)
+   
+   // Draw debug line
+   CollisionDebugger.drawLine(ctx, 100, 100, 200, 200)
+   
+   // Draw debug point
+   CollisionDebugger.drawPoint(ctx, 150, 150)
+   
+   // Draw debug text
+   CollisionDebugger.drawText(ctx, 'TEST', 400, 400)
+   ```
+9. **Test movement with collision debug ON**:
+   - Press 'V' to enable collision debug
+   - Move player with WASD
+   - Green collision circle should follow player smoothly
+   - Circle should align perfectly with player sprite
+   - When near walls, observe collision circle touching wall edges
+   - Circle should never overlap walls (collision working)
+10. **Visual checks with debug modes**:
+    - Both debug modes (V and G) can be ON simultaneously
+    - Debug UI shows both indicators when both are active
+    - Debug visualizations render in world space (move with camera)
+    - Debug text labels are readable and positioned correctly
+    - Collision debug color: green/lime (rgba(0, 255, 0, 0.6))
+11. **Performance test with debug modes**:
+    - Enable collision debug (V key)
+    - Move continuously through all rooms
+    - FPS should stay around 60 FPS
+    - No performance degradation from debug rendering
+    - Debug visualizations update in real-time
+12. **CONFIG.DEBUG object test** (Console):
+    ```javascript
+    // Check debug configuration
+    CONFIG.DEBUG.SHOW_COLLISION  // true or false
+    CONFIG.DEBUG.SHOW_GRID       // true or false
+    CONFIG.DEBUG.SHOW_FPS        // true
+    CONFIG.DEBUG.COLLISION_COLOR // 'rgba(0, 255, 0, 0.5)'
+    CONFIG.DEBUG.GRID_COLOR      // 'rgba(255, 215, 0, 0.1)'
+    
+    // Manually toggle debug modes
+    CONFIG.DEBUG.SHOW_COLLISION = true  // Force collision debug ON
+    CONFIG.DEBUG.SHOW_GRID = true       // Force grid debug ON
+    ```
+13. **Test collision system integration**:
+    - Existing dungeon wall collision still works
+    - Player collision layer doesn't interfere with wall collision
+    - No regression in movement or collision behavior from Commit 5
+    - All 3 rooms still accessible
+    - Door traversal still works
+14. **Debug UI verification**:
+    - 8 systems listed (added "✓ Collision System")
+    - Debug indicators show/hide correctly with V and G keys
+    - "Layer: PLAYER" shows when collision debug is ON
+    - All debug text readable and non-overlapping
+15. **Instruction text verification**:
+    - Top bar shows: "WASD: Move • V: Toggle Collision Debug • G: Toggle Grid"
+    - Controls accurately reflect new debug features
+    - Text fits on screen without overflow
 
 1. **Open the game** - Load `index.html` in a modern browser
 2. **Check UI** - Verify all UI elements are visible:
@@ -466,7 +607,7 @@ game8/
 - [x] **Commit 3** - Player Character and Rendering
 - [x] **Commit 4** - Movement Controls and Physics
 - [x] **Commit 5** - Dungeon Room Generation
-- [ ] **Commit 6** - Collision Detection
+- [x] **Commit 6** - Enhanced Collision Detection
 - [ ] **Commit 7** - Enemy System
 - [ ] **Commit 8** - Combat and Health
 - [ ] **Commit 9** - Loot and Items
@@ -599,13 +740,45 @@ game8/
 - Game.update() passes dungeon to player.update() instead of canvas
 - Collision is smooth: player can't phase through walls or into rooms without doors
 
-### Next Steps (Commit 6)
-- Enhanced collision detection for various shapes
-- Collision layers for different entity types
-- Trigger zones for room transitions
-- Collision optimization with spatial partitioning
-- Collision debug visualization
-- Sliding collision improvements
+### Commit 6 Details
+- Enhanced Utils object with 7 new collision detection methods
+- Utils.circleCollision(x1, y1, r1, x2, y2, r2): circle-to-circle collision
+- Utils.circleRectCollision(cx, cy, radius, rx, ry, rw, rh): circle-to-AABB collision
+- Utils.pointInCircle(px, py, cx, cy, radius): point containment in circle
+- Utils.pointInRect(px, py, rx, ry, rw, rh): point containment in rectangle
+- Utils.getRectOverlap(x1, y1, w1, h1, x2, y2, w2, h2): calculates overlap between AABBs
+- Utils.getCirclePenetration(x1, y1, r1, x2, y2, r2): penetration depth for circles
+- Utils.pushCirclesApart(obj1, obj2, penetration): collision response push
+- Collision layer system: 6 layers (PLAYER, ENEMY, PROJECTILE, ITEM, WALL, TRIGGER)
+- Collision layers use bitwise flags: PLAYER=1, ENEMY=2, PROJECTILE=4, ITEM=8, WALL=16, TRIGGER=32
+- COLLISION_MATRIX defines which layers can collide with each other
+- canCollide(layer1, layer2) function checks layer compatibility
+- Player assigned COLLISION_LAYER.PLAYER and collision mask from matrix
+- CONFIG.DEBUG object added with SHOW_COLLISION, SHOW_GRID, COLLISION_COLOR settings
+- CollisionDebugger class with 5 static visualization methods
+- CollisionDebugger.drawCircle(): renders circle collision bounds
+- CollisionDebugger.drawRect(): renders rectangle collision bounds
+- CollisionDebugger.drawLine(): renders debug lines
+- CollisionDebugger.drawPoint(): renders debug points
+- CollisionDebugger.drawText(): renders debug text labels
+- Player.render() enhanced with collision debug visualization
+- Press 'V' key to toggle collision debug mode (shows collision circles/rectangles)
+- Press 'G' key to toggle grid debug mode (shows tile grid)
+- Debug UI shows "[V] Collision: ON" and "[G] Grid: ON" when active
+- Debug UI shows collision layer info when collision debug active
+- Instruction text updated to show "V: Toggle Collision Debug", "G: Toggle Grid"
+- Console logging for debug mode toggling
+- Foundation ready for enemy collision (Commit 7) and projectile collision (Commit 8)
+- Collision system supports future trigger zones and item pickups
+
+### Next Steps (Commit 7)
+- Create Enemy base class with stats and behavior
+- Implement 3+ enemy types (slime, skeleton, goblin)
+- Enemy spawning system in dungeon rooms
+- Enemy AI movement toward player
+- Enemy collision with walls and other entities
+- Enemy health bars and death animations
+- Enemy rendering with different colors per type
 
 ## 📝 License
 
@@ -619,5 +792,5 @@ This game is part of the Multi-Game-Repo-playground collection.
 
 ---
 
-**Current Status:** Commit 5/20+ Complete ✓  
-**Next Commit:** Enhanced Collision Detection System
+**Current Status:** Commit 6/20+ Complete ✓  
+**Next Commit:** Enemy System Implementation
