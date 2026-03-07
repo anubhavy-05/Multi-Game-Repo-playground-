@@ -24,6 +24,17 @@ const CONFIG = {
         START_GOLD: 0,
         START_LEVEL: 1,
         SIZE: 16, // Half tile size for better collision
+        ATTACK_RANGE: 50, // Attack range in pixels (Commit 8)
+        ATTACK_COOLDOWN: 0.5, // Seconds between attacks (Commit 8)
+    },
+    
+    // Combat settings (Commit 8)
+    COMBAT: {
+        DAMAGE_VARIANCE: 0.1, // ±10% damage randomness
+        CRITICAL_CHANCE: 0.15, // 15% chance for critical hit
+        CRITICAL_MULTIPLIER: 2.0, // 2x damage on crit
+        KNOCKBACK_FORCE: 100, // Knockback velocity
+        KNOCKBACK_DURATION: 0.2, // Seconds of knockback
     },
     
     // Game progression
@@ -764,6 +775,18 @@ class Enemy {
         this.hasAggro = false;
         this.updateTimer = 0;
         
+        // Combat (Commit 8)
+        this.attackCooldown = 1.0; // Seconds between attacks
+        this.lastAttackTime = -999;
+        this.isAttacking = false;
+        this.attackTimer = 0;
+        this.attackDuration = 0.3;
+        
+        // Knockback (Commit 8)
+        this.knockbackVx = 0;
+        this.knockbackVy = 0;
+        this.knockbackTimer = 0;
+        
         // Animation
         this.animationState = 'idle'; // idle, walk, attack, death
         this.animationTimer = 0;
@@ -976,6 +999,19 @@ class Player {
         this.direction = 0; // Angle in radians
         this.isMoving = false;
         
+        // Combat (Commit 8)
+        this.attackRange = CONFIG.PLAYER.ATTACK_RANGE;
+        this.attackCooldown = CONFIG.PLAYER.ATTACK_COOLDOWN;
+        this.lastAttackTime = -999; // Last time attacked (for cooldown)
+        this.isAttacking = false;
+        this.attackTimer = 0;
+        this.attackDuration = 0.2; // Animation duration in seconds
+        
+        // Knockback (Commit 8)
+        this.knockbackVx = 0;
+        this.knockbackVy = 0;
+        this.knockbackTimer = 0;
+        
         // Animation
         this.animationState = 'idle'; // idle, walk, attack
         this.animationTimer = 0;
@@ -991,6 +1027,24 @@ class Player {
             this.isDead = true;
             console.log('💀 Player has died!');
             return;
+        }
+        
+        // Update attack animation (Commit 8)
+        if (this.isAttacking) {
+            this.attackTimer += deltaTime;
+            if (this.attackTimer >= this.attackDuration) {
+                this.isAttacking = false;
+                this.attackTimer = 0;
+            }
+        }
+        
+        // Update knockback (Commit 8)
+        if (this.knockbackTimer > 0) {
+            this.knockbackTimer -= deltaTime;
+            if (this.knockbackTimer <= 0) {
+                this.knockbackVx = 0;
+                this.knockbackVy = 0;
+            }
         }
         
         // Handle movement input
@@ -1023,7 +1077,9 @@ class Player {
         this.isMoving = (moveX !== 0 || moveY !== 0);
         
         // Update animation state
-        if (this.isMoving) {
+        if (this.isAttacking) {
+            this.animationState = 'attack';
+        } else if (this.isMoving) {
             this.animationState = 'walk';
         } else {
             this.animationState = 'idle';
@@ -1045,8 +1101,14 @@ class Player {
             this.direction = Math.atan2(moveY, moveX);
             
             // Calculate new position
-            const newX = this.x + this.vx * deltaTime;
-            const newY = this.y + this.vy * deltaTime;
+            let newX = this.x + this.vx * deltaTime;
+            let newY = this.y + this.vy * deltaTime;
+            
+            // Apply knockback (Commit 8)
+            if (this.knockbackTimer > 0) {
+                newX += this.knockbackVx * deltaTime;
+                newY += this.knockbackVy * deltaTime;
+            }
             
             // Collision detection with dungeon walls (Commit 5)
             // canvas parameter is now expected to be the dungeon object
@@ -1071,6 +1133,25 @@ class Player {
             // Deceleration when not moving
             this.vx = 0;
             this.vy = 0;
+            
+            // Still apply knockback even when not inputting movement (Commit 8)
+            if (this.knockbackTimer > 0) {
+                const newX = this.x + this.knockbackVx * deltaTime;
+                const newY = this.y + this.knockbackVy * deltaTime;
+                
+                const dungeon = canvas;
+                if (dungeon && dungeon.checkCircleCollision) {
+                    if (!dungeon.checkCircleCollision(newX, this.y, this.size)) {
+                        this.x = newX;
+                    }
+                    if (!dungeon.checkCircleCollision(this.x, newY, this.size)) {
+                        this.y = newY;
+                    }
+                } else {
+                    this.x = newX;
+                    this.y = newY;
+                }
+            }
         }
     }
     
@@ -1095,6 +1176,27 @@ class Player {
         ctx.arc(indicatorX, indicatorY, 3, 0, Math.PI * 2);
         ctx.fill();
         
+        // Draw attack animation (Commit 8)
+        if (this.isAttacking) {
+            const progress = this.attackTimer / this.attackDuration;
+            const attackReach = this.attackRange * Math.sin(progress * Math.PI); // Arc motion
+            const weaponX = this.x + Math.cos(this.direction) * attackReach;
+            const weaponY = this.y + Math.sin(this.direction) * attackReach;
+            
+            // Draw attack arc
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, attackReach, this.direction - 0.5, this.direction + 0.5);
+            ctx.stroke();
+            
+            // Draw weapon swing effect
+            ctx.fillStyle = 'rgba(74, 158, 255, 0.6)';
+            ctx.beginPath();
+            ctx.arc(weaponX, weaponY, 6, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
         // Draw health bar above player
         this.drawHealthBar(ctx);
         
@@ -1102,6 +1204,11 @@ class Player {
         if (CONFIG.DEBUG.SHOW_COLLISION) {
             CollisionDebugger.drawCircle(ctx, this.x, this.y, this.size, 'rgba(0, 255, 0, 0.6)');
             CollisionDebugger.drawText(ctx, 'PLAYER', this.x + this.size + 5, this.y, 'lime');
+            
+            // Draw attack range (Commit 8)
+            if (this.isAttacking) {
+                CollisionDebugger.drawCircle(ctx, this.x, this.y, this.attackRange, 'rgba(255, 255, 0, 0.3)');
+            }
         }
     }
     
@@ -1136,15 +1243,71 @@ class Player {
         ctx.strokeRect(barX, barY, barWidth, barHeight);
     }
     
-    takeDamage(amount) {
-        // Apply defense reduction (will be enhanced in Commit 8)
+    takeDamage(amount, attackerX, attackerY) {
+        // Apply defense reduction
         const finalDamage = Math.max(1, amount - this.defense);
         this.health -= finalDamage;
         this.health = Math.max(0, this.health);
         
         console.log(`💔 Player took ${finalDamage} damage (${this.health}/${this.maxHealth} HP)`);
         
+        // Apply knockback (Commit 8)
+        if (attackerX !== undefined && attackerY !== undefined) {
+            const angle = Math.atan2(this.y - attackerY, this.x - attackerX);
+            this.knockbackVx = Math.cos(angle) * CONFIG.COMBAT.KNOCKBACK_FORCE;
+            this.knockbackVy = Math.sin(angle) * CONFIG.COMBAT.KNOCKBACK_FORCE;
+            this.knockbackTimer = CONFIG.COMBAT.KNOCKBACK_DURATION;
+        }
+        
         return finalDamage;
+    }
+    
+    // Attack method (Commit 8)
+    attack(currentTime, enemies) {
+        // Check cooldown
+        if (currentTime - this.lastAttackTime < this.attackCooldown) {
+            return false; // Still on cooldown
+        }
+        
+        // Start attack animation
+        this.isAttacking = true;
+        this.attackTimer = 0;
+        this.lastAttackTime = currentTime;
+        
+        // Find enemies in range
+        let hitCount = 0;
+        for (const enemy of enemies) {
+            if (enemy.isDead) continue;
+            
+            const dist = Utils.distance(this.x, this.y, enemy.x, enemy.y);
+            if (dist <= this.attackRange + enemy.size) {
+                // Calculate damage
+                let damage = this.attack;
+                
+                // Damage variance
+                const variance = CONFIG.COMBAT.DAMAGE_VARIANCE;
+                damage *= Utils.randomFloat(1 - variance, 1 + variance);
+                
+                // Critical hit
+                if (Math.random() < CONFIG.COMBAT.CRITICAL_CHANCE) {
+                    damage *= CONFIG.COMBAT.CRITICAL_MULTIPLIER;
+                    console.log('💥 CRITICAL HIT!');
+                }
+                
+                // Apply damage
+                damage = Math.floor(damage);
+                enemy.takeDamage(damage, this.x, this.y);
+                hitCount++;
+            }
+        }
+        
+        if (hitCount > 0) {
+            console.log(`⚔️ Player attacked ${hitCount} enemy(s)!`);
+        } else {
+            console.log('⚔️ Player attacked but missed!');
+        }
+        
+        return true; // Attack executed
     }
     
     heal(amount) {
