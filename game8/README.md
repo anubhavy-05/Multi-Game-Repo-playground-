@@ -226,12 +226,42 @@ Explore procedurally generated dungeons, fight enemies, collect loot, level up y
 - ✅ Enemies render with direction indicator
 - ✅ Color-coded health bars (green/yellow/red)
 
-**Commit 8: Combat System and Health**
-- Attack mechanics
-- Damage calculation
-- Health bars
-- Death system
-- Attack cooldowns
+**Commit 8: Combat System and Health** ✓
+- Player attack system (mouse click to attack)
+- Player attack direction follows mouse cursor
+- Attack range system (50px for player)
+- Attack cooldown system (0.5s for player, 1.0s for enemies)
+- Damage calculation with variance (±10%)
+- Critical hit system (15% chance, 2x damage)
+- Defense damage reduction
+- Knockback mechanics on hit
+- Enemy attack behavior (when in range)
+- Player takeDamage with knockback
+- Enemy takeDamage with knockback
+- Attack animation for player and enemies
+- Visual attack indicators (arc swing)
+- Player death triggers game over
+- Health bar updates in real-time
+- Combat timing system (currentTime parameter)
+- Mouse input integration with InputManager
+
+**Features in Commit 8:**
+- ✅ Mouse click attack system
+- ✅ Player faces mouse cursor when attacking
+- ✅ Attack range visualization (50px player, 30px enemies)
+- ✅ Attack cooldown prevents spam
+- ✅ Damage variance (±10% randomness)
+- ✅ Critical hits (15% chance, 2x damage multiplier)
+- ✅ Defense reduces incoming damage
+- ✅ Knockback on hit (pushes target back)
+- ✅ Enemy attacks when in range (30px)
+- ✅ Attack animations (arc swing visual)
+- ✅ Player death triggers game over screen
+- ✅ Health bars update after damage
+- ✅ Real-time combat system
+- ✅ Combat statistics tracking
+- ✅ Console damage logging
+- ✅ Attack sound ready (visual only for now)
 
 **Commit 9: Loot and Item Drops**
 - Item types (weapons, armor, potions, gold)
