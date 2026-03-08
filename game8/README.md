@@ -441,7 +441,187 @@ game8/
 - **CSS3** - UI styling with animations
 - **LocalStorage** - (Commit 20) Save system
 
-## 🎯 Current Testing Instructions (Commit 8)
+## 🎯 Current Testing Instructions (Commit 9)
+
+1. **Open the game** - Load `index.html` in a modern browser
+2. **Check UI updates** - Verify all UI elements show Commit 9:
+   - Header subtitle: "Commit 9: Loot and Item Drops System ✓"
+   - Welcome screen shows "Commit 9: Loot System Active ✓"
+   - Welcome screen features: "Item drops • Auto-pickup • Gold coins • Health potions • Weapon/armor drops"
+   - Info panel: "Development Stage: Commit 9/20+"
+   - Info panel status: "Loot system active"
+   - Info panel next: "Inventory system"
+3. **Test basic controls**:
+   - Click "Start Adventure" - Should generate dungeon, spawn player, and spawn enemies
+   - Dungeon renders with 3 rooms
+   - Player spawns in start room center
+   - Enemies spawn in rooms (2-4 total)
+   - FPS counter should update (~60 FPS)
+   - Top instruction text: "WASD: Move • Click: Attack • Auto-collect loot • V: Debug"
+   - Bottom-left debug shows 11 active systems (including "✓ Loot System")
+4. **Test enemy loot drops (MAIN TEST)**:
+   - Attack and kill an enemy
+   - Enemy should die and disappear
+   - **Loot items should spawn** at enemy death location
+   - Items scatter randomly around death position
+   - Console logs: "💎 Generated N loot items at (x, y)"
+   - Items appear as glowing, bobbing objects
+5. **Test item rendering**:
+   - **Gold coins**: Yellow/gold circles with shine effect
+   - **Health potions**: Red bottle shapes with brown cap
+   - **Weapons**: Blue sword icon (diagonal line with crossguard)
+   - **Armor**: Gray shield icon (circle with detail)
+   - All items have:
+     * Glow effect (pulsing transparency)
+     * Bob animation (floating up and down)
+     * Distinct colors per type
+6. **Test auto-pickup (MAIN TEST)**:
+   - Kill an enemy to spawn loot
+   - Walk player near dropped items
+   - **Gold and potions** should auto-pickup when player is within 30px
+   - Console shows:
+     * "💰 +N gold" for gold coins
+     * "💚 +N HP" for health potions
+   - Items disappear after pickup
+   - Player stats update (gold count, health)
+7. **Test different enemy loot tables**:
+   - **Kill Slimes** (green):
+     * 80% chance: 3-8 gold coins
+     * 20% chance: 1 health potion
+   - **Kill Skeletons** (gray):
+     * 100% chance: 10-20 gold coins
+     * 50% chance: 1 health potion
+     * 30% chance: 1 weapon
+   - **Kill Goblins** (lime):
+     * 90% chance: 5-12 gold coins
+     * 20% chance: 1 armor piece
+   - Loot is randomized - reset game multiple times to see variance
+8. **Test gold collection**:
+   - Kill multiple enemies to spawn gold
+   - Walk over gold coins
+   - Each coin is worth 1 gold
+   - Player gold count increases (visible in right debug UI)
+   - Stats panel (top-left) updates "Gold: N"
+   - Console: "💰 +1 gold (Total: N)"
+9. **Test health potion healing**:
+   - Take damage from enemies (let them attack you)
+   - Kill an enemy that drops a health potion
+   - Walk over the potion
+   - Health bar should increase by 30 HP
+   - Cannot exceed max health (100 HP)
+   - Console: "💚 +N HP" (N = actual healing, capped at max)
+10. **Test weapon/armor pickups**:
+    - Kill skeletons for weapons, goblins for armor
+    - Walk over weapon/armor items
+    - **Currently auto-pickup** (will require manual pickup in Commit 10)
+    - Weapon pickup:
+      * Player ATK increases by 5
+      * Console: "⚔️ +5 ATK (Sword)"
+      * Debug UI shows new ATK value
+    - Armor pickup:
+      * Player DEF increases by 3
+      * Console: "🛡️ +3 DEF (Shield)"
+      * Debug UI shows new DEF value
+11. **Test item animations**:
+    - Items continuously bob up and down (3px range)
+    - Items have pulsing glow effect
+    - Each item starts animation at random offset (variety)
+    - Animations smooth at 60 FPS
+12. **Test loot scatter**:
+    - Kill an enemy that drops multiple items
+    - Items should NOT stack on exact same position
+    - Items scatter within 20px radius of death position
+    - Makes it easier to see and collect multiple drops
+13. **Test collision debug (V key)**:
+    - Press 'V' to enable collision debug
+    - Items show yellow pickup range circle (30px)
+    - Item name label appears next to each item
+    - Helps visualize pickup detection
+14. **Test debug UI info**:
+    - Right side shows:
+      * "Gold: N" (player gold count)
+      * "Items: N" (items currently on ground)
+      * "Collected: M" (total items picked up)
+    - All values update in real-time
+    - Items counter decreases when picked up
+    - Collected counter increases when picked up
+15. **Test stats tracking**:
+    - Kill enemies and collect all loot
+    - Check stats in debug UI:
+      * itemsCollected (cumulative)
+      * goldCollected (cumulative from gold coins)
+    - Stats persist until game reset
+16. **Test multiple item pickups**:
+    - Kill all enemies in a room
+    - Multiple loot piles on ground
+    - Walk through the room collecting all items
+    - Each pickup processed individually
+    - Console logs each pickup
+    - Stats update correctly
+17. **Test loot with full health**:
+    - Stay at 100/100 HP
+    - Collect health potion
+    - Potion still picked up (removed from world)
+    - But heals 0 HP (already at max)
+    - Console: "💚 +0 HP"
+18. **Test item persistence**:
+    - Kill an enemy and don't collect loot
+    - Move to another room
+    - Come back to first room
+    - Loot items still there, still animated
+    - Items persist until picked up or game reset
+19. **Test loot generation randomness** (Console - F12):
+    ```javascript
+    // Check loot table configuration
+    LOOT_TABLE[ENEMY_TYPE.SLIME]
+    // Shows: [{type: 'gold', chance: 0.8, ...}, {...}]
+    
+    LOOT_TABLE[ENEMY_TYPE.SKELETON]
+    // Shows multiple drop entries with chances
+    
+    // Manually generate loot
+    const loot = LootGenerator.generateLoot(ENEMY_TYPE.SKELETON, 400, 300);
+    // Returns array of Item objects
+    console.log(loot.length); // Number of items dropped
+    ```
+20. **Test item manual spawning** (Console):
+    ```javascript
+    // Spawn a gold coin at player position
+    const goldCoin = new Item(game.player.x, game.player.y, ITEM_TYPE.GOLD, 10);
+    game.items.push(goldCoin);
+    // Coin should appear and be collectable
+    
+    // Spawn a health potion
+    const potion = new Item(game.player.x + 50, game.player.y, ITEM_TYPE.HEALTH_POTION);
+    game.items.push(potion);
+    
+    // Spawn a weapon
+    const weapon = new Item(game.player.x, game.player.y - 50, ITEM_TYPE.WEAPON);
+    game.items.push(weapon);
+    
+    // Check item properties
+    weapon.attackBonus  // 5
+    weapon.autoPickup   // false (will be manual in Commit 10)
+    ```
+
+### Expected Results:
+- ✅ Enemies drop loot on death
+- ✅ Loot spawns at enemy position with scatter
+- ✅ Items render with unique visuals per type
+- ✅ Items animate (bob + glow)
+- ✅ Auto-pickup works for gold and potions
+- ✅ Gold increases player gold count
+- ✅ Potions heal player HP
+- ✅ Weapons/armor increase player stats
+- ✅ Debug UI shows item counts
+- ✅ Stats tracking works correctly
+- ✅ Loot tables work with correct drop rates
+- ✅ 60 FPS maintained with items on screen
+- ✅ Console logs all item interactions
+
+---
+
+## 🎯 Previous Testing Instructions (Commit 8)
 
 1. **Open the game** - Load `index.html` in a modern browser
 2. **Check UI updates** - Verify all UI elements show Commit 8:
@@ -1274,5 +1454,5 @@ This game is part of the Multi-Game-Repo-playground collection.
 
 ---
 
-**Current Status:** Commit 8/20+ Complete ✓  
-**Next Commit:** Loot and Item Drops System
+**Current Status:** Commit 9/20+ Complete ✓  
+**Next Commit:** Inventory System
