@@ -404,7 +404,182 @@ game8/
 - **CSS3** - UI styling with animations
 - **LocalStorage** - (Commit 20) Save system
 
-## 🎯 Current Testing Instructions (Commit 7)
+## 🎯 Current Testing Instructions (Commit 8)
+
+1. **Open the game** - Load `index.html` in a modern browser
+2. **Check UI updates** - Verify all UI elements show Commit 8:
+   - Header subtitle: "Commit 8: Combat and Health System ✓"
+   - Welcome screen shows "Commit 8: Combat System Active ✓"
+   - Welcome screen features: "Mouse click attacks • Damage calculation • Enemy attacks • Knockback • Death system"
+   - Info panel: "Development Stage: Commit 8/20+"
+   - Info panel status: "Combat system active"
+   - Info panel next: "Loot & item drops"
+3. **Test basic controls**:
+   - Click "Start Adventure" - Should generate dungeon, spawn player, and spawn enemies
+   - Dungeon renders with 3 rooms
+   - Player spawns in start room center
+   - Enemies spawn in rooms (2-4 total)
+   - FPS counter should update (~60 FPS)
+   - Top instruction text: "WASD: Move • Click: Attack • V: Collision Debug • Survive!"
+   - Bottom-left debug shows 10 active systems (including "✓ Combat System")
+4. **Test player attack (MAIN TEST)**:
+   - Move player near an enemy (within 60px)
+   - Click anywhere on the canvas
+   - Player should:
+     * Turn to face the mouse cursor
+     * Play attack animation (white arc swing)
+     * Attack range indicator appears (yellow circle when debug mode ON)
+     * Console: "⚔️ Player attacked N enemy(s)!" or "⚔️ Player attacked but missed!"
+   - If enemy is in range (50px + enemy size):
+     * Enemy health bar decreases
+     * Enemy turns red briefly (damage feedback)
+     * Enemy gets knocked back away from player
+     * Console: "💥 EnemyName took N damage (X/Y HP)"
+5. **Test attack cooldown**:
+   - Click multiple times rapidly
+   - Only 1 attack every 0.5 seconds should execute
+   - Console will show "attacked" message only when cooldown ready
+   - Attack animation won't restart if on cooldown
+6. **Test damage calculation**:
+   - Attack the same enemy multiple times
+   - Damage varies slightly (±10% variance)
+   - Occasionally see "💥 CRITICAL HIT!" in console
+   - Critical hits deal 2x damage
+   - Damage formula: (Player ATK) - (Enemy DEF) with variance
+   - Minimum 1 damage even if defense is high
+7. **Test enemy attacks (MAIN TEST)**:
+   - Let an enemy chase you (aggro by getting close)
+   - Stand still and let enemy reach you (within 30px)
+   - Enemy should:
+     * Stop moving when in range
+     * Play attack animation (red arc swing)
+     * Attack approximately every 1 second
+   - Player should:
+     * Take damage (health bar decreases)
+     * Get knocked back away from enemy
+     * Console: "💔 Player took N damage (X/Y HP)"
+8. **Test knockback mechanics**:
+   - Attack an enemy - enemy pushed back
+   - Let enemy attack you - player pushed back
+   - Knockback doesn't go through walls
+   - Knockback lasts about 0.2 seconds
+   - Can still move during knockback (reduced control)
+9. **Test player death (MAIN TEST)**:
+   - Let enemies attack player until health reaches 0
+   - Player should die (console: "💀 Player has died!")
+   - Game over screen should appear
+   - Game over stats should show:
+     * Final floor: 1
+     * Gold collected: (total from killed enemies)
+     * Enemies defeated: (kill count)
+   - Click "Try Again" to restart
+10. **Test enemy death**:
+    - Attack an enemy until health reaches 0
+    - Enemy should:
+      * Die (console: "☠️ EnemyName has died!")
+      * Disappear from screen
+      * Award gold (console: "💰 +N gold (Total: X)")
+      * Enemy count decreases in UI
+      * Kills stat increases
+11. **Test multiple enemies**:
+    - Aggro multiple enemies at once
+    - Attack in different directions
+    - Player faces each attack direction (follows mouse)
+    - Can hit multiple enemies in one swing if close together
+    - Each enemy attacks independently with own cooldown
+12. **Test dungeon exploration with combat**:
+    - Clear starting room of enemies
+    - Move through doors to other rooms
+    - Fight enemies in each room
+    - Health persists between rooms (damage accumulates)
+    - Death can occur in any room
+13. **Test attack animations**:
+    - Player: White arc swing in attack direction, blue dot at weapon tip
+    - Enemies: Red arc swing toward player, red dot at weapon tip
+    - Animations last ~0.2-0.3 seconds
+    - Smooth arc motion (sin wave)
+14. **Test health bars**:
+    - Player health bar always visible above player
+    - Enemy health bars always visible below enemies
+    - Color coding:
+      * Green: >60% health
+      * Yellow: 30-60% health
+      * Red: <30% health
+    - Bars update immediately after damage
+15. **Test collision debug mode (V key)**:
+    - Press 'V' to enable collision debug
+    - Player attack range shown as yellow circle (50px) when attacking
+    - Enemy collision circles shown in red
+    - All collision shapes accurate to attack ranges
+16. **Test combat UI info**:
+    - Right side debug shows:
+      * Player HP: X/Y
+      * ATK: 10 | DEF: 5
+      * Range: 50px
+      * Enemies: N (live count)
+      * Kills: M (cumulative)
+    - All values update in real-time
+17. **Test different enemy difficulties** (Console - F12):
+    ```javascript
+    // Check enemy stats
+    game.enemies.forEach((e, i) => {
+        console.log(`Enemy ${i}: ${e.name}, HP: ${e.health}/${e.maxHealth}, ATK: ${e.attack}, DEF: ${e.defense}`);
+    });
+    
+    // Slimes: 30 HP, 5 ATK, 0 DEF (easy)
+    // Skeletons: 50 HP, 8 ATK, 3 DEF (medium, boss room)
+    // Goblins: 40 HP, 12 ATK, 2 DEF (hard, high damage)
+    ```
+18. **Test player manual damage** (Console):
+    ```javascript
+    // Damage player manually
+    game.player.takeDamage(20);
+    // Should see health bar decrease, console log damage
+    
+    // Heal player
+    game.player.heal(30);
+    // Should see health bar increase, console log healing
+    
+    // Check player stats
+    game.player.health  // Current HP
+    game.player.maxHealth  // Max HP
+    game.player.attack  // Attack value
+    game.player.defense  // Defense value
+    ```
+19. **Test enemy manual attack** (Console):
+    ```javascript
+    // Make enemy attack player manually
+    const enemy = game.enemies[0];
+    const currentTime = performance.now() / 1000;
+    enemy.attack(currentTime, game.player);
+    // Should damage player and knockback
+    ```
+20. **Performance test with combat**:
+    - Aggro all enemies
+    - Attack continuously (hold click)
+    - Let enemies attack player
+    - Multiple animations playing simultaneously
+    - FPS should stay around 60 FPS
+    - No lag or stuttering even with multiple combatants
+
+### Expected Results:
+- ✅ Player can attack with mouse click
+- ✅ Enemies take damage and die
+- ✅ Enemies attack player when in range
+- ✅ Player takes damage and can die
+- ✅ Knockback works on both player and enemies
+- ✅ Attack cooldowns prevent spam
+- ✅ Critical hits occur randomly (15% chance)
+- ✅ Damage variance makes combat dynamic
+- ✅ Health bars update in real-time
+- ✅ Attack animations play smoothly
+- ✅ Game over triggers on player death
+- ✅ Combat system fully functional
+- ✅ 60 FPS maintained during combat
+
+---
+
+## 🎯 Previous Testing Instructions (Commit 7)
 
 1. **Open the game** - Load `index.html` in a modern browser
 2. **Check UI updates** - Verify all UI elements show Commit 7:
@@ -1062,5 +1237,5 @@ This game is part of the Multi-Game-Repo-playground collection.
 
 ---
 
-**Current Status:** Commit 7/20+ Complete ✓  
-**Next Commit:** Combat and Health System
+**Current Status:** Commit 8/20+ Complete ✓  
+**Next Commit:** Loot and Item Drops System
