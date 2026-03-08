@@ -263,11 +263,48 @@ Explore procedurally generated dungeons, fight enemies, collect loot, level up y
 - ✅ Console damage logging
 - ✅ Attack sound ready (visual only for now)
 
-**Commit 9: Loot and Item Drops**
-- Item types (weapons, armor, potions, gold)
-- Loot tables
+**Commit 9: Loot and Item Drops System** ✓
+- ITEM_TYPE enumeration (gold, health_potion, weapon, armor)
+- ITEM_CONFIG system with item properties
+- Item class with rendering and pickup logic
+- Loot table system per enemy type
+- LootGenerator utility class
 - Drop system on enemy death
-- Item pickup system
+- Item spawning at enemy position
+- Item scatter/spread on drop
+- Auto-pickup system for consumables
+- Item bob animation (floating effect)
+- Item glow effect (pulsing)
+- Pickup range detection (30px)
+- Gold coin rendering (shiny circles)
+- Health potion rendering (bottle shape)
+- Weapon rendering (sword icon)
+- Armor rendering (shield icon)
+- Item collision debug visualization
+- Stats tracking (itemsCollected, goldCollected)
+- Console logging for item pickups
+
+**Features in Commit 9:**
+- ✅ 4 item types (Gold, Health Potion, Weapon, Armor)
+- ✅ Loot tables for each enemy type
+- ✅ Enemies drop loot on death
+- ✅ Items spawn at enemy death location
+- ✅ Items scattered randomly (20px spread)
+- ✅ Auto-pickup for gold and potions
+- ✅ Manual pickup for weapons and armor (future)
+- ✅ Gold coins restore player gold
+- ✅ Health potions heal 30 HP
+- ✅ Weapons increase ATK by 5
+- ✅ Armor increases DEF by 3
+- ✅ Item animations (bob and glow effects)
+- ✅ Pickup range indicator in debug mode
+- ✅ Item rendering with unique visuals per type
+- ✅ Stats tracking for items collected
+- ✅ Console feedback for pickups
+- ✅ Loot drop chances per enemy:
+  * Slimes: 80% gold (3-8), 20% potion
+  * Skeletons: 100% gold (10-20), 50% potion, 30% weapon
+  * Goblins: 90% gold (5-12), 20% armor
 
 **Commit 10: Inventory System**
 - Inventory UI
