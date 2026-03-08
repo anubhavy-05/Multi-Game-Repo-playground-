@@ -933,6 +933,27 @@ class Enemy {
         ctx.arc(indicatorX, indicatorY, 2, 0, Math.PI * 2);
         ctx.fill();
         
+        // Draw attack animation (Commit 8)
+        if (this.isAttacking) {
+            const progress = this.attackTimer / this.attackDuration;
+            const attackReach = this.attackRange * Math.sin(progress * Math.PI);
+            const weaponX = this.x + Math.cos(this.direction) * attackReach;
+            const weaponY = this.y + Math.sin(this.direction) * attackReach;
+            
+            // Draw attack indicator
+            ctx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, attackReach, this.direction - 0.4, this.direction + 0.4);
+            ctx.stroke();
+            
+            // Draw attack effect
+            ctx.fillStyle = 'rgba(255, 74, 74, 0.5)';
+            ctx.beginPath();
+            ctx.arc(weaponX, weaponY, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+        
         // Draw health bar below enemy
         this.drawHealthBar(ctx);
         
@@ -1644,7 +1665,7 @@ class Game {
             
             // Handle player attack (Commit 8)
             if (this.input.isMouseDown(0) && !this.player.isDead) {
-                this.player.attack(currentTime, this.enemies);
+                this.player.attack(currentTime, this.enemies, this.input.mouse.worldX, this.input.mouse.worldY);
             }
             
             // Check for player death
@@ -1781,13 +1802,13 @@ class Game {
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'top';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
-            this.ctx.fillText('WASD: Move • V: Collision Debug • Defeat enemies • Combat coming in Commit 8...', this.width / 2, 10);
+            this.ctx.fillText('WASD: Move • Click: Attack • V: Collision Debug • Survive!', this.width / 2, 10);
             
             // Show some debug info about active systems
             this.ctx.font = '14px Courier New';
             this.ctx.textAlign = 'left';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
-            const debugY = this.height - 170;
+            const debugY = this.height - 185;
             this.ctx.fillText(`✓ CONFIG system`, 10, debugY);
             this.ctx.fillText(`✓ Input Manager`, 10, debugY + 15);
             this.ctx.fillText(`✓ Camera System`, 10, debugY + 30);
@@ -1797,11 +1818,12 @@ class Game {
             this.ctx.fillText(`✓ Dungeon Generation`, 10, debugY + 90);
             this.ctx.fillText(`✓ Collision System`, 10, debugY + 105);
             this.ctx.fillText(`✓ Enemy System`, 10, debugY + 120);
+            this.ctx.fillText(`✓ Combat System`, 10, debugY + 135);
             
             // Show debug mode indicators (Commit 6)
             if (CONFIG.DEBUG.SHOW_COLLISION || CONFIG.DEBUG.SHOW_GRID) {
                 this.ctx.fillStyle = 'rgba(0, 255, 0, 0.6)';
-                let debugIndicatorY = debugY + 135;
+                let debugIndicatorY = debugY + 150;
                 if (CONFIG.DEBUG.SHOW_COLLISION) {
                     this.ctx.fillText(`[V] Collision: ON`, 10, debugIndicatorY);
                     debugIndicatorY += 15;
@@ -1814,25 +1836,31 @@ class Game {
             // Show player state
             this.ctx.fillStyle = 'rgba(74, 158, 255, 0.4)';
             this.ctx.fillText(`State: ${this.player.animationState}`, this.width - 150, debugY);
-            this.ctx.fillText(`Pos: (${Math.floor(this.player.x)}, ${Math.floor(this.player.y)})`, this.width - 150, debugY + 15);
-            this.ctx.fillText(`Vel: (${Math.floor(this.player.vx)}, ${Math.floor(this.player.vy)})`, this.width - 150, debugY + 30);
+            this.ctx.fillText(`HP: ${Math.ceil(this.player.health)}/${this.player.maxHealth}`, this.width - 150, debugY + 15);
+            this.ctx.fillText(`Pos: (${Math.floor(this.player.x)}, ${Math.floor(this.player.y)})`, this.width - 150, debugY + 30);
+            
+            // Show combat info (Commit 8)
+            this.ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
+            this.ctx.fillText(`ATK: ${this.player.attack} | DEF: ${this.player.defense}`, this.width - 150, debugY + 45);
+            this.ctx.fillText(`Range: ${this.player.attackRange}px`, this.width - 150, debugY + 60);
             
             // Show dungeon info
             if (this.dungeon) {
                 const currentRoom = this.dungeon.getRoomAt(this.player.x, this.player.y);
                 const roomType = currentRoom ? currentRoom.type : 'unknown';
-                this.ctx.fillText(`Room: ${roomType}`, this.width - 150, debugY + 45);
-                this.ctx.fillText(`Rooms: ${this.dungeon.rooms.length}`, this.width - 150, debugY + 60);
+                this.ctx.fillStyle = 'rgba(74, 158, 255, 0.4)';
+                this.ctx.fillText(`Room: ${roomType}`, this.width - 150, debugY + 75);
             }
             
-            // Show enemy info (Commit 7)
+            // Show enemy info (Commit 7 + 8)
             this.ctx.fillStyle = 'rgba(255, 74, 74, 0.4)';
-            this.ctx.fillText(`Enemies: ${this.enemies.length}`, this.width - 150, debugY + 75);
-            this.ctx.fillText(`Kills: ${this.stats.enemiesKilled}`, this.width - 150, debugY + 90);
+            this.ctx.fillText(`Enemies: ${this.enemies.length}`, this.width - 150, debugY + 90);
+            this.ctx.fillText(`Kills: ${this.stats.enemiesKilled}`, this.width - 150, debugY + 105);
             
             // Show collision layer info (Commit 6)
             if (CONFIG.DEBUG.SHOW_COLLISION && this.player) {
-                this.ctx.fillText(`Layer: PLAYER`, this.width - 150, debugY + 105);
+                this.ctx.fillStyle = 'rgba(0, 255, 0, 0.6)';
+                this.ctx.fillText(`Layer: PLAYER`, this.width - 150, debugY + 120);
             }
         }
     }
