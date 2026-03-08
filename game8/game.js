@@ -1063,6 +1063,258 @@ class Enemy {
     }
 }
 
+// ===== LOOT AND ITEM SYSTEM (Commit 9) =====
+
+// Item types
+const ITEM_TYPE = {
+    GOLD: 'gold',
+    HEALTH_POTION: 'health_potion',
+    WEAPON: 'weapon',
+    ARMOR: 'armor',
+};
+
+// Item configurations
+const ITEM_CONFIG = {
+    [ITEM_TYPE.GOLD]: {
+        name: 'Gold Coin',
+        description: 'Shiny gold coin',
+        color: '#ffd700',
+        size: 8,
+        stackable: true,
+        autoPickup: true,
+        value: 0, // Set per instance
+    },
+    [ITEM_TYPE.HEALTH_POTION]: {
+        name: 'Health Potion',
+        description: 'Restores 30 HP',
+        color: '#ff4a4a',
+        size: 10,
+        stackable: true,
+        autoPickup: true,
+        healAmount: 30,
+    },
+    [ITEM_TYPE.WEAPON]: {
+        name: 'Sword',
+        description: 'Increases attack',
+        color: '#4a9eff',
+        size: 12,
+        stackable: false,
+        autoPickup: false,
+        attackBonus: 5,
+    },
+    [ITEM_TYPE.ARMOR]: {
+        name: 'Shield',
+        description: 'Increases defense',
+        color: '#9e9e9e',
+        size: 12,
+        stackable: false,
+        autoPickup: false,
+        defenseBonus: 3,
+    },
+};
+
+// Loot tables for enemy drops
+const LOOT_TABLE = {
+    [ENEMY_TYPE.SLIME]: [
+        { type: ITEM_TYPE.GOLD, chance: 0.8, amountMin: 3, amountMax: 8 },
+        { type: ITEM_TYPE.HEALTH_POTION, chance: 0.2, amount: 1 },
+    ],
+    [ENEMY_TYPE.SKELETON]: [
+        { type: ITEM_TYPE.GOLD, chance: 1.0, amountMin: 10, amountMax: 20 },
+        { type: ITEM_TYPE.HEALTH_POTION, chance: 0.5, amount: 1 },
+        { type: ITEM_TYPE.WEAPON, chance: 0.3, amount: 1 },
+    ],
+    [ENEMY_TYPE.GOBLIN]: [
+        { type: ITEM_TYPE.GOLD, chance: 0.9, amountMin: 5, amountMax: 12 },
+        { type: ITEM_TYPE.ARMOR, chance: 0.2, amount: 1 },
+    ],
+};
+
+// Item class
+class Item {
+    constructor(x, y, type, value = null) {
+        this.type = type;
+        const config = ITEM_CONFIG[type];
+        
+        // Position
+        this.x = x;
+        this.y = y;
+        
+        // Properties from config
+        this.name = config.name;
+        this.description = config.description;
+        this.color = config.color;
+        this.size = config.size;
+        this.stackable = config.stackable;
+        this.autoPickup = config.autoPickup;
+        
+        // Type-specific properties
+        this.value = value !== null ? value : (config.value || 0);
+        this.healAmount = config.healAmount || 0;
+        this.attackBonus = config.attackBonus || 0;
+        this.defenseBonus = config.defenseBonus || 0;
+        
+        // State
+        this.isDead = false; // For removal from world
+        this.pickupRange = 30; // Range at which player can pickup
+        
+        // Animation
+        this.animationTimer = Math.random() * Math.PI * 2; // Random start for variety
+        this.bobHeight = 0;
+        
+        // Collision (Commit 6)
+        this.collisionLayer = COLLISION_LAYER.ITEM;
+        this.collisionMask = COLLISION_MATRIX[COLLISION_LAYER.ITEM];
+    }
+    
+    update(deltaTime) {
+        // Bob animation (floating effect)
+        this.animationTimer += deltaTime * 3;
+        this.bobHeight = Math.sin(this.animationTimer) * 3; // Bob up and down 3px
+    }
+    
+    render(ctx) {
+        // Draw item with bob animation
+        const renderY = this.y + this.bobHeight;
+        
+        // Draw glow effect (pulsing)
+        const glowSize = this.size + Math.sin(this.animationTimer * 2) * 2;
+        ctx.fillStyle = this.color + '40'; // Semi-transparent glow
+        ctx.beginPath();
+        ctx.arc(this.x, renderY, glowSize, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw item body
+        if (this.type === ITEM_TYPE.GOLD) {
+            // Gold coin - draw as circle with shine
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, renderY, this.size, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Shine effect
+            ctx.fillStyle = '#ffff99';
+            ctx.beginPath();
+            ctx.arc(this.x - 2, renderY - 2, this.size * 0.3, 0, Math.PI * 2);
+            ctx.fill();
+        } else if (this.type === ITEM_TYPE.HEALTH_POTION) {
+            // Health potion - draw as bottle shape
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x - this.size/2, renderY - this.size/2, this.size, this.size * 1.2);
+            
+            // Bottle top
+            ctx.fillStyle = '#8b4513';
+            ctx.fillRect(this.x - this.size/4, renderY - this.size/2 - 3, this.size/2, 3);
+        } else if (this.type === ITEM_TYPE.WEAPON) {
+            // Weapon - draw as sword
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(this.x - this.size/2, renderY + this.size/2);
+            ctx.lineTo(this.x + this.size/2, renderY - this.size/2);
+            ctx.stroke();
+            
+            // Crossguard
+            ctx.beginPath();
+            ctx.moveTo(this.x - this.size/4, renderY);
+            ctx.lineTo(this.x + this.size/4, renderY);
+            ctx.stroke();
+        } else if (this.type === ITEM_TYPE.ARMOR) {
+            // Armor - draw as shield
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, renderY, this.size, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Shield detail
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(this.x, renderY, this.size * 0.6, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+        
+        // Draw pickup range indicator when debug mode is on
+        if (CONFIG.DEBUG.SHOW_COLLISION) {
+            CollisionDebugger.drawCircle(ctx, this.x, this.y, this.pickupRange, 'rgba(255, 215, 0, 0.2)');
+            CollisionDebugger.drawText(ctx, this.name.toUpperCase(), this.x + this.size + 5, this.y, 'gold');
+        }
+    }
+    
+    // Check if player can pick up this item
+    canPickup(player) {
+        const dist = Utils.distance(this.x, this.y, player.x, player.y);
+        return dist <= this.pickupRange;
+    }
+    
+    // Apply item effect to player
+    pickup(player) {
+        let message = '';
+        
+        switch (this.type) {
+            case ITEM_TYPE.GOLD:
+                player.addGold(this.value);
+                message = `💰 +${this.value} gold`;
+                break;
+            
+            case ITEM_TYPE.HEALTH_POTION:
+                const healed = player.heal(this.healAmount);
+                message = `💚 +${healed} HP`;
+                break;
+            
+            case ITEM_TYPE.WEAPON:
+                player.attack += this.attackBonus;
+                message = `⚔️ +${this.attackBonus} ATK (${this.name})`;
+                break;
+            
+            case ITEM_TYPE.ARMOR:
+                player.defense += this.defenseBonus;
+                message = `🛡️ +${this.defenseBonus} DEF (${this.name})`;
+                break;
+        }
+        
+        console.log(message);
+        this.isDead = true; // Mark for removal
+        
+        return message;
+    }
+}
+
+// Loot generation utility
+class LootGenerator {
+    static generateLoot(enemyType, x, y) {
+        const drops = [];
+        const lootTable = LOOT_TABLE[enemyType];
+        
+        if (!lootTable) return drops;
+        
+        for (const entry of lootTable) {
+            // Check drop chance
+            if (Math.random() <= entry.chance) {
+                const amount = entry.amount || Utils.randomInt(entry.amountMin, entry.amountMax);
+                
+                // Create item(s)
+                for (let i = 0; i < amount; i++) {
+                    // Scatter items around drop position
+                    const offsetX = Utils.randomFloat(-20, 20);
+                    const offsetY = Utils.randomFloat(-20, 20);
+                    
+                    let value = null;
+                    if (entry.type === ITEM_TYPE.GOLD) {
+                        value = 1; // Each gold coin is worth 1
+                    }
+                    
+                    const item = new Item(x + offsetX, y + offsetY, entry.type, value);
+                    drops.push(item);
+                }
+            }
+        }
+        
+        console.log(`💎 Generated ${drops.length} loot items at (${Math.floor(x)}, ${Math.floor(y)})`);
+        return drops;
+    }
+}
+
 // ===== PLAYER =====
 class Player {
     constructor(x, y) {
@@ -1675,23 +1927,48 @@ class Game {
             }
         }
         
-        // Update enemies (Commit 7 + 8)
+        // Update enemies (Commit 7 + 8 + 9)
         for (let i = this.enemies.length - 1; i >= 0; i--) {
             this.enemies[i].update(deltaTime, this.player, this.dungeon, currentTime);
-            // Remove dead enemies
+            // Remove dead enemies and spawn loot (Commit 9)
             if (this.enemies[i].isDead) {
-                // Award XP and gold (will be implemented fully in Commit 13)
                 const enemy = this.enemies[i];
                 this.stats.enemiesKilled++;
-                this.stats.goldCollected += enemy.goldValue;
-                if (this.player) {
-                    this.player.addGold(enemy.goldValue);
-                }
+                
+                // Generate loot drops (Commit 9)
+                const loot = LootGenerator.generateLoot(enemy.type, enemy.x, enemy.y);
+                this.items.push(...loot);
+                
                 this.enemies.splice(i, 1);
             }
         }
         
-        // Update projectiles (will be implemented in Commit 8)
+        // Update items (Commit 9)
+        for (let i = this.items.length - 1; i >= 0; i--) {
+            this.items[i].update(deltaTime);
+            
+            // Check for item pickup
+            if (this.player && this.items[i].canPickup(this.player)) {
+                if (this.items[i].autoPickup) {
+                    // Auto-pickup items (gold, potions)
+                    const item = this.items[i];
+                    item.pickup(this.player);
+                    this.stats.itemsCollected++;
+                    
+                    // Track gold collection
+                    if (item.type === ITEM_TYPE.GOLD) {
+                        this.stats.goldCollected += item.value;
+                    }
+                }
+            }
+            
+            // Remove picked up items
+            if (this.items[i].isDead) {
+                this.items.splice(i, 1);
+            }
+        }
+        
+        // Update projectiles (will be implemented later)
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             this.projectiles[i].update(deltaTime);
             // Remove expired projectiles
@@ -1802,13 +2079,13 @@ class Game {
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'top';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
-            this.ctx.fillText('WASD: Move • Click: Attack • V: Collision Debug • Survive!', this.width / 2, 10);
+            this.ctx.fillText('WASD: Move • Click: Attack • Auto-collect loot • V: Debug', this.width / 2, 10);
             
             // Show some debug info about active systems
             this.ctx.font = '14px Courier New';
             this.ctx.textAlign = 'left';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
-            const debugY = this.height - 185;
+            const debugY = this.height - 200;
             this.ctx.fillText(`✓ CONFIG system`, 10, debugY);
             this.ctx.fillText(`✓ Input Manager`, 10, debugY + 15);
             this.ctx.fillText(`✓ Camera System`, 10, debugY + 30);
@@ -1819,11 +2096,12 @@ class Game {
             this.ctx.fillText(`✓ Collision System`, 10, debugY + 105);
             this.ctx.fillText(`✓ Enemy System`, 10, debugY + 120);
             this.ctx.fillText(`✓ Combat System`, 10, debugY + 135);
+            this.ctx.fillText(`✓ Loot System`, 10, debugY + 150);
             
             // Show debug mode indicators (Commit 6)
             if (CONFIG.DEBUG.SHOW_COLLISION || CONFIG.DEBUG.SHOW_GRID) {
                 this.ctx.fillStyle = 'rgba(0, 255, 0, 0.6)';
-                let debugIndicatorY = debugY + 150;
+                let debugIndicatorY = debugY + 165;
                 if (CONFIG.DEBUG.SHOW_COLLISION) {
                     this.ctx.fillText(`[V] Collision: ON`, 10, debugIndicatorY);
                     debugIndicatorY += 15;
@@ -1837,7 +2115,7 @@ class Game {
             this.ctx.fillStyle = 'rgba(74, 158, 255, 0.4)';
             this.ctx.fillText(`State: ${this.player.animationState}`, this.width - 150, debugY);
             this.ctx.fillText(`HP: ${Math.ceil(this.player.health)}/${this.player.maxHealth}`, this.width - 150, debugY + 15);
-            this.ctx.fillText(`Pos: (${Math.floor(this.player.x)}, ${Math.floor(this.player.y)})`, this.width - 150, debugY + 30);
+            this.ctx.fillText(`Gold: ${this.player.gold}`, this.width - 150, debugY + 30);
             
             // Show combat info (Commit 8)
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
@@ -1852,15 +2130,20 @@ class Game {
                 this.ctx.fillText(`Room: ${roomType}`, this.width - 150, debugY + 75);
             }
             
-            // Show enemy info (Commit 7 + 8)
+            // Show enemy and loot info (Commit 7 + 8 + 9)
             this.ctx.fillStyle = 'rgba(255, 74, 74, 0.4)';
             this.ctx.fillText(`Enemies: ${this.enemies.length}`, this.width - 150, debugY + 90);
             this.ctx.fillText(`Kills: ${this.stats.enemiesKilled}`, this.width - 150, debugY + 105);
             
+            // Show loot info (Commit 9)
+            this.ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
+            this.ctx.fillText(`Items: ${this.items.length}`, this.width - 150, debugY + 120);
+            this.ctx.fillText(`Collected: ${this.stats.itemsCollected}`, this.width - 150, debugY + 135);
+            
             // Show collision layer info (Commit 6)
             if (CONFIG.DEBUG.SHOW_COLLISION && this.player) {
                 this.ctx.fillStyle = 'rgba(0, 255, 0, 0.6)';
-                this.ctx.fillText(`Layer: PLAYER`, this.width - 150, debugY + 120);
+                this.ctx.fillText(`Layer: PLAYER`, this.width - 150, debugY + 150);
             }
         }
     }
