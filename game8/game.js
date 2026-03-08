@@ -328,6 +328,10 @@ class InputManager {
         return this.keys[key.toLowerCase()] || this.keys[key];
     }
     
+    isMouseDown(button = 0) {
+        return this.mouse.isDown && this.mouse.button === button;
+    }
+    
     updateMouseWorld(camera) {
         this.mouse.worldX = this.mouse.x + camera.x;
         this.mouse.worldY = this.mouse.y + camera.y;
@@ -796,7 +800,7 @@ class Enemy {
         this.collisionMask = COLLISION_MATRIX[COLLISION_LAYER.ENEMY];
     }
     
-    update(deltaTime, player, dungeon) {
+    update(deltaTime, player, dungeon, currentTime) {
         if (this.isDead) return;
         
         // Check death
@@ -805,15 +809,33 @@ class Enemy {
             return;
         }
         
+        // Update attack animation
+        if (this.isAttacking) {
+            this.attackTimer += deltaTime;
+            if (this.attackTimer >= this.attackDuration) {
+                this.isAttacking = false;
+                this.attackTimer = 0;
+            }
+        }
+        
+        // Update knockback
+        if (this.knockbackTimer > 0) {
+            this.knockbackTimer -= deltaTime;
+            if (this.knockbackTimer <= 0) {
+                this.knockbackVx = 0;
+                this.knockbackVy = 0;
+            }
+        }
+        
         // Update AI
-        this.updateAI(deltaTime, player, dungeon);
+        this.updateAI(deltaTime, player, dungeon, currentTime);
         
         // Update animation timer
         this.animationTimer += deltaTime;
         this.updateTimer += deltaTime;
     }
     
-    updateAI(deltaTime, player, dungeon) {
+    updateAI(deltaTime, player, dungeon, currentTime) {
         if (!player || player.isDead) {
             this.isMoving = false;
             this.animationState = 'idle';
@@ -836,11 +858,15 @@ class Enemy {
                 this.animationState = 'walk';
                 this.isMoving = true;
             } else {
-                // In attack range - stop and prepare to attack (combat in Commit 8)
+                // In attack range - stop and attack (Commit 8)
                 this.vx = 0;
                 this.vy = 0;
                 this.isMoving = false;
-                this.animationState = 'idle';
+                
+                // Try to attack
+                if (!this.isAttacking) {
+                    this.attack(currentTime, player);
+                }
             }
             
             // Update direction to face player
@@ -953,14 +979,60 @@ class Enemy {
         ctx.strokeRect(barX, barY, barWidth, barHeight);
     }
     
-    takeDamage(amount) {
+    takeDamage(amount, attackerX, attackerY) {
         const finalDamage = Math.max(1, amount - this.defense);
         this.health -= finalDamage;
         this.health = Math.max(0, this.health);
         
         console.log(`💥 ${this.name} took ${finalDamage} damage (${this.health}/${this.maxHealth} HP)`);
         
+        // Apply knockback (Commit 8)
+        if (attackerX !== undefined && attackerY !== undefined) {
+            const angle = Math.atan2(this.y - attackerY, this.x - attackerX);
+            this.knockbackVx = Math.cos(angle) * CONFIG.COMBAT.KNOCKBACK_FORCE;
+            this.knockbackVy = Math.sin(angle) * CONFIG.COMBAT.KNOCKBACK_FORCE;
+            this.knockbackTimer = CONFIG.COMBAT.KNOCKBACK_DURATION;
+            
+            // Apply knockback movement
+            const knockbackX = this.x + this.knockbackVx * 0.02;
+            const knockbackY = this.y + this.knockbackVy * 0.02;
+            
+            // Don't go through walls
+            // (Handled in update loop)
+            this.x = knockbackX;
+            this.y = knockbackY;
+        }
+        
         return finalDamage;
+    }
+    
+    // Attack method (Commit 8)
+    attack(currentTime, player) {
+        // Check cooldown
+        if (currentTime - this.lastAttackTime < this.attackCooldown) {
+            return false; // Still on cooldown
+        }
+        
+        // Start attack animation
+        this.isAttacking = true;
+        this.attackTimer = 0;
+        this.lastAttackTime = currentTime;
+        this.animationState = 'attack';
+        
+        // Calculate damage
+        let damage = this.attack;
+        
+        // Damage variance
+        const variance = CONFIG.COMBAT.DAMAGE_VARIANCE;
+        damage *= Utils.randomFloat(1 - variance, 1 + variance);
+        damage = Math.floor(damage);
+        
+        // Apply damage to player
+        player.takeDamage(damage, this.x, this.y);
+        
+        console.log(`🗡️ ${this.name} attacked player for ${damage} damage!`);
+        
+        return true; // Attack executed
     }
     
     die() {
@@ -1263,10 +1335,15 @@ class Player {
     }
     
     // Attack method (Commit 8)
-    attack(currentTime, enemies) {
+    attack(currentTime, enemies, mouseWorldX, mouseWorldY) {
         // Check cooldown
         if (currentTime - this.lastAttackTime < this.attackCooldown) {
             return false; // Still on cooldown
+        }
+        
+        // Update direction to face mouse (if provided)
+        if (mouseWorldX !== undefined && mouseWorldY !== undefined) {
+            this.direction = Math.atan2(mouseWorldY - this.y, mouseWorldX - this.x);
         }
         
         // Start attack animation
@@ -1449,6 +1526,14 @@ class Game {
             }
         });
         
+        // Mouse controls (Commit 8)
+        this.canvas.addEventListener('mousedown', (e) => {
+            if (this.state === 'playing' && e.button === 0) {
+                // Left click attack - handled in update loop
+                // Mouse position already tracked by InputManager
+            }
+        });
+        
         console.log('✓ Event listeners setup');
     }
 
@@ -1537,8 +1622,8 @@ class Game {
         // Update game statistics
         this.stats.update(deltaTime);
 
-        // Update game logic
-        this.update(deltaTime);
+        // Update game logic (pass currentTime for combat)
+        this.update(deltaTime, currentTime / 1000);
 
         // Render game
         this.render();
@@ -1547,7 +1632,7 @@ class Game {
         requestAnimationFrame((time) => this.gameLoop(time));
     }
 
-    update(deltaTime) {
+    update(deltaTime, currentTime) {
         // Update input manager with camera position
         this.input.updateMouseWorld(this.camera);
         
@@ -1557,6 +1642,11 @@ class Game {
             // Camera follows player
             this.camera.follow(this.player.x, this.player.y, deltaTime);
             
+            // Handle player attack (Commit 8)
+            if (this.input.isMouseDown(0) && !this.player.isDead) {
+                this.player.attack(currentTime, this.enemies);
+            }
+            
             // Check for player death
             if (this.player.isDead) {
                 this.gameOver();
@@ -1564,9 +1654,9 @@ class Game {
             }
         }
         
-        // Update enemies (Commit 7)
+        // Update enemies (Commit 7 + 8)
         for (let i = this.enemies.length - 1; i >= 0; i--) {
-            this.enemies[i].update(deltaTime, this.player, this.dungeon);
+            this.enemies[i].update(deltaTime, this.player, this.dungeon, currentTime);
             // Remove dead enemies
             if (this.enemies[i].isDead) {
                 // Award XP and gold (will be implemented fully in Commit 13)
