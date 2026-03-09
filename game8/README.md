@@ -366,11 +366,76 @@ Explore procedurally generated dungeons, fight enemies, collect loot, level up y
 - ✅ Nearest manual item tracking
 - ✅ Console feedback for all inventory actions
 
-**Commit 11: Equipment System**
-- Equipment slots (weapon, armor, helmet, boots)
-- Stat bonuses from equipment
-- Equip/unequip mechanics
-- Visual equipment display
+**Commit 11: Equipment System** ✓
+- EQUIPMENT_SLOT enumeration (weapon, armor, helmet, boots)
+- Equipment class with 4 slot management
+- Item type expansion (added HELMET and BOOTS)
+- ITEM_CONFIG updates with equipmentSlot property
+- Equipment.equip() method with slot handling
+- Equipment.unequip() method returning item to inventory
+- Stat bonus application system
+- Stat bonus removal system
+- Player base stats tracking (baseAttack, baseDefense, baseSpeed)
+- Player equipped stats tracking (equippedAttack, equippedDefense, equippedSpeed)
+- Equipment panel UI rendering (left side of screen)
+- 4 equipment slots with emoji labels (⚔️ 🛡️ ⛑️ 👢)
+- Equipment slot click handling (unequip to inventory)
+- Visual equipment display icons in slots
+- Equipment panel golden borders
+- Inventory.useItem() updated to equip items instead of direct stat application
+- Auto-replace when equipping to occupied slot
+- Unequipped items return to inventory
+- Full inventory prevents unequipping
+- Loot table updates with helmet and boots drops
+- Slimes drop boots (10% chance)
+- Skeletons drop helmets (20% chance)
+- Goblins drop helmets (15% chance)
+- Item.render() updated with helmet and boots visuals
+- Inventory slot rendering with helmet and boots icons
+- Helmet item: +2 DEF bonus
+- Boots item: +20 SPD bonus
+- Equipment count display (X/4)
+- Stat display shows equipped bonuses (e.g., "ATK: 15 (+5)")
+- Equipment rendering only when inventory closed
+- Equipment click handling in game loop
+- Equipment panel always visible on left side
+- drawScreenUI() updated with 13 active systems
+- Controls hint updated for equipment clicks
+- Console logging for equip/unequip actions
+
+**Features in Commit 11:**
+- ✅ Equipment class with 4 distinct slots
+- ✅ Weapon slot (⚔️) - boosts ATK
+- ✅ Armor slot (🛡️) - boosts DEF
+- ✅ Helmet slot (⛑️) - boosts DEF
+- ✅ Boots slot (👢) - boosts SPD
+- ✅ Equipment panel UI on left side
+- ✅ Visual equipment display with icons
+- ✅ Click equipment slots to unequip
+- ✅ Unequipped items go to inventory
+- ✅ Using equipment from inventory equips it
+- ✅ Auto-replace when slot already occupied
+- ✅ Old equipment returns to inventory on replace
+- ✅ Base stats tracked separately from equipped
+- ✅ Stat bonuses only apply when equipped
+- ✅ Stat display shows equipped bonuses in parentheses
+- ✅ Equipment count displayed (X/4)
+- ✅ 2 new item types (helmet and boots)
+- ✅ Helmet adds +2 defense
+- ✅ Boots add +20 speed
+- ✅ Updated loot tables for all enemies
+- ✅ Slimes drop boots occasionally
+- ✅ Skeletons drop helmets occasionally
+- ✅ Goblins drop helmets occasionally
+- ✅ Item rendering includes helmet/boots visuals
+- ✅ Inventory rendering includes helmet/boots icons
+- ✅ Equipment panel golden borders and styling
+- ✅ Equipment click detection
+- ✅ Prevent unequip if inventory full
+- ✅ Console feedback for all equipment actions
+- ✅ Equipment panel visible during gameplay
+- ✅ Equipment panel hidden when inventory open
+- ✅ 13 active systems displayed
 
 **Commit 12: Character Stats and Attributes**
 - Strength, Dexterity, Constitution, Intelligence
@@ -1554,16 +1619,73 @@ game8/
 - README.md: feature list with 30+ checkmarks
 - Console logging: all inventory actions logged (add, remove, use, drop, toggle, pickup)
 
-### Next Steps (Commit 11)
-- Equipment System: dedicated slots for equipped items
-- Equipment slots: weapon slot, armor slot, helmet slot, boots slot
-- Equip from inventory: drag or click item to move to equipment slot
-- Unequip to inventory: move equipped item back to inventory
-- Stat bonuses: only equipped items provide stat bonuses (not in inventory)
-- Visual equipment: show equipped items on player sprite
-- Equipment rendering: small icons next to player showing worn gear
-- Stat comparison: show stat changes when hovering over equipment
-- Better item properties: add item quality/rarity (Common, Rare, Epic, Legendary)
+### Commit 11 Details
+- Equipment System: dedicated equipment slots with stat bonuses
+- EQUIPMENT_SLOT enum: 4 slots (WEAPON, ARMOR, HELMET, BOOTS)
+- Equipment class: ~230 lines managing equipped items
+- Equipment.equip(item, player): equips item to its designated slot
+- Auto-replace logic: equipping to occupied slot returns old item to inventory
+- Equipment.unequip(slot, player): removes item and returns it to inventory
+- Equipment.applyItemBonuses(item, player): applies stat increases
+- Equipment.removeItemBonuses(item, player): removes stat increases
+- Equipment.getItem(slot): retrieves equipped item
+- Equipment.isEmpty(slot): checks if slot is empty
+- Equipment.getAllEquipped(): returns array of all equipped items
+- Equipment.getEquippedCount(): returns number of items equipped
+- Equipment.render(ctx, canvas): draws equipment panel UI
+- Equipment panel: 70px wide, 4 slots vertically stacked, golden borders
+- Panel position: top-left corner (10px, 100px) on screen
+- Slot size: 50x50px per slot with 10px padding
+- Slot labels: emoji icons (⚔️ weapon, 🛡️ armor, ⛑️ helmet, 👢 boots)
+- Empty slots: gray background with dim emoji
+- Filled slots: blue border with item icon
+- Equipment.handleClick(mouseX, mouseY, canvas, player, inventory): click to unequip
+- Clicking equipment slot unequips item to inventory (if space available)
+- Player.baseAttack, baseDefense, baseSpeed: stores stats without equipment
+- Player.equippedAttack, equippedDefense, equippedSpeed: tracks equipment bonuses
+- Player.equipment: Equipment instance in constructor
+- Inventory.useItem() updated: equipment items now equip instead of instant-use
+- Equipping weapon/armor/helmet/boots moves to equipment slot
+- Old item in slot automatically returns to inventory
+- Item types expanded: HELMET and BOOTS added to ITEM_TYPE
+- ITEM_CONFIG updated: all equipment has equipmentSlot property
+- Helmet config: +2 DEF, silver color (#c0c0c0), size 10, equipmentSlot: HELMET
+- Boots config: +20 SPD, brown color (#8b4513), size 10, equipmentSlot: BOOTS
+- LOOT_TABLE updated: all 3 enemy types drop helmets/boots
+- Slimes: 10% chance to drop boots
+- Skeletons: 20% chance to drop helmets
+- Goblins: 15% chance to drop helmets
+- Item.render(): added rendering for helmet (dome shape) and boots (dual rectangles)
+- Inventory.render(): added icons for helmet and boots in inventory slots
+- Equipment.render(): renders all 4 item types in equipment slots
+- Game.update(): handles equipment click events
+- Game.render(): draws equipment panel when inventory is closed
+- Equipment panel visible during normal gameplay
+- Equipment panel hidden when inventory is open (clean UI)
+- drawScreenUI(): added "✓ Equipment System" (13 active systems total)
+- drawScreenUI(): shows equipped count "Equipped: X/4"
+- drawScreenUI(): stat display shows bonuses "ATK: 15 (+5)" format
+- drawScreenUI(): added SPD display with equipment bonus
+- debugY adjusted to 230px to fit all systems
+- Control hint updated: "Click: Attack/Equipment" - dual purpose clicking
+- Console logging: all equip/unequip actions logged
+- index.html: header "Commit 11: Equipment System ✓"
+- index.html: welcome screen lists all 11 commits
+- index.html: controls section mentions equipment panel clicks
+- index.html: feature description "4 equipment slots • Equip/unequip • Visual panel • Stat bonuses"
+- index.html: info panel "Commit 11/20+" and "Next: Leveling and XP system"
+- styles.css: header comment "Commit 11: Equipment System"
+- README.md: full Commit 11 documentation (40+ bullet points)
+
+### Next Steps (Commit 12)
+- Leveling System: gain XP from killing enemies, level up
+- XP calculation: based on enemy type and level
+- Level up rewards: stat points, health increase
+- XP bar display in UI
+- Level progression: 1-50+ levels with scaling XP requirements
+- Stat point allocation: choose which stats to increase
+- Level up animation and sound effects
+- XP thresholds: exponential scaling (level 2 = 100 XP, level 3 = 250 XP, etc.)
 
 ### Next Steps (Commit 7)
 - Create Enemy base class with stats and behavior
@@ -1586,5 +1708,5 @@ This game is part of the Multi-Game-Repo-playground collection.
 
 ---
 
-**Current Status:** Commit 10/20+ Complete ✓  
-**Next Commit:** Equipment System
+**Current Status:** Commit 11/20+ Complete ✓  
+**Next Commit:** Leveling and XP System
