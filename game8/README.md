@@ -306,11 +306,65 @@ Explore procedurally generated dungeons, fight enemies, collect loot, level up y
   * Skeletons: 100% gold (10-20), 50% potion, 30% weapon
   * Goblins: 90% gold (5-12), 20% armor
 
-**Commit 10: Inventory System**
-- Inventory UI
-- Item storage grid
-- Item stacking
-- Inventory management
+**Commit 10: Inventory System** ✓
+- CONFIG.INVENTORY settings (max slots, slot size, cols, pickup range)
+- Inventory class with storage array
+- Item storage (20 slots maximum)
+- Manual pickup system (E key)
+- Auto vs manual pickup distinction
+- Inventory toggle (I key)
+- Inventory UI panel rendering
+- Grid-based slot layout (5 columns x 4 rows)
+- Slot rendering with icons
+- Item click handling (use items)
+- Item right-click handling (drop items)
+- Item stacking for stackable items
+- Full inventory detection
+- Pickup prompt display
+- Item usage from inventory
+- Item drop to world
+- Health potion usage from inventory
+- Weapon/armor stat application from inventory
+- Inventory count display
+- Item quantity rendering
+- Gold auto-pickup (instant)
+- Health potions to inventory (auto-pickup)
+- Weapons/armor manual pickup only
+- Input manager enhancements (isKeyPressed, rightJustPressed)
+- Mouse event handling in inventory
+- Inventory overlay with semi-transparent background
+- Slot highlighting (selected/hovered)
+- Item icons per type in inventory
+- Instructions text in inventory UI
+- Prevent actions when inventory open
+
+**Features in Commit 10:**
+- ✅ Inventory class with 20 item slots
+- ✅ Manual pickup system (E key for weapons/armor)
+- ✅ Auto-pickup for gold (instant use)
+- ✅ Auto-pickup for health potions (goes to inventory)
+- ✅ Inventory toggle with I key
+- ✅ Full inventory UI panel (modal overlay)
+- ✅ 5x4 grid layout (5 columns, 4 rows)
+- ✅ Item rendering in inventory slots
+- ✅ Click to use items from inventory
+- ✅ Right-click to drop items from inventory
+- ✅ Health potions heal from inventory
+- ✅ Weapons/armor apply stats from inventory
+- ✅ Item stacking for stackable items
+- ✅ Quantity display for stacked items
+- ✅ Pickup prompt when near manual items
+- ✅ Full inventory detection and message
+- ✅ Items dropped back to world
+- ✅ Inventory count display (X/20)
+- ✅ Slot highlighting on hover/select
+- ✅ Semi-transparent overlay when open
+- ✅ Item icons match world item types
+- ✅ Inventory prevents attacking when open
+- ✅ Input manager key press detection
+- ✅ Right-click context menu prevention
+- ✅ Nearest manual item tracking
+- ✅ Console feedback for all inventory actions
 
 **Commit 11: Equipment System**
 - Equipment slots (weapon, armor, helmet, boots)
@@ -1454,5 +1508,5 @@ This game is part of the Multi-Game-Repo-playground collection.
 
 ---
 
-**Current Status:** Commit 9/20+ Complete ✓  
-**Next Commit:** Inventory System
+**Current Status:** Commit 10/20+ Complete ✓  
+**Next Commit:** Equipment System
