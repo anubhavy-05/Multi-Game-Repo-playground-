@@ -2271,8 +2271,36 @@ class Game {
     }
 
     update(deltaTime, currentTime) {
-        // Update input manager with camera position
+        // Update input manager (Commit 10)
+        this.input.update();
         this.input.updateMouseWorld(this.camera);
+        
+        // Handle inventory toggle (Commit 10)
+        if (this.input.isKeyPressed('i')) {
+            this.player.inventory.toggle();
+        }
+        
+        // Handle inventory mouse clicks (Commit 10)
+        if (this.player.inventory.isOpen) {
+            if (this.input.mouse.justPressed && this.input.mouse.button === 0) {
+                this.player.inventory.handleClick(
+                    this.input.mouse.x,
+                    this.input.mouse.y,
+                    this.canvas,
+                    this.player,
+                    this.items
+                );
+            }
+            if (this.input.mouse.rightJustPressed) {
+                this.player.inventory.handleRightClick(
+                    this.input.mouse.x,
+                    this.input.mouse.y,
+                    this.canvas,
+                    this.player,
+                    this.items
+                );
+            }
+        }
         
         // Update player
         if (this.player) {
@@ -2281,7 +2309,7 @@ class Game {
             this.camera.follow(this.player.x, this.player.y, deltaTime);
             
             // Handle player attack (Commit 8)
-            if (this.input.isMouseDown(0) && !this.player.isDead) {
+            if (this.input.isMouseDown(0) && !this.player.isDead && !this.player.inventory.isOpen) {
                 this.player.attack(currentTime, this.enemies, this.input.mouse.worldX, this.input.mouse.worldY);
             }
             
@@ -2308,7 +2336,11 @@ class Game {
             }
         }
         
-        // Update items (Commit 9)
+        // Find nearest manual-pickup item (Commit 10)
+        this.nearestManualItem = null;
+        let nearestDist = CONFIG.INVENTORY.PICKUP_RANGE;
+        
+        // Update items (Commit 9 + 10)
         for (let i = this.items.length - 1; i >= 0; i--) {
             this.items[i].update(deltaTime);
             
@@ -2324,6 +2356,13 @@ class Game {
                     if (item.type === ITEM_TYPE.GOLD) {
                         this.stats.goldCollected += item.value;
                     }
+                } else {
+                    // Manual pickup items - find nearest (Commit 10)
+                    const dist = Utils.distance(this.items[i].x, this.items[i].y, this.player.x, this.player.y);
+                    if (dist < nearestDist) {
+                        nearestDist = dist;
+                        this.nearestManualItem = this.items[i];
+                    }
                 }
             }
             
@@ -2331,6 +2370,13 @@ class Game {
             if (this.items[i].isDead) {
                 this.items.splice(i, 1);
             }
+        }
+        
+        // Handle manual pickup with E key (Commit 10)
+        if (this.input.isKeyPressed('e') && this.nearestManualItem && !this.player.inventory.isOpen) {
+            const item = this.nearestManualItem;
+            item.pickup(this.player, true); // Manual pickup
+            this.stats.itemsCollected++;
         }
         
         // Update projectiles (will be implemented later)
