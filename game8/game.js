@@ -1310,6 +1310,18 @@ class Item {
             ctx.beginPath();
             ctx.arc(this.x, renderY, this.size * 0.6, 0, Math.PI * 2);
             ctx.stroke();
+        } else if (this.type === ITEM_TYPE.HELMET) {
+            // Helmet - draw as dome shape (Commit 11)
+            ctx.fillStyle = this.color;
+            ctx.beginPath();
+            ctx.arc(this.x, renderY - this.size * 0.3, this.size, Math.PI, 0);
+            ctx.fill();
+            ctx.fillRect(this.x - this.size, renderY - this.size * 0.3, this.size * 2, this.size * 0.5);
+        } else if (this.type === ITEM_TYPE.BOOTS) {
+            // Boots - draw as two rectangles (Commit 11)
+            ctx.fillStyle = this.color;
+            ctx.fillRect(this.x - this.size * 0.8, renderY - this.size * 0.5, this.size * 0.7, this.size);
+            ctx.fillRect(this.x + this.size * 0.1, renderY - this.size * 0.5, this.size * 0.7, this.size);
         }
         
         // Draw pickup range indicator when debug mode is on
@@ -1845,6 +1857,16 @@ class Inventory {
                     ctx.beginPath();
                     ctx.arc(centerX, centerY, iconSize * 0.6, 0, Math.PI * 2);
                     ctx.stroke();
+                } else if (item.type === ITEM_TYPE.HELMET) {
+                    // Helmet rendering (Commit 11)
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY - iconSize * 0.3, iconSize, Math.PI, 0);
+                    ctx.fill();
+                    ctx.fillRect(centerX - iconSize, centerY - iconSize * 0.3, iconSize * 2, iconSize * 0.5);
+                } else if (item.type === ITEM_TYPE.BOOTS) {
+                    // Boots rendering (Commit 11)
+                    ctx.fillRect(centerX - iconSize * 0.8, centerY - iconSize * 0.5, iconSize * 0.7, iconSize);
+                    ctx.fillRect(centerX + iconSize * 0.1, centerY - iconSize * 0.5, iconSize * 0.7, iconSize);
                 }
                 
                 // Draw quantity if stackable
