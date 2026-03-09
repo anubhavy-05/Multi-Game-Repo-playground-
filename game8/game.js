@@ -1114,6 +1114,16 @@ const ITEM_TYPE = {
     HEALTH_POTION: 'health_potion',
     WEAPON: 'weapon',
     ARMOR: 'armor',
+    HELMET: 'helmet',
+    BOOTS: 'boots',
+};
+
+// Equipment slots (Commit 11)
+const EQUIPMENT_SLOT = {
+    WEAPON: 'weapon',
+    ARMOR: 'armor',
+    HELMET: 'helmet',
+    BOOTS: 'boots',
 };
 
 // Item configurations
@@ -1143,6 +1153,7 @@ const ITEM_CONFIG = {
         size: 12,
         stackable: false,
         autoPickup: false,
+        equipmentSlot: EQUIPMENT_SLOT.WEAPON,
         attackBonus: 5,
     },
     [ITEM_TYPE.ARMOR]: {
@@ -1152,7 +1163,28 @@ const ITEM_CONFIG = {
         size: 12,
         stackable: false,
         autoPickup: false,
+        equipmentSlot: EQUIPMENT_SLOT.ARMOR,
         defenseBonus: 3,
+    },
+    [ITEM_TYPE.HELMET]: {
+        name: 'Helmet',
+        description: 'Increases defense',
+        color: '#c0c0c0',
+        size: 10,
+        stackable: false,
+        autoPickup: false,
+        equipmentSlot: EQUIPMENT_SLOT.HELMET,
+        defenseBonus: 2,
+    },
+    [ITEM_TYPE.BOOTS]: {
+        name: 'Boots',
+        description: 'Increases speed',
+        color: '#8b4513',
+        size: 10,
+        stackable: false,
+        autoPickup: false,
+        equipmentSlot: EQUIPMENT_SLOT.BOOTS,
+        speedBonus: 20,
     },
 };
 
@@ -1161,15 +1193,18 @@ const LOOT_TABLE = {
     [ENEMY_TYPE.SLIME]: [
         { type: ITEM_TYPE.GOLD, chance: 0.8, amountMin: 3, amountMax: 8 },
         { type: ITEM_TYPE.HEALTH_POTION, chance: 0.2, amount: 1 },
+        { type: ITEM_TYPE.BOOTS, chance: 0.1, amount: 1 }, // Commit 11
     ],
     [ENEMY_TYPE.SKELETON]: [
         { type: ITEM_TYPE.GOLD, chance: 1.0, amountMin: 10, amountMax: 20 },
         { type: ITEM_TYPE.HEALTH_POTION, chance: 0.5, amount: 1 },
         { type: ITEM_TYPE.WEAPON, chance: 0.3, amount: 1 },
+        { type: ITEM_TYPE.HELMET, chance: 0.2, amount: 1 }, // Commit 11
     ],
     [ENEMY_TYPE.GOBLIN]: [
         { type: ITEM_TYPE.GOLD, chance: 0.9, amountMin: 5, amountMax: 12 },
         { type: ITEM_TYPE.ARMOR, chance: 0.2, amount: 1 },
+        { type: ITEM_TYPE.HELMET, chance: 0.15, amount: 1 }, // Commit 11
     ],
 };
 
@@ -1372,6 +1407,233 @@ class LootGenerator {
     }
 }
 
+// ===== EQUIPMENT SYSTEM (Commit 11) =====
+class Equipment {
+    constructor() {
+        this.slots = {
+            [EQUIPMENT_SLOT.WEAPON]: null,
+            [EQUIPMENT_SLOT.ARMOR]: null,
+            [EQUIPMENT_SLOT.HELMET]: null,
+            [EQUIPMENT_SLOT.BOOTS]: null,
+        };
+    }
+    
+    // Equip an item to its slot
+    equip(item, player) {
+        const slot = item.equipmentSlot;
+        if (!slot) {
+            console.log(`❌ ${item.name} is not equipment!`);
+            return null;
+        }
+        
+        // Unequip current item in that slot
+        const unequipped = this.slots[slot];
+        if (unequipped) {
+            // Remove old item bonuses
+            this.removeItemBonuses(unequipped, player);
+            console.log(`🔄 Unequipped ${unequipped.name} from ${slot}`);
+        }
+        
+        // Equip new item
+        this.slots[slot] = item;
+        this.applyItemBonuses(item, player);
+        console.log(`✅ Equipped ${item.name} to ${slot}`);
+        
+        return unequipped; // Return old item to inventory
+    }
+    
+    // Unequip an item from its slot
+    unequip(slot, player) {
+        const item = this.slots[slot];
+        if (!item) {
+            console.log(`❌ No item equipped in ${slot}`);
+            return null;
+        }
+        
+        this.slots[slot] = null;
+        this.removeItemBonuses(item, player);
+        console.log(`🗑️ Unequipped ${item.name} from ${slot}`);
+        
+        return item;
+    }
+    
+    // Apply item stat bonuses to player
+    applyItemBonuses(item, player) {
+        if (item.attackBonus) {
+            player.attack += item.attackBonus;
+            player.equippedAttack = (player.equippedAttack || 0) + item.attackBonus;
+        }
+        if (item.defenseBonus) {
+            player.defense += item.defenseBonus;
+            player.equippedDefense = (player.equippedDefense || 0) + item.defenseBonus;
+        }
+        if (item.speedBonus) {
+            player.speed += item.speedBonus;
+            player.equippedSpeed = (player.equippedSpeed || 0) + item.speedBonus;
+        }
+    }
+    
+    // Remove item stat bonuses from player
+    removeItemBonuses(item, player) {
+        if (item.attackBonus) {
+            player.attack -= item.attackBonus;
+            player.equippedAttack = (player.equippedAttack || 0) - item.attackBonus;
+        }
+        if (item.defenseBonus) {
+            player.defense -= item.defenseBonus;
+            player.equippedDefense = (player.equippedDefense || 0) - item.defenseBonus;
+        }
+        if (item.speedBonus) {
+            player.speed -= item.speedBonus;
+            player.equippedSpeed = (player.equippedSpeed || 0) - item.speedBonus;
+        }
+    }
+    
+    // Get item in slot
+    getItem(slot) {
+        return this.slots[slot] || null;
+    }
+    
+    // Check if slot is empty
+    isEmpty(slot) {
+        return this.slots[slot] === null;
+    }
+    
+    // Get all equipped items
+    getAllEquipped() {
+        return Object.values(this.slots).filter(item => item !== null);
+    }
+    
+    // Count equipped items
+    getEquippedCount() {
+        return this.getAllEquipped().length;
+    }
+    
+    // Render equipment panel UI
+    render(ctx, canvas) {
+        const slotSize = 50;
+        const padding = 10;
+        const startX = 10;
+        const startY = 100;
+        const headerHeight = 30;
+        
+        // Draw equipment panel background
+        ctx.fillStyle = 'rgba(40, 40, 40, 0.8)';
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 2;
+        ctx.fillRect(startX, startY, slotSize + padding * 2, 4 * slotSize + padding * 3 + headerHeight);
+        ctx.strokeRect(startX, startY, slotSize + padding * 2, 4 * slotSize + padding * 3 + headerHeight);
+        
+        // Draw header
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('EQUIPMENT', startX + (slotSize + padding * 2) / 2, startY + 18);
+        
+        // Draw equipment slots
+        const slots = [
+            { slot: EQUIPMENT_SLOT.WEAPON, label: '⚔️', y: 0 },
+            { slot: EQUIPMENT_SLOT.ARMOR, label: '🛡️', y: 1 },
+            { slot: EQUIPMENT_SLOT.HELMET, label: '⛑️', y: 2 },
+            { slot: EQUIPMENT_SLOT.BOOTS, label: '👢', y: 3 },
+        ];
+        
+        for (const { slot, label, y } of slots) {
+            const slotX = startX + padding;
+            const slotY = startY + headerHeight + padding + y * (slotSize + padding);
+            
+            // Draw slot background
+            ctx.fillStyle = 'rgba(60, 60, 60, 0.8)';
+            ctx.fillRect(slotX, slotY, slotSize, slotSize);
+            
+            // Draw slot border
+            ctx.strokeStyle = this.slots[slot] ? '#4a9eff' : '#808080';
+            ctx.lineWidth = this.slots[slot] ? 2 : 1;
+            ctx.strokeRect(slotX, slotY, slotSize, slotSize);
+            
+            // Draw slot label
+            ctx.font = '20px Arial';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.textAlign = 'center';
+            ctx.fillText(label, slotX + slotSize / 2, slotY + slotSize / 2 + 8);
+            
+            // Draw equipped item
+            const item = this.slots[slot];
+            if (item) {
+                ctx.fillStyle = item.color;
+                const centerX = slotX + slotSize / 2;
+                const centerY = slotY + slotSize / 2;
+                const iconSize = item.size * 1.5;
+                
+                // Draw based on item type
+                if (item.type === ITEM_TYPE.WEAPON) {
+                    ctx.save();
+                    ctx.translate(centerX, centerY);
+                    ctx.rotate(Math.PI / 4);
+                    ctx.fillRect(-iconSize / 4, -iconSize * 1.2, iconSize / 2, iconSize * 2.4);
+                    ctx.fillStyle = '#8b4513';
+                    ctx.fillRect(-iconSize / 3, iconSize * 0.8, iconSize * 0.66, iconSize / 2);
+                    ctx.restore();
+                } else if (item.type === ITEM_TYPE.ARMOR) {
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, iconSize, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, iconSize * 0.6, 0, Math.PI * 2);
+                    ctx.stroke();
+                } else if (item.type === ITEM_TYPE.HELMET) {
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY - iconSize * 0.3, iconSize, Math.PI, 0);
+                    ctx.fill();
+                    ctx.fillRect(centerX - iconSize, centerY - iconSize * 0.3, iconSize * 2, iconSize * 0.5);
+                } else if (item.type === ITEM_TYPE.BOOTS) {
+                    ctx.fillRect(centerX - iconSize * 0.8, centerY - iconSize * 0.5, iconSize * 0.7, iconSize);
+                    ctx.fillRect(centerX + iconSize * 0.1, centerY - iconSize * 0.5, iconSize * 0.7, iconSize);
+                }
+            }
+        }
+    }
+    
+    // Handle click on equipment slot
+    handleClick(mouseX, mouseY, canvas, player, inventory) {
+        const slotSize = 50;
+        const padding = 10;
+        const startX = 10;
+        const startY = 100;
+        const headerHeight = 30;
+        
+        const slots = [
+            { slot: EQUIPMENT_SLOT.WEAPON, y: 0 },
+            { slot: EQUIPMENT_SLOT.ARMOR, y: 1 },
+            { slot: EQUIPMENT_SLOT.HELMET, y: 2 },
+            { slot: EQUIPMENT_SLOT.BOOTS, y: 3 },
+        ];
+        
+        for (const { slot, y } of slots) {
+            const slotX = startX + padding;
+            const slotY = startY + headerHeight + padding + y * (slotSize + padding);
+            
+            if (mouseX >= slotX && mouseX <= slotX + slotSize &&
+                mouseY >= slotY && mouseY <= slotY + slotSize) {
+                // Unequip item to inventory
+                const item = this.unequip(slot, player);
+                if (item) {
+                    if (!inventory.addItem(item)) {
+                        // Inventory full, re-equip
+                        this.equip(item, player);
+                        console.log(`❌ Inventory full! Cannot unequip ${item.name}`);
+                    }
+                }
+                return true;
+            }
+        }
+        
+        return false;
+    }
+}
+
 // ===== INVENTORY SYSTEM (Commit 10) =====
 class Inventory {
     constructor(maxSlots = CONFIG.INVENTORY.MAX_SLOTS) {
@@ -1433,13 +1695,16 @@ class Inventory {
                 break;
             
             case ITEM_TYPE.WEAPON:
-                player.attack += item.attackBonus;
-                message = `⚔️ +${item.attackBonus} ATK (${item.name})`;
-                break;
-            
             case ITEM_TYPE.ARMOR:
-                player.defense += item.defenseBonus;
-                message = `🛡️ +${item.defenseBonus} DEF (${item.name})`;
+            case ITEM_TYPE.HELMET:
+            case ITEM_TYPE.BOOTS:
+                // Equip item (Commit 11)
+                const unequipped = player.equipment.equip(item, player);
+                if (unequipped) {
+                    // Add old item back to inventory
+                    this.addItem(unequipped);
+                }
+                message = `✅ Equipped ${item.name}`;
                 break;
             
             default:
