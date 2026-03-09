@@ -28,6 +28,14 @@ const CONFIG = {
         ATTACK_COOLDOWN: 0.5, // Seconds between attacks (Commit 8)
     },
     
+    // Inventory settings (Commit 10)
+    INVENTORY: {
+        MAX_SLOTS: 20, // Maximum number of inventory slots
+        SLOT_SIZE: 45, // Size of each inventory slot in UI
+        COLS: 5, // Number of columns in inventory grid
+        PICKUP_RANGE: 50, // Range for manual pickup prompt
+    },
+    
     // Combat settings (Commit 8)
     COMBAT: {
         DAMAGE_VARIANCE: 0.1, // ±10% damage randomness
@@ -275,13 +283,17 @@ class CollisionDebugger {
 class InputManager {
     constructor() {
         this.keys = {};
+        this.prevKeys = {}; // Track previous frame keys for press detection
         this.mouse = {
             x: 0,
             y: 0,
             worldX: 0,
             worldY: 0,
             isDown: false,
-            button: -1
+            button: -1,
+            wasDown: false, // Track previous frame
+            justPressed: false,
+            rightJustPressed: false, // For right-click
         };
         
         this.setupListeners();
@@ -312,6 +324,11 @@ class InputManager {
         canvas.addEventListener('mousedown', (e) => {
             this.mouse.isDown = true;
             this.mouse.button = e.button;
+            
+            if (e.button === 2) {
+                this.mouse.rightJustPressed = true;
+                e.preventDefault();
+            }
         });
         
         canvas.addEventListener('mouseup', (e) => {
@@ -322,10 +339,21 @@ class InputManager {
         canvas.addEventListener('mouseleave', () => {
             this.mouse.isDown = false;
         });
+        
+        // Prevent context menu on right-click
+        canvas.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+        });
     }
     
     isKeyDown(key) {
         return this.keys[key.toLowerCase()] || this.keys[key];
+    }
+    
+    // Check if key was just pressed this frame
+    isKeyPressed(key) {
+        const k = key.toLowerCase();
+        return (this.keys[k] || this.keys[key]) && !(this.prevKeys[k] || this.prevKeys[key]);
     }
     
     isMouseDown(button = 0) {
@@ -335,6 +363,21 @@ class InputManager {
     updateMouseWorld(camera) {
         this.mouse.worldX = this.mouse.x + camera.x;
         this.mouse.worldY = this.mouse.y + camera.y;
+    }
+    
+    // Update input state (call at start of frame)
+    update() {
+        // Copy current keys to previous
+        this.prevKeys = { ...this.keys };
+        
+        // Update mouse just pressed state
+        this.mouse.justPressed = this.mouse.isDown && !this.mouse.wasDown;
+        this.mouse.wasDown = this.mouse.isDown;
+        
+        // Reset right-click just pressed after frame
+        if (this.mouse.rightJustPressed) {
+            this.mouse.rightJustPressed = false;
+        }
     }
 }
 
@@ -1248,8 +1291,14 @@ class Item {
     }
     
     // Apply item effect to player
-    pickup(player) {
+    pickup(player, isManualPickup = false) {
         let message = '';
+        let shouldRemove = true;
+        
+        // Check if item needs manual pickup
+        if (!this.autoPickup && !isManualPickup) {
+            return null; // Don't pick up automatically
+        }
         
         switch (this.type) {
             case ITEM_TYPE.GOLD:
@@ -1258,23 +1307,31 @@ class Item {
                 break;
             
             case ITEM_TYPE.HEALTH_POTION:
-                const healed = player.heal(this.healAmount);
-                message = `💚 +${healed} HP`;
+                // Auto-pickup potions go to inventory
+                if (player.inventory.addItem(this)) {
+                    message = `💚 Picked up ${this.name}`;
+                } else {
+                    message = `❌ Inventory full!`;
+                    shouldRemove = false;
+                }
                 break;
             
             case ITEM_TYPE.WEAPON:
-                player.attack += this.attackBonus;
-                message = `⚔️ +${this.attackBonus} ATK (${this.name})`;
-                break;
-            
             case ITEM_TYPE.ARMOR:
-                player.defense += this.defenseBonus;
-                message = `🛡️ +${this.defenseBonus} DEF (${this.name})`;
+                // Equipment goes to inventory
+                if (player.inventory.addItem(this)) {
+                    message = `📦 Picked up ${this.name}`;
+                } else {
+                    message = `❌ Inventory full!`;
+                    shouldRemove = false;
+                }
                 break;
         }
         
         console.log(message);
-        this.isDead = true; // Mark for removal
+        if (shouldRemove) {
+            this.isDead = true; // Mark for removal
+        }
         
         return message;
     }
@@ -1312,6 +1369,311 @@ class LootGenerator {
         
         console.log(`💎 Generated ${drops.length} loot items at (${Math.floor(x)}, ${Math.floor(y)})`);
         return drops;
+    }
+}
+
+// ===== INVENTORY SYSTEM (Commit 10) =====
+class Inventory {
+    constructor(maxSlots = CONFIG.INVENTORY.MAX_SLOTS) {
+        this.maxSlots = maxSlots;
+        this.items = []; // Array of items
+        this.isOpen = false; // Inventory UI state
+        this.selectedSlot = -1; // Currently selected slot
+        this.hoveredSlot = -1; // Currently hovered slot
+    }
+    
+    // Add item to inventory
+    addItem(item) {
+        // Check if item is stackable and already exists
+        if (item.stackable) {
+            const existingItem = this.items.find(i => i.type === item.type);
+            if (existingItem) {
+                // Stack items (for future use with quantity system)
+                existingItem.quantity = (existingItem.quantity || 1) + (item.quantity || 1);
+                console.log(`📦 Stacked ${item.name} (Total: ${existingItem.quantity})`);
+                return true;
+            }
+        }
+        
+        // Check if inventory is full
+        if (this.items.length >= this.maxSlots) {
+            console.log(`❌ Inventory full! Cannot pick up ${item.name}`);
+            return false;
+        }
+        
+        // Add new item
+        item.quantity = item.quantity || 1;
+        this.items.push(item);
+        console.log(`✅ Added ${item.name} to inventory (${this.items.length}/${this.maxSlots})`);
+        return true;
+    }
+    
+    // Remove item from inventory
+    removeItem(index) {
+        if (index >= 0 && index < this.items.length) {
+            const removed = this.items.splice(index, 1)[0];
+            console.log(`🗑️ Removed ${removed.name} from inventory`);
+            return removed;
+        }
+        return null;
+    }
+    
+    // Use item from inventory
+    useItem(index, player) {
+        if (index < 0 || index >= this.items.length) return null;
+        
+        const item = this.items[index];
+        let message = '';
+        let shouldRemove = true;
+        
+        switch (item.type) {
+            case ITEM_TYPE.HEALTH_POTION:
+                const healed = player.heal(item.healAmount);
+                message = `💚 Healed ${healed} HP`;
+                break;
+            
+            case ITEM_TYPE.WEAPON:
+                player.attack += item.attackBonus;
+                message = `⚔️ +${item.attackBonus} ATK (${item.name})`;
+                break;
+            
+            case ITEM_TYPE.ARMOR:
+                player.defense += item.defenseBonus;
+                message = `🛡️ +${item.defenseBonus} DEF (${item.name})`;
+                break;
+            
+            default:
+                shouldRemove = false;
+                message = `Cannot use ${item.name}`;
+        }
+        
+        if (shouldRemove) {
+            this.removeItem(index);
+        }
+        
+        console.log(message);
+        return message;
+    }
+    
+    // Drop item from inventory to world
+    dropItem(index, worldX, worldY) {
+        const item = this.removeItem(index);
+        if (item) {
+            // Create a new world item at player position
+            const droppedItem = new Item(worldX, worldY, item.type, item);
+            console.log(`📤 Dropped ${item.name} at (${Math.floor(worldX)}, ${Math.floor(worldY)})`);
+            return droppedItem;
+        }
+        return null;
+    }
+    
+    // Get item at slot
+    getItem(index) {
+        return this.items[index] || null;
+    }
+    
+    // Check if inventory is full
+    isFull() {
+        return this.items.length >= this.maxSlots;
+    }
+    
+    // Get number of items
+    getCount() {
+        return this.items.length;
+    }
+    
+    // Toggle inventory UI
+    toggle() {
+        this.isOpen = !this.isOpen;
+        console.log(`📦 Inventory ${this.isOpen ? 'opened' : 'closed'}`);
+    }
+    
+    // Render inventory UI
+    render(ctx, canvas) {
+        if (!this.isOpen) return;
+        
+        const slotSize = CONFIG.INVENTORY.SLOT_SIZE;
+        const cols = CONFIG.INVENTORY.COLS;
+        const rows = Math.ceil(this.maxSlots / cols);
+        const padding = 10;
+        const headerHeight = 40;
+        
+        // Calculate panel dimensions
+        const panelWidth = cols * slotSize + padding * 2;
+        const panelHeight = rows * slotSize + padding * 2 + headerHeight;
+        const panelX = (canvas.width - panelWidth) / 2;
+        const panelY = (canvas.height - panelHeight) / 2;
+        
+        // Draw semi-transparent overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw inventory panel background
+        ctx.fillStyle = 'rgba(40, 40, 40, 0.95)';
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 3;
+        ctx.fillRect(panelX, panelY, panelWidth, panelHeight);
+        ctx.strokeRect(panelX, panelY, panelWidth, panelHeight);
+        
+        // Draw header
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('INVENTORY', panelX + panelWidth / 2, panelY + 28);
+        
+        // Draw inventory count
+        ctx.font = '14px Arial';
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(`${this.items.length}/${this.maxSlots}`, panelX + panelWidth / 2, panelY + headerHeight - 5);
+        
+        // Draw inventory slots
+        for (let i = 0; i < this.maxSlots; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const slotX = panelX + padding + col * slotSize;
+            const slotY = panelY + headerHeight + padding + row * slotSize;
+            
+            // Draw slot background
+            ctx.fillStyle = i === this.selectedSlot ? 'rgba(255, 215, 0, 0.3)' :
+                           i === this.hoveredSlot ? 'rgba(255, 255, 255, 0.2)' :
+                           'rgba(60, 60, 60, 0.8)';
+            ctx.fillRect(slotX, slotY, slotSize, slotSize);
+            
+            // Draw slot border
+            ctx.strokeStyle = i === this.selectedSlot ? '#ffd700' : '#808080';
+            ctx.lineWidth = i === this.selectedSlot ? 2 : 1;
+            ctx.strokeRect(slotX, slotY, slotSize, slotSize);
+            
+            // Draw item in slot
+            const item = this.items[i];
+            if (item) {
+                // Draw item icon (simplified)
+                ctx.fillStyle = item.color;
+                const centerX = slotX + slotSize / 2;
+                const centerY = slotY + slotSize / 2;
+                const iconSize = item.size * 1.5;
+                
+                // Draw based on item type
+                if (item.type === ITEM_TYPE.GOLD) {
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, iconSize, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (item.type === ITEM_TYPE.HEALTH_POTION) {
+                    ctx.fillRect(centerX - iconSize * 0.6, centerY - iconSize, iconSize * 1.2, iconSize * 2);
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY - iconSize, iconSize * 0.6, Math.PI, 0);
+                    ctx.fill();
+                } else if (item.type === ITEM_TYPE.WEAPON) {
+                    ctx.save();
+                    ctx.translate(centerX, centerY);
+                    ctx.rotate(Math.PI / 4);
+                    ctx.fillRect(-iconSize / 4, -iconSize * 1.2, iconSize / 2, iconSize * 2.4);
+                    ctx.fillStyle = '#8b4513';
+                    ctx.fillRect(-iconSize / 3, iconSize * 0.8, iconSize * 0.66, iconSize / 2);
+                    ctx.restore();
+                } else if (item.type === ITEM_TYPE.ARMOR) {
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, iconSize, 0, Math.PI * 2);
+                    ctx.fill();
+                    ctx.strokeStyle = '#ffffff';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(centerX, centerY, iconSize * 0.6, 0, Math.PI * 2);
+                    ctx.stroke();
+                }
+                
+                // Draw quantity if stackable
+                if (item.stackable && item.quantity > 1) {
+                    ctx.font = 'bold 12px Arial';
+                    ctx.fillStyle = '#ffffff';
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = 3;
+                    ctx.textAlign = 'right';
+                    ctx.strokeText(item.quantity, slotX + slotSize - 5, slotY + slotSize - 5);
+                    ctx.fillText(item.quantity, slotX + slotSize - 5, slotY + slotSize - 5);
+                }
+            }
+        }
+        
+        // Draw instructions
+        ctx.font = '14px Arial';
+        ctx.fillStyle = '#ffffff';
+        ctx.textAlign = 'center';
+        ctx.fillText('Click to USE item | Right-click to DROP | Press I to close', 
+                    panelX + panelWidth / 2, panelY + panelHeight + 20);
+    }
+    
+    // Handle mouse click in inventory
+    handleClick(mouseX, mouseY, canvas, player, worldItems) {
+        if (!this.isOpen) return;
+        
+        const slotSize = CONFIG.INVENTORY.SLOT_SIZE;
+        const cols = CONFIG.INVENTORY.COLS;
+        const rows = Math.ceil(this.maxSlots / cols);
+        const padding = 10;
+        const headerHeight = 40;
+        
+        const panelWidth = cols * slotSize + padding * 2;
+        const panelHeight = rows * slotSize + padding * 2 + headerHeight;
+        const panelX = (canvas.width - panelWidth) / 2;
+        const panelY = (canvas.height - panelHeight) / 2;
+        
+        // Check each slot
+        for (let i = 0; i < this.maxSlots; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const slotX = panelX + padding + col * slotSize;
+            const slotY = panelY + headerHeight + padding + row * slotSize;
+            
+            if (mouseX >= slotX && mouseX <= slotX + slotSize &&
+                mouseY >= slotY && mouseY <= slotY + slotSize) {
+                // Use item
+                if (this.items[i]) {
+                    this.useItem(i, player);
+                }
+                return true;
+            }
+        }
+        
+        return false;
+    }
+    
+    // Handle right click in inventory
+    handleRightClick(mouseX, mouseY, canvas, player, worldItems) {
+        if (!this.isOpen) return;
+        
+        const slotSize = CONFIG.INVENTORY.SLOT_SIZE;
+        const cols = CONFIG.INVENTORY.COLS;
+        const rows = Math.ceil(this.maxSlots / cols);
+        const padding = 10;
+        const headerHeight = 40;
+        
+        const panelWidth = cols * slotSize + padding * 2;
+        const panelHeight = rows * slotSize + padding * 2 + headerHeight;
+        const panelX = (canvas.width - panelWidth) / 2;
+        const panelY = (canvas.height - panelHeight) / 2;
+        
+        // Check each slot
+        for (let i = 0; i < this.maxSlots; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const slotX = panelX + padding + col * slotSize;
+            const slotY = panelY + headerHeight + padding + row * slotSize;
+            
+            if (mouseX >= slotX && mouseX <= slotX + slotSize &&
+                mouseY >= slotY && mouseY <= slotY + slotSize) {
+                // Drop item
+                if (this.items[i]) {
+                    const droppedItem = this.dropItem(i, player.x, player.y);
+                    if (droppedItem) {
+                        worldItems.push(droppedItem);
+                    }
+                }
+                return true;
+            }
+        }
+        
+        return false;
     }
 }
 
@@ -1364,6 +1726,9 @@ class Player {
         // Collision (Commit 6)
         this.collisionLayer = COLLISION_LAYER.PLAYER;
         this.collisionMask = COLLISION_MATRIX[COLLISION_LAYER.PLAYER];
+        
+        // Inventory (Commit 10)
+        this.inventory = new Inventory();
     }
     
     update(deltaTime, input, canvas) {
