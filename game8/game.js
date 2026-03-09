@@ -1962,6 +1962,16 @@ class Player {
         this.gold = CONFIG.PLAYER.START_GOLD;
         this.level = CONFIG.PLAYER.START_LEVEL;
         
+        // Base stats (Commit 11) - stats without equipment
+        this.baseAttack = this.attack;
+        this.baseDefense = this.defense;
+        this.baseSpeed = this.speed;
+        
+        // Equipped stat bonuses (Commit 11)
+        this.equippedAttack = 0;
+        this.equippedDefense = 0;
+        this.equippedSpeed = 0;
+        
         // Display
         this.size = CONFIG.PLAYER.SIZE;
         this.color = CONFIG.COLORS.PLAYER;
@@ -1994,6 +2004,9 @@ class Player {
         
         // Inventory (Commit 10)
         this.inventory = new Inventory();
+        
+        // Equipment (Commit 11)
+        this.equipment = new Equipment();
     }
     
     update(deltaTime, input, canvas) {
