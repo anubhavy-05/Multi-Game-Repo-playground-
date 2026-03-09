@@ -2602,6 +2602,17 @@ class Game {
             }
         }
         
+        // Handle equipment clicks (Commit 11)
+        if (!this.player.inventory.isOpen && this.input.mouse.justPressed && this.input.mouse.button === 0) {
+            this.player.equipment.handleClick(
+                this.input.mouse.x,
+                this.input.mouse.y,
+                this.canvas,
+                this.player,
+                this.player.inventory
+            );
+        }
+        
         // Update player
         if (this.player) {
             this.player.update(deltaTime, this.input, this.dungeon);
@@ -2778,6 +2789,11 @@ class Game {
         // Draw inventory UI (Commit 10)
         if (this.player) {
             this.player.inventory.render(this.ctx, this.canvas);
+        }
+        
+        // Draw equipment UI (Commit 11)
+        if (this.player && !this.player.inventory.isOpen) {
+            this.player.equipment.render(this.ctx, this.canvas);
         }
         
         // Restore context state
