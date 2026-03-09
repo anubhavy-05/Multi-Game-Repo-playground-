@@ -2834,13 +2834,13 @@ class Game {
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'top';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
-            this.ctx.fillText('WASD: Move • Click: Attack • E: Pick up • I: Inventory • V: Debug', this.width / 2, 10);
+            this.ctx.fillText('WASD: Move • Click: Attack/Equipment • E: Pick up • I: Inventory • V: Debug', this.width / 2, 10);
             
             // Show some debug info about active systems
             this.ctx.font = '14px Courier New';
             this.ctx.textAlign = 'left';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
-            const debugY = this.height - 215;
+            const debugY = this.height - 230;
             this.ctx.fillText(`✓ CONFIG system`, 10, debugY);
             this.ctx.fillText(`✓ Input Manager`, 10, debugY + 15);
             this.ctx.fillText(`✓ Camera System`, 10, debugY + 30);
@@ -2853,11 +2853,12 @@ class Game {
             this.ctx.fillText(`✓ Combat System`, 10, debugY + 135);
             this.ctx.fillText(`✓ Loot System`, 10, debugY + 150);
             this.ctx.fillText(`✓ Inventory System`, 10, debugY + 165);
+            this.ctx.fillText(`✓ Equipment System`, 10, debugY + 180);
             
             // Show debug mode indicators (Commit 6)
             if (CONFIG.DEBUG.SHOW_COLLISION || CONFIG.DEBUG.SHOW_GRID) {
                 this.ctx.fillStyle = 'rgba(0, 255, 0, 0.6)';
-                let debugIndicatorY = debugY + 180;
+                let debugIndicatorY = debugY + 195;
                 if (CONFIG.DEBUG.SHOW_COLLISION) {
                     this.ctx.fillText(`[V] Collision: ON`, 10, debugIndicatorY);
                     debugIndicatorY += 15;
@@ -2877,33 +2878,38 @@ class Game {
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
             this.ctx.fillText(`Inventory: ${this.player.inventory.getCount()}/${this.player.inventory.maxSlots}`, this.width - 150, debugY + 45);
             
+            // Show equipment info (Commit 11)
+            this.ctx.fillStyle = 'rgba(74, 158, 255, 0.6)';
+            this.ctx.fillText(`Equipped: ${this.player.equipment.getEquippedCount()}/4`, this.width - 150, debugY + 60);
+            
             // Show combat info (Commit 8)
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
-            this.ctx.fillText(`ATK: ${this.player.attack} | DEF: ${this.player.defense}`, this.width - 150, debugY + 60);
-            this.ctx.fillText(`Range: ${this.player.attackRange}px`, this.width - 150, debugY + 75);
+            this.ctx.fillText(`ATK: ${this.player.attack} (${this.player.equippedAttack || 0})`, this.width - 150, debugY + 75);
+            this.ctx.fillText(`DEF: ${this.player.defense} (${this.player.equippedDefense || 0})`, this.width - 150, debugY + 90);
+            this.ctx.fillText(`SPD: ${Math.floor(this.player.speed)} (${this.player.equippedSpeed || 0})`, this.width - 150, debugY + 105);
             
             // Show dungeon info
             if (this.dungeon) {
                 const currentRoom = this.dungeon.getRoomAt(this.player.x, this.player.y);
                 const roomType = currentRoom ? currentRoom.type : 'unknown';
                 this.ctx.fillStyle = 'rgba(74, 158, 255, 0.4)';
-                this.ctx.fillText(`Room: ${roomType}`, this.width - 150, debugY + 90);
+                this.ctx.fillText(`Room: ${roomType}`, this.width - 150, debugY + 120);
             }
             
             // Show enemy and loot info (Commit 7 + 8 + 9)
             this.ctx.fillStyle = 'rgba(255, 74, 74, 0.4)';
-            this.ctx.fillText(`Enemies: ${this.enemies.length}`, this.width - 150, debugY + 105);
-            this.ctx.fillText(`Kills: ${this.stats.enemiesKilled}`, this.width - 150, debugY + 120);
+            this.ctx.fillText(`Enemies: ${this.enemies.length}`, this.width - 150, debugY + 135);
+            this.ctx.fillText(`Kills: ${this.stats.enemiesKilled}`, this.width - 150, debugY + 150);
             
             // Show loot info (Commit 9)
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
-            this.ctx.fillText(`Items: ${this.items.length}`, this.width - 150, debugY + 135);
-            this.ctx.fillText(`Collected: ${this.stats.itemsCollected}`, this.width - 150, debugY + 150);
+            this.ctx.fillText(`Items: ${this.items.length}`, this.width - 150, debugY + 165);
+            this.ctx.fillText(`Collected: ${this.stats.itemsCollected}`, this.width - 150, debugY + 180);
             
             // Show collision layer info (Commit 6)
             if (CONFIG.DEBUG.SHOW_COLLISION && this.player) {
                 this.ctx.fillStyle = 'rgba(0, 255, 0, 0.6)';
-                this.ctx.fillText(`Layer: PLAYER`, this.width - 150, debugY + 165);
+                this.ctx.fillText(`Layer: PLAYER`, this.width - 150, debugY + 195);
             }
         }
     }
