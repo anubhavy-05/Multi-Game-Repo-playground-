@@ -1487,6 +1487,84 @@ game8/
 - Foundation ready for enemy collision (Commit 7) and projectile collision (Commit 8)
 - Collision system supports future trigger zones and item pickups
 
+### Commit 10 Details
+- Inventory System: complete item storage and management solution
+- CONFIG.INVENTORY: 4 settings (MAX_SLOTS=20, SLOT_SIZE=45, COLS=5, PICKUP_RANGE=50)
+- Inventory class: 320+ lines of code with full UI and logic
+- Storage array: holds up to 20 items in organized slots
+- Item stacking: stackable items (potions) combine into single slot with quantity
+- Manual pickup system: E key picks up nearest weapon/armor within 50px range
+- Auto-pickup split: gold instant-use, potions/weapons/armor handled differently
+- Gold: auto-pickup, instantly added to player.gold (no inventory slot)
+- Health Potions: auto-pickup when walked over, stored in inventory (not instant-use)
+- Weapons/Armor: manual pickup only (press E), goes to inventory
+- Inventory UI: modal overlay with semi-transparent black background (70% opacity)
+- Grid layout: 5 columns x 4 rows = 20 slots, 45px per slot
+- Panel rendering: centered modal with golden border, dark gray background
+- Header: "INVENTORY" in gold with item count "X/20" below
+- Slot rendering: dark gray backgrounds, lighter when hovered, gold border when selected
+- Item icons: match world item appearance (coins, bottles, swords, shields)
+- Quantity display: white text in bottom-right corner for stacked items
+- Mouse interaction: click slot to USE item, right-click slot to DROP item
+- Item usage: potions heal player, weapons/armor apply stat bonuses
+- Item dropping: removes from inventory, creates new world item at player position
+- Full inventory detection: shows "Inventory full!" message, prevents pickup
+- Pickup prompt: displays "[E] Pick up [Item Name]" above nearest manual item
+- Prompt rendering: black background box with gold text, follows item screen position
+- Inventory toggle: I key opens/closes inventory, prevents other actions when open
+- InputManager enhancements: isKeyPressed() for single-frame key detection
+- InputManager.update(): tracks previous frame keys for press detection
+- Mouse enhancements: rightJustPressed flag for right-click detection
+- Context menu prevention: canvas right-click shows inventory drop, not browser menu
+- Nearest item tracking: game loop finds closest manual-pickup item each frame
+- Auto-pickup filtering: only processes items with autoPickup: true
+- Manual pickup filtering: E key only works on items with autoPickup: false
+- Item.pickup() updated: checks autoPickup flag, requires isManualPickup=true for manual items
+- Item.pickup() for potions: adds to inventory instead of instant-use
+- Inventory.addItem(): checks for existing stackable items, combines quantities
+- Inventory.removeItem(): removes item at index, returns item object
+- Inventory.useItem(): applies item effects, removes consumables from inventory
+- Inventory.dropItem(): removes from inventory, returns world Item object
+- Inventory.isFull(): checks if slots are all occupied
+- Inventory.getCount(): returns current item count
+- Inventory.toggle(): flips isOpen state, logs to console
+- Inventory.render(): draws full UI only when isOpen is true
+- Inventory.handleClick(): processes left-clicks on inventory slots
+- Inventory.handleRightClick(): processes right-clicks on inventory slots
+- Player.inventory: new Inventory() instance in constructor
+- Game.update(): calls input.update() at start of frame
+- Game.update(): handles I key to toggle inventory
+- Game.update(): handles mouse clicks in inventory (left and right)
+- Game.update(): prevents attack when inventory is open
+- Game.update(): finds nearestManualItem each frame for prompt
+- Game.update(): processes auto-pickup only for autoPickup items
+- Game.update(): handles E key manual pickup for nearestManualItem
+- Game.render(): draws pickup prompt when nearestManualItem exists
+- Game.render(): calls player.inventory.render() for UI overlay
+- drawScreenUI(): updated controls text to include "E: Pick up" and "I: Inventory"
+- drawScreenUI(): added "✓ Inventory System" to active systems list (12 total)
+- drawScreenUI(): shows inventory count "Inventory: X/20" in player state
+- index.html: header updated to "Commit 10: Inventory System ✓"
+- index.html: welcome screen lists all 10 commits
+- index.html: controls updated with E and I key instructions
+- index.html: added inventory usage instructions (click/right-click)
+- index.html: info panel shows "Commit 10/20+" and "Next: Equipment slots system"
+- styles.css: header comment updated to "Commit 10: Inventory System"
+- README.md: full Commit 10 documentation (30+ bullet points)
+- README.md: feature list with 30+ checkmarks
+- Console logging: all inventory actions logged (add, remove, use, drop, toggle, pickup)
+
+### Next Steps (Commit 11)
+- Equipment System: dedicated slots for equipped items
+- Equipment slots: weapon slot, armor slot, helmet slot, boots slot
+- Equip from inventory: drag or click item to move to equipment slot
+- Unequip to inventory: move equipped item back to inventory
+- Stat bonuses: only equipped items provide stat bonuses (not in inventory)
+- Visual equipment: show equipped items on player sprite
+- Equipment rendering: small icons next to player showing worn gear
+- Stat comparison: show stat changes when hovering over equipment
+- Better item properties: add item quality/rarity (Common, Rare, Epic, Legendary)
+
 ### Next Steps (Commit 7)
 - Create Enemy base class with stats and behavior
 - Implement 3+ enemy types (slime, skeleton, goblin)
