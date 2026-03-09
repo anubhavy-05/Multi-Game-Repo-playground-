@@ -2452,6 +2452,34 @@ class Game {
         // Draw UI elements that don't move with camera
         this.drawScreenUI();
         
+        // Draw manual pickup prompt (Commit 10)
+        if (this.nearestManualItem && !this.player.inventory.isOpen) {
+            this.ctx.save();
+            this.ctx.font = 'bold 16px Arial';
+            this.ctx.textAlign = 'center';
+            this.ctx.textBaseline = 'middle';
+            
+            // Calculate screen position of item
+            const screenX = this.nearestManualItem.x - this.camera.x;
+            const screenY = this.nearestManualItem.y - this.camera.y - 30;
+            
+            // Draw background
+            const text = `[E] Pick up ${this.nearestManualItem.name}`;
+            const textWidth = this.ctx.measureText(text).width;
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            this.ctx.fillRect(screenX - textWidth / 2 - 10, screenY - 15, textWidth + 20, 30);
+            
+            // Draw text
+            this.ctx.fillStyle = '#ffd700';
+            this.ctx.fillText(text, screenX, screenY);
+            this.ctx.restore();
+        }
+        
+        // Draw inventory UI (Commit 10)
+        if (this.player) {
+            this.player.inventory.render(this.ctx, this.canvas);
+        }
+        
         // Restore context state
         this.ctx.restore();
     }
@@ -2490,13 +2518,13 @@ class Game {
             this.ctx.textAlign = 'center';
             this.ctx.textBaseline = 'top';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
-            this.ctx.fillText('WASD: Move • Click: Attack • Auto-collect loot • V: Debug', this.width / 2, 10);
+            this.ctx.fillText('WASD: Move • Click: Attack • E: Pick up • I: Inventory • V: Debug', this.width / 2, 10);
             
             // Show some debug info about active systems
             this.ctx.font = '14px Courier New';
             this.ctx.textAlign = 'left';
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
-            const debugY = this.height - 200;
+            const debugY = this.height - 215;
             this.ctx.fillText(`✓ CONFIG system`, 10, debugY);
             this.ctx.fillText(`✓ Input Manager`, 10, debugY + 15);
             this.ctx.fillText(`✓ Camera System`, 10, debugY + 30);
@@ -2508,11 +2536,12 @@ class Game {
             this.ctx.fillText(`✓ Enemy System`, 10, debugY + 120);
             this.ctx.fillText(`✓ Combat System`, 10, debugY + 135);
             this.ctx.fillText(`✓ Loot System`, 10, debugY + 150);
+            this.ctx.fillText(`✓ Inventory System`, 10, debugY + 165);
             
             // Show debug mode indicators (Commit 6)
             if (CONFIG.DEBUG.SHOW_COLLISION || CONFIG.DEBUG.SHOW_GRID) {
                 this.ctx.fillStyle = 'rgba(0, 255, 0, 0.6)';
-                let debugIndicatorY = debugY + 165;
+                let debugIndicatorY = debugY + 180;
                 if (CONFIG.DEBUG.SHOW_COLLISION) {
                     this.ctx.fillText(`[V] Collision: ON`, 10, debugIndicatorY);
                     debugIndicatorY += 15;
@@ -2528,33 +2557,37 @@ class Game {
             this.ctx.fillText(`HP: ${Math.ceil(this.player.health)}/${this.player.maxHealth}`, this.width - 150, debugY + 15);
             this.ctx.fillText(`Gold: ${this.player.gold}`, this.width - 150, debugY + 30);
             
+            // Show inventory info (Commit 10)
+            this.ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
+            this.ctx.fillText(`Inventory: ${this.player.inventory.getCount()}/${this.player.inventory.maxSlots}`, this.width - 150, debugY + 45);
+            
             // Show combat info (Commit 8)
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.4)';
-            this.ctx.fillText(`ATK: ${this.player.attack} | DEF: ${this.player.defense}`, this.width - 150, debugY + 45);
-            this.ctx.fillText(`Range: ${this.player.attackRange}px`, this.width - 150, debugY + 60);
+            this.ctx.fillText(`ATK: ${this.player.attack} | DEF: ${this.player.defense}`, this.width - 150, debugY + 60);
+            this.ctx.fillText(`Range: ${this.player.attackRange}px`, this.width - 150, debugY + 75);
             
             // Show dungeon info
             if (this.dungeon) {
                 const currentRoom = this.dungeon.getRoomAt(this.player.x, this.player.y);
                 const roomType = currentRoom ? currentRoom.type : 'unknown';
                 this.ctx.fillStyle = 'rgba(74, 158, 255, 0.4)';
-                this.ctx.fillText(`Room: ${roomType}`, this.width - 150, debugY + 75);
+                this.ctx.fillText(`Room: ${roomType}`, this.width - 150, debugY + 90);
             }
             
             // Show enemy and loot info (Commit 7 + 8 + 9)
             this.ctx.fillStyle = 'rgba(255, 74, 74, 0.4)';
-            this.ctx.fillText(`Enemies: ${this.enemies.length}`, this.width - 150, debugY + 90);
-            this.ctx.fillText(`Kills: ${this.stats.enemiesKilled}`, this.width - 150, debugY + 105);
+            this.ctx.fillText(`Enemies: ${this.enemies.length}`, this.width - 150, debugY + 105);
+            this.ctx.fillText(`Kills: ${this.stats.enemiesKilled}`, this.width - 150, debugY + 120);
             
             // Show loot info (Commit 9)
             this.ctx.fillStyle = 'rgba(255, 215, 0, 0.6)';
-            this.ctx.fillText(`Items: ${this.items.length}`, this.width - 150, debugY + 120);
-            this.ctx.fillText(`Collected: ${this.stats.itemsCollected}`, this.width - 150, debugY + 135);
+            this.ctx.fillText(`Items: ${this.items.length}`, this.width - 150, debugY + 135);
+            this.ctx.fillText(`Collected: ${this.stats.itemsCollected}`, this.width - 150, debugY + 150);
             
             // Show collision layer info (Commit 6)
             if (CONFIG.DEBUG.SHOW_COLLISION && this.player) {
                 this.ctx.fillStyle = 'rgba(0, 255, 0, 0.6)';
-                this.ctx.fillText(`Layer: PLAYER`, this.width - 150, debugY + 150);
+                this.ctx.fillText(`Layer: PLAYER`, this.width - 150, debugY + 165);
             }
         }
     }
