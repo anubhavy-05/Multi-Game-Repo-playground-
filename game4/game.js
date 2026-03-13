@@ -3,8 +3,64 @@ const CONFIG = {
     canvasHeight: 540,
     gridSize: 32,
     maxDelta: 0.05,
-    uiRefreshHz: 12
+    uiRefreshHz: 12,
+    player: {
+        radius: 14,
+        baseHull: 100,
+        baseShield: 60
+    }
 };
+
+class Player {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.radius = CONFIG.player.radius;
+        this.hull = CONFIG.player.baseHull;
+        this.maxHull = CONFIG.player.baseHull;
+        this.shield = CONFIG.player.baseShield;
+        this.maxShield = CONFIG.player.baseShield;
+        this.facing = 0;
+        this.corePulse = 0;
+    }
+
+    update(deltaTime) {
+        this.corePulse += deltaTime * 4;
+    }
+
+    render(ctx) {
+        const pulse = 0.35 + Math.sin(this.corePulse * 2) * 0.2;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius + 7, 0, Math.PI * 2);
+        ctx.strokeStyle = `rgba(103, 214, 121, ${0.35 + pulse})`;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        const bodyGradient = ctx.createRadialGradient(-5, -5, 2, 0, 0, this.radius);
+        bodyGradient.addColorStop(0, '#e3fff1');
+        bodyGradient.addColorStop(0.45, '#67d679');
+        bodyGradient.addColorStop(1, '#1b7031');
+        ctx.fillStyle = bodyGradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.rotate(this.facing);
+        ctx.fillStyle = '#d8f2f3';
+        ctx.beginPath();
+        ctx.moveTo(this.radius - 2, 0);
+        ctx.lineTo(this.radius + 9, -4);
+        ctx.lineTo(this.radius + 9, 4);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+    }
+}
 
 class Game {
     constructor() {
@@ -16,6 +72,8 @@ class Game {
             waveCounter: document.getElementById('waveCounter'),
             creditCounter: document.getElementById('creditCounter'),
             integrityCounter: document.getElementById('integrityCounter'),
+            playerHull: document.getElementById('playerHull'),
+            playerShield: document.getElementById('playerShield'),
             startBtn: document.getElementById('startBtn'),
             resetBtn: document.getElementById('resetBtn'),
             bootOverlay: document.getElementById('bootOverlay')
@@ -43,6 +101,8 @@ class Game {
             elapsed: 0,
             frameCount: 0
         };
+
+        this.spawnPlayer();
 
         this.resizeCanvas();
         this.bindEvents();
@@ -103,6 +163,7 @@ class Game {
         this.credits = 0;
         this.integrity = 100;
 
+        this.spawnPlayer();
         this.entities.enemies = [];
         this.entities.projectiles = [];
         this.entities.pickups = [];
@@ -118,12 +179,31 @@ class Game {
         this.ui.waveCounter.textContent = String(this.wave);
         this.ui.creditCounter.textContent = String(this.credits);
         this.ui.integrityCounter.textContent = `${Math.max(0, Math.round(this.integrity))}%`;
+
+        if (this.entities.player) {
+            this.ui.playerHull.textContent = `${Math.round(this.entities.player.hull)} / ${this.entities.player.maxHull}`;
+            this.ui.playerShield.textContent = `${Math.round(this.entities.player.shield)} / ${this.entities.player.maxShield}`;
+        }
+    }
+
+    spawnPlayer() {
+        this.entities.player = new Player(this.canvas.width * 0.5, this.canvas.height * 0.5);
     }
 
     update(deltaTime) {
         this.time.elapsed += deltaTime;
         this.time.uiAccumulator += deltaTime;
         this.time.frameCount += 1;
+
+        if (this.entities.player) {
+            this.entities.player.update(deltaTime);
+
+            if (this.mouse.inCanvas) {
+                const dx = this.mouse.x - this.entities.player.x;
+                const dy = this.mouse.y - this.entities.player.y;
+                this.entities.player.facing = Math.atan2(dy, dx);
+            }
+        }
 
         if (this.time.uiAccumulator >= 1 / CONFIG.uiRefreshHz) {
             this.syncUI();
@@ -195,10 +275,14 @@ class Game {
             ctx.strokeRect(snappedX + 1, snappedY + 1, CONFIG.gridSize - 2, CONFIG.gridSize - 2);
         }
 
+        if (this.entities.player) {
+            this.entities.player.render(ctx);
+        }
+
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '16px Segoe UI';
         ctx.textAlign = 'left';
-        ctx.fillText('Core systems initialized. Player and movement arrive in the next commits.', 20, 34);
+        ctx.fillText('Pilot rendered. Movement systems come next.', 20, 34);
     }
 
     render() {
