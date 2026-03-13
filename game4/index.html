@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chrono Bastion - Tactical Defense RPG</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="game-shell">
+        <header class="game-header">
+            <h1>Chrono Bastion</h1>
+            <p class="subtitle">Commit 1: Basic HTML Structure and Canvas Setup</p>
+        </header>
+
+        <main class="game-main">
+            <section class="canvas-wrap" aria-label="Game canvas area">
+                <canvas id="gameCanvas" width="960" height="540"></canvas>
+                <div class="overlay" id="bootOverlay">
+                    <h2>Tactical Defense RPG Prototype</h2>
+                    <p>Canvas and interface are ready. Start building the systems commit-by-commit.</p>
+                </div>
+            </section>
+
+            <aside class="hud-panel" aria-label="Game status panel">
+                <h3>System Status</h3>
+                <div class="hud-grid">
+                    <p><span class="label">State:</span> <span id="gameState">waiting</span></p>
+                    <p><span class="label">Wave:</span> <span id="waveCounter">0</span></p>
+                    <p><span class="label">Credits:</span> <span id="creditCounter">0</span></p>
+                    <p><span class="label">Integrity:</span> <span id="integrityCounter">100%</span></p>
+                </div>
+
+                <div class="button-row">
+                    <button id="startBtn" type="button">Start</button>
+                    <button id="resetBtn" type="button">Reset</button>
+                </div>
+
+                <section class="notes" aria-label="Commit notes">
+                    <h3>Commit Notes</h3>
+                    <ul>
+                        <li>Added game4/index.html entry point</li>
+                        <li>Configured 960x540 canvas for rendering</li>
+                        <li>Connected HUD labels and control buttons</li>
+                        <li>Linked existing styles.css and game.js</li>
+                    </ul>
+                </section>
+            </aside>
+        </main>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
