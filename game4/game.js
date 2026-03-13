@@ -7,7 +7,8 @@ const CONFIG = {
     player: {
         radius: 14,
         baseHull: 100,
-        baseShield: 60
+        baseShield: 60,
+        speed: 200
     }
 };
 
@@ -22,10 +23,36 @@ class Player {
         this.maxShield = CONFIG.player.baseShield;
         this.facing = 0;
         this.corePulse = 0;
+        this.vx = 0;
+        this.vy = 0;
+        this.speed = CONFIG.player.speed;
     }
 
-    update(deltaTime) {
+    update(deltaTime, keys, canvas) {
         this.corePulse += deltaTime * 4;
+
+        let moveX = 0;
+        let moveY = 0;
+
+        if (keys.has('w') || keys.has('arrowup')) moveY -= 1;
+        if (keys.has('s') || keys.has('arrowdown')) moveY += 1;
+        if (keys.has('a') || keys.has('arrowleft')) moveX -= 1;
+        if (keys.has('d') || keys.has('arrowright')) moveX += 1;
+
+        if (moveX !== 0 || moveY !== 0) {
+            const magnitude = Math.sqrt(moveX * moveX + moveY * moveY);
+            this.vx = (moveX / magnitude) * this.speed;
+            this.vy = (moveY / magnitude) * this.speed;
+        } else {
+            this.vx = 0;
+            this.vy = 0;
+        }
+
+        this.x += this.vx * deltaTime;
+        this.y += this.vy * deltaTime;
+
+        this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
+        this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
     }
 
     render(ctx) {
@@ -196,7 +223,7 @@ class Game {
         this.time.frameCount += 1;
 
         if (this.entities.player) {
-            this.entities.player.update(deltaTime);
+            this.entities.player.update(deltaTime, this.keys, this.canvas);
 
             if (this.mouse.inCanvas) {
                 const dx = this.mouse.x - this.entities.player.x;
@@ -250,7 +277,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '18px Segoe UI';
-        ctx.fillText('Commit 3: Player Character Rendered', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('Commit 4: Movement Controls Active', canvas.width / 2, canvas.height / 2 + 24);
     }
 
     renderRunningFrame() {
@@ -282,7 +309,7 @@ class Game {
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '16px Segoe UI';
         ctx.textAlign = 'left';
-        ctx.fillText('Pilot rendered. Movement systems come next.', 20, 34);
+        ctx.fillText('Use WASD or Arrow Keys to move. Mouse aims your weapon.', 20, 34);
     }
 
     render() {
