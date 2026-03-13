@@ -250,7 +250,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '18px Segoe UI';
-        ctx.fillText('Commit 2: Game Class Foundation Online', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('Commit 3: Player Character Rendered', canvas.width / 2, canvas.height / 2 + 24);
     }
 
     renderRunningFrame() {
