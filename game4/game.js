@@ -9,6 +9,14 @@ const CONFIG = {
         baseHull: 100,
         baseShield: 60,
         speed: 200
+    },
+    enemy: {
+        radius: 10,
+        baseHealth: 20,
+        speed: 85,
+        spawnPerSecondBase: 0.8,
+        touchDamage: 14,
+        knockback: 18
     }
 };
 
@@ -26,10 +34,12 @@ class Player {
         this.vx = 0;
         this.vy = 0;
         this.speed = CONFIG.player.speed;
+        this.damageCooldown = 0;
     }
 
     update(deltaTime, keys, canvas) {
         this.corePulse += deltaTime * 4;
+        this.damageCooldown = Math.max(0, this.damageCooldown - deltaTime);
 
         let moveX = 0;
         let moveY = 0;
@@ -53,6 +63,25 @@ class Player {
 
         this.x = Math.max(this.radius, Math.min(canvas.width - this.radius, this.x));
         this.y = Math.max(this.radius, Math.min(canvas.height - this.radius, this.y));
+    }
+
+    applyDamage(amount) {
+        if (this.damageCooldown > 0) {
+            return;
+        }
+
+        let remaining = amount;
+        if (this.shield > 0) {
+            const shieldBlocked = Math.min(this.shield, remaining);
+            this.shield -= shieldBlocked;
+            remaining -= shieldBlocked;
+        }
+
+        if (remaining > 0) {
+            this.hull = Math.max(0, this.hull - remaining);
+        }
+
+        this.damageCooldown = 0.35;
     }
 
     render(ctx) {
@@ -89,6 +118,67 @@ class Player {
     }
 }
 
+class Enemy {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.radius = CONFIG.enemy.radius;
+        this.health = CONFIG.enemy.baseHealth;
+        this.maxHealth = CONFIG.enemy.baseHealth;
+        this.speed = CONFIG.enemy.speed;
+        this.vx = 0;
+        this.vy = 0;
+        this.damageFlash = 0;
+    }
+
+    update(deltaTime, player) {
+        if (!player) {
+            return;
+        }
+
+        const dx = player.x - this.x;
+        const dy = player.y - this.y;
+        const distance = Math.hypot(dx, dy) || 1;
+
+        this.vx = (dx / distance) * this.speed;
+        this.vy = (dy / distance) * this.speed;
+
+        this.x += this.vx * deltaTime;
+        this.y += this.vy * deltaTime;
+        this.damageFlash = Math.max(0, this.damageFlash - deltaTime);
+    }
+
+    render(ctx) {
+        const healthPercent = this.health / this.maxHealth;
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        const bodyGradient = ctx.createRadialGradient(-3, -3, 1, 0, 0, this.radius);
+        bodyGradient.addColorStop(0, '#ff9a6a');
+        bodyGradient.addColorStop(0.5, '#da5200');
+        bodyGradient.addColorStop(1, '#7f3104');
+        ctx.fillStyle = bodyGradient;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        if (this.damageFlash > 0) {
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        ctx.fillStyle = 'rgba(23, 38, 55, 0.9)';
+        ctx.fillRect(-this.radius, -this.radius - 6, this.radius * 2, 3);
+        ctx.fillStyle = '#65d17f';
+        ctx.fillRect(-this.radius, -this.radius - 6, this.radius * 2 * healthPercent, 3);
+
+        ctx.restore();
+    }
+}
+
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
@@ -101,6 +191,7 @@ class Game {
             integrityCounter: document.getElementById('integrityCounter'),
             playerHull: document.getElementById('playerHull'),
             playerShield: document.getElementById('playerShield'),
+            enemyCounter: document.getElementById('enemyCounter'),
             startBtn: document.getElementById('startBtn'),
             resetBtn: document.getElementById('resetBtn'),
             bootOverlay: document.getElementById('bootOverlay')
@@ -126,7 +217,8 @@ class Game {
             lastFrame: 0,
             uiAccumulator: 0,
             elapsed: 0,
-            frameCount: 0
+            frameCount: 0,
+            spawnAccumulator: 0
         };
 
         this.spawnPlayer();
@@ -181,6 +273,7 @@ class Game {
             return;
         }
 
+        this.wave = Math.max(1, this.wave);
         this.setState('running');
         this.ui.bootOverlay.style.display = 'none';
     }
@@ -189,6 +282,7 @@ class Game {
         this.wave = 0;
         this.credits = 0;
         this.integrity = 100;
+        this.time.spawnAccumulator = 0;
 
         this.spawnPlayer();
         this.entities.enemies = [];
@@ -206,6 +300,7 @@ class Game {
         this.ui.waveCounter.textContent = String(this.wave);
         this.ui.creditCounter.textContent = String(this.credits);
         this.ui.integrityCounter.textContent = `${Math.max(0, Math.round(this.integrity))}%`;
+        this.ui.enemyCounter.textContent = String(this.entities.enemies.length);
 
         if (this.entities.player) {
             this.ui.playerHull.textContent = `${Math.round(this.entities.player.hull)} / ${this.entities.player.maxHull}`;
@@ -217,10 +312,52 @@ class Game {
         this.entities.player = new Player(this.canvas.width * 0.5, this.canvas.height * 0.5);
     }
 
+    spawnEnemy() {
+        const angle = Math.random() * Math.PI * 2;
+        const spawnDistance = Math.max(this.canvas.width, this.canvas.height) * 0.45;
+        const x = this.canvas.width * 0.5 + Math.cos(angle) * spawnDistance;
+        const y = this.canvas.height * 0.5 + Math.sin(angle) * spawnDistance;
+        this.entities.enemies.push(new Enemy(x, y));
+    }
+
+    handleCollisions() {
+        if (!this.entities.player) {
+            return;
+        }
+
+        for (const enemy of this.entities.enemies) {
+            const dx = enemy.x - this.entities.player.x;
+            const dy = enemy.y - this.entities.player.y;
+            const distance = Math.hypot(dx, dy);
+            const overlap = this.entities.player.radius + enemy.radius - distance;
+
+            if (overlap > 0) {
+                this.entities.player.applyDamage(CONFIG.enemy.touchDamage);
+
+                const nx = distance > 0 ? dx / distance : 1;
+                const ny = distance > 0 ? dy / distance : 0;
+                enemy.x += nx * CONFIG.enemy.knockback;
+                enemy.y += ny * CONFIG.enemy.knockback;
+                enemy.damageFlash = 0.12;
+            }
+        }
+    }
+
     update(deltaTime) {
         this.time.elapsed += deltaTime;
         this.time.uiAccumulator += deltaTime;
         this.time.frameCount += 1;
+
+        if (this.state === 'running') {
+            this.time.spawnAccumulator += deltaTime;
+            const spawnRate = CONFIG.enemy.spawnPerSecondBase + this.wave * 0.25;
+            const spawnInterval = 1 / spawnRate;
+
+            if (this.time.spawnAccumulator >= spawnInterval) {
+                this.spawnEnemy();
+                this.time.spawnAccumulator = 0;
+            }
+        }
 
         if (this.entities.player) {
             this.entities.player.update(deltaTime, this.keys, this.canvas);
@@ -230,7 +367,17 @@ class Game {
                 const dy = this.mouse.y - this.entities.player.y;
                 this.entities.player.facing = Math.atan2(dy, dx);
             }
+
+            if (this.entities.player.hull <= 0) {
+                this.setState('game-over');
+            }
         }
+
+        for (const enemy of this.entities.enemies) {
+            enemy.update(deltaTime, this.entities.player);
+        }
+
+        this.handleCollisions();
 
         if (this.time.uiAccumulator >= 1 / CONFIG.uiRefreshHz) {
             this.syncUI();
@@ -277,7 +424,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '18px Segoe UI';
-        ctx.fillText('Commit 4: Movement Controls Active', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('Commit 6: Collision Detection Online', canvas.width / 2, canvas.height / 2 + 24);
     }
 
     renderRunningFrame() {
@@ -302,6 +449,10 @@ class Game {
             ctx.strokeRect(snappedX + 1, snappedY + 1, CONFIG.gridSize - 2, CONFIG.gridSize - 2);
         }
 
+        for (const enemy of this.entities.enemies) {
+            enemy.render(ctx);
+        }
+
         if (this.entities.player) {
             this.entities.player.render(ctx);
         }
@@ -309,7 +460,11 @@ class Game {
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '16px Segoe UI';
         ctx.textAlign = 'left';
-        ctx.fillText('Use WASD or Arrow Keys to move. Mouse aims your weapon.', 20, 34);
+        if (this.state === 'game-over') {
+            ctx.fillText('Game Over: Reset to restart the simulation.', 20, 34);
+        } else {
+            ctx.fillText(`Wave ${this.wave} | Enemies ${this.entities.enemies.length} | Collisions active`, 20, 34);
+        }
     }
 
     render() {
