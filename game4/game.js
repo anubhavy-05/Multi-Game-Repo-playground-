@@ -17,6 +17,19 @@ const CONFIG = {
         spawnPerSecondBase: 0.8,
         touchDamage: 14,
         knockback: 18
+    },
+    scoring: {
+        survivalPerSecond: 4,
+        enemyDefeat: 120,
+        contactCounterDamage: 8
+    },
+    wave: {
+        baseEnemyCount: 8,
+        enemyCountPerWave: 4,
+        intermissionSeconds: 3,
+        enemyHealthScale: 0.18,
+        enemySpeedScale: 0.08,
+        spawnRateScale: 0.3
     }
 };
 
@@ -119,13 +132,13 @@ class Player {
 }
 
 class Enemy {
-    constructor(x, y) {
+    constructor(x, y, waveLevel) {
         this.x = x;
         this.y = y;
         this.radius = CONFIG.enemy.radius;
-        this.health = CONFIG.enemy.baseHealth;
-        this.maxHealth = CONFIG.enemy.baseHealth;
-        this.speed = CONFIG.enemy.speed;
+        this.maxHealth = Math.round(CONFIG.enemy.baseHealth * (1 + (waveLevel - 1) * CONFIG.wave.enemyHealthScale));
+        this.health = this.maxHealth;
+        this.speed = CONFIG.enemy.speed * (1 + (waveLevel - 1) * CONFIG.wave.enemySpeedScale);
         this.vx = 0;
         this.vy = 0;
         this.damageFlash = 0;
@@ -192,6 +205,9 @@ class Game {
             playerHull: document.getElementById('playerHull'),
             playerShield: document.getElementById('playerShield'),
             enemyCounter: document.getElementById('enemyCounter'),
+            scoreCounter: document.getElementById('scoreCounter'),
+            killCounter: document.getElementById('killCounter'),
+            waveProgress: document.getElementById('waveProgress'),
             startBtn: document.getElementById('startBtn'),
             resetBtn: document.getElementById('resetBtn'),
             bootOverlay: document.getElementById('bootOverlay')
@@ -201,6 +217,14 @@ class Game {
         this.wave = 0;
         this.credits = 0;
         this.integrity = 100;
+        this.score = 0;
+        this.kills = 0;
+        this.survivalTime = 0;
+        this.waveState = 'idle';
+        this.waveIntermissionTimer = 0;
+        this.waveTargetCount = 0;
+        this.waveEnemiesSpawned = 0;
+        this.waveEnemiesDefeated = 0;
 
         this.mouse = { x: 0, y: 0, inCanvas: false };
         this.keys = new Set();
@@ -273,7 +297,7 @@ class Game {
             return;
         }
 
-        this.wave = Math.max(1, this.wave);
+        this.beginWave(1);
         this.setState('running');
         this.ui.bootOverlay.style.display = 'none';
     }
@@ -282,7 +306,15 @@ class Game {
         this.wave = 0;
         this.credits = 0;
         this.integrity = 100;
+        this.score = 0;
+        this.kills = 0;
+        this.survivalTime = 0;
         this.time.spawnAccumulator = 0;
+        this.waveState = 'idle';
+        this.waveIntermissionTimer = 0;
+        this.waveTargetCount = 0;
+        this.waveEnemiesSpawned = 0;
+        this.waveEnemiesDefeated = 0;
 
         this.spawnPlayer();
         this.entities.enemies = [];
@@ -301,6 +333,9 @@ class Game {
         this.ui.creditCounter.textContent = String(this.credits);
         this.ui.integrityCounter.textContent = `${Math.max(0, Math.round(this.integrity))}%`;
         this.ui.enemyCounter.textContent = String(this.entities.enemies.length);
+        this.ui.scoreCounter.textContent = String(Math.floor(this.score));
+        this.ui.killCounter.textContent = String(this.kills);
+        this.ui.waveProgress.textContent = `${this.waveEnemiesDefeated} / ${this.waveTargetCount}`;
 
         if (this.entities.player) {
             this.ui.playerHull.textContent = `${Math.round(this.entities.player.hull)} / ${this.entities.player.maxHull}`;
@@ -312,12 +347,30 @@ class Game {
         this.entities.player = new Player(this.canvas.width * 0.5, this.canvas.height * 0.5);
     }
 
+    beginWave(waveNumber) {
+        this.wave = waveNumber;
+        this.waveState = 'active';
+        this.waveIntermissionTimer = 0;
+        this.waveEnemiesSpawned = 0;
+        this.waveEnemiesDefeated = 0;
+        this.waveTargetCount = CONFIG.wave.baseEnemyCount + (waveNumber - 1) * CONFIG.wave.enemyCountPerWave;
+        this.time.spawnAccumulator = 0;
+    }
+
+    completeWave() {
+        this.waveState = 'intermission';
+        this.waveIntermissionTimer = CONFIG.wave.intermissionSeconds;
+        this.score += 250 + this.wave * 40;
+        this.credits += 10 + this.wave * 2;
+    }
+
     spawnEnemy() {
         const angle = Math.random() * Math.PI * 2;
         const spawnDistance = Math.max(this.canvas.width, this.canvas.height) * 0.45;
         const x = this.canvas.width * 0.5 + Math.cos(angle) * spawnDistance;
         const y = this.canvas.height * 0.5 + Math.sin(angle) * spawnDistance;
-        this.entities.enemies.push(new Enemy(x, y));
+        this.entities.enemies.push(new Enemy(x, y, this.wave));
+        this.waveEnemiesSpawned += 1;
     }
 
     handleCollisions() {
@@ -333,6 +386,7 @@ class Game {
 
             if (overlap > 0) {
                 this.entities.player.applyDamage(CONFIG.enemy.touchDamage);
+                enemy.health = Math.max(0, enemy.health - CONFIG.scoring.contactCounterDamage);
 
                 const nx = distance > 0 ? dx / distance : 1;
                 const ny = distance > 0 ? dy / distance : 0;
@@ -349,13 +403,28 @@ class Game {
         this.time.frameCount += 1;
 
         if (this.state === 'running') {
-            this.time.spawnAccumulator += deltaTime;
-            const spawnRate = CONFIG.enemy.spawnPerSecondBase + this.wave * 0.25;
-            const spawnInterval = 1 / spawnRate;
+            this.survivalTime += deltaTime;
+            this.score += CONFIG.scoring.survivalPerSecond * deltaTime;
 
-            if (this.time.spawnAccumulator >= spawnInterval) {
-                this.spawnEnemy();
-                this.time.spawnAccumulator = 0;
+            if (this.waveState === 'active') {
+                this.time.spawnAccumulator += deltaTime;
+                const spawnRate = CONFIG.enemy.spawnPerSecondBase + this.wave * CONFIG.wave.spawnRateScale;
+                const spawnInterval = 1 / spawnRate;
+
+                if (this.waveEnemiesSpawned < this.waveTargetCount && this.time.spawnAccumulator >= spawnInterval) {
+                    this.spawnEnemy();
+                    this.time.spawnAccumulator = 0;
+                }
+
+                const waveCleared = this.waveEnemiesDefeated >= this.waveTargetCount && this.entities.enemies.length === 0;
+                if (waveCleared) {
+                    this.completeWave();
+                }
+            } else if (this.waveState === 'intermission') {
+                this.waveIntermissionTimer = Math.max(0, this.waveIntermissionTimer - deltaTime);
+                if (this.waveIntermissionTimer <= 0) {
+                    this.beginWave(this.wave + 1);
+                }
             }
         }
 
@@ -373,8 +442,17 @@ class Game {
             }
         }
 
-        for (const enemy of this.entities.enemies) {
+        for (let i = this.entities.enemies.length - 1; i >= 0; i--) {
+            const enemy = this.entities.enemies[i];
             enemy.update(deltaTime, this.entities.player);
+
+            if (enemy.health <= 0) {
+                this.entities.enemies.splice(i, 1);
+                this.kills += 1;
+                this.waveEnemiesDefeated += 1;
+                this.credits += 5;
+                this.score += CONFIG.scoring.enemyDefeat;
+            }
         }
 
         this.handleCollisions();
@@ -424,7 +502,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '18px Segoe UI';
-        ctx.fillText('Commit 6: Collision Detection Online', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('Commit 8: Wave Progression Initialized', canvas.width / 2, canvas.height / 2 + 24);
     }
 
     renderRunningFrame() {
@@ -461,9 +539,14 @@ class Game {
         ctx.font = '16px Segoe UI';
         ctx.textAlign = 'left';
         if (this.state === 'game-over') {
-            ctx.fillText('Game Over: Reset to restart the simulation.', 20, 34);
+            ctx.fillText(`Game Over | Final Score ${Math.floor(this.score)} | Kills ${this.kills}`, 20, 34);
         } else {
-            ctx.fillText(`Wave ${this.wave} | Enemies ${this.entities.enemies.length} | Collisions active`, 20, 34);
+            const waveInfo = `${this.waveEnemiesDefeated}/${this.waveTargetCount}`;
+            if (this.waveState === 'intermission') {
+                ctx.fillText(`Wave ${this.wave} cleared | Next in ${this.waveIntermissionTimer.toFixed(1)}s`, 20, 34);
+            } else {
+                ctx.fillText(`Wave ${this.wave} (${waveInfo}) | Score ${Math.floor(this.score)} | Kills ${this.kills}`, 20, 34);
+            }
         }
     }
 
