@@ -470,6 +470,12 @@ class Game {
     bindEvents() {
         this.ui.startBtn.addEventListener('click', () => this.start());
         this.ui.resetBtn.addEventListener('click', () => this.reset());
+        this.ui.muteBtn.addEventListener('click', () => {
+            const next = !this.audio.enabled;
+            this.audio.setEnabled(next);
+            this.ui.muteBtn.textContent = next ? 'Mute' : 'Unmute';
+            this.syncUI();
+        });
 
         window.addEventListener('keydown', (event) => {
             this.keys.add(event.key.toLowerCase());
@@ -550,6 +556,7 @@ class Game {
         this.ui.scoreCounter.textContent = String(Math.floor(this.score));
         this.ui.killCounter.textContent = String(this.kills);
         this.ui.waveProgress.textContent = `${this.waveEnemiesDefeated} / ${this.waveTargetCount}`;
+        this.ui.soundStatus.textContent = this.audio.enabled ? 'On' : 'Muted';
 
         if (!this.entities.player) {
             this.ui.powerUpStatus.textContent = 'None';
