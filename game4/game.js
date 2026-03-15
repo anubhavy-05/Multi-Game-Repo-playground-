@@ -8,7 +8,9 @@ const CONFIG = {
         radius: 14,
         baseHull: 100,
         baseShield: 60,
-        speed: 200
+        speed: 200,
+        startingLives: 3,
+        respawnProtection: 2
     },
     enemy: {
         radius: 10,
@@ -57,7 +59,8 @@ class Player {
         this.speed = CONFIG.player.speed;
         this.damageCooldown = 0;
         this.effects = {
-            phase: 0
+            phase: 0,
+            respawnInvulnerability: 0
         };
     }
 
@@ -65,6 +68,7 @@ class Player {
         this.corePulse += deltaTime * 4;
         this.damageCooldown = Math.max(0, this.damageCooldown - deltaTime);
         this.effects.phase = Math.max(0, this.effects.phase - deltaTime);
+        this.effects.respawnInvulnerability = Math.max(0, this.effects.respawnInvulnerability - deltaTime);
 
         let moveX = 0;
         let moveY = 0;
@@ -91,7 +95,7 @@ class Player {
     }
 
     applyDamage(amount) {
-        if (this.damageCooldown > 0) {
+        if (this.damageCooldown > 0 || this.effects.respawnInvulnerability > 0) {
             return;
         }
 
@@ -140,6 +144,14 @@ class Player {
         ctx.strokeStyle = `rgba(103, 214, 121, ${0.35 + pulse})`;
         ctx.lineWidth = 2;
         ctx.stroke();
+
+        if (this.effects.respawnInvulnerability > 0) {
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius + 11, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(78, 198, 255, 0.75)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
 
         const bodyGradient = ctx.createRadialGradient(-5, -5, 2, 0, 0, this.radius);
         bodyGradient.addColorStop(0, '#e3fff1');
@@ -290,6 +302,7 @@ class Game {
             integrityCounter: document.getElementById('integrityCounter'),
             playerHull: document.getElementById('playerHull'),
             playerShield: document.getElementById('playerShield'),
+            livesCounter: document.getElementById('livesCounter'),
             enemyCounter: document.getElementById('enemyCounter'),
             scoreCounter: document.getElementById('scoreCounter'),
             killCounter: document.getElementById('killCounter'),
@@ -307,6 +320,8 @@ class Game {
         this.score = 0;
         this.kills = 0;
         this.survivalTime = 0;
+        this.maxLives = CONFIG.player.startingLives;
+        this.lives = this.maxLives;
         this.waveState = 'idle';
         this.waveIntermissionTimer = 0;
         this.waveTargetCount = 0;
@@ -397,6 +412,7 @@ class Game {
         this.score = 0;
         this.kills = 0;
         this.survivalTime = 0;
+        this.lives = this.maxLives;
         this.time.spawnAccumulator = 0;
         this.time.powerUpAccumulator = 0;
         this.waveState = 'idle';
@@ -421,6 +437,7 @@ class Game {
         this.ui.waveCounter.textContent = String(this.wave);
         this.ui.creditCounter.textContent = String(this.credits);
         this.ui.integrityCounter.textContent = `${Math.max(0, Math.round(this.integrity))}%`;
+        this.ui.livesCounter.textContent = String(this.lives);
         this.ui.enemyCounter.textContent = String(this.entities.enemies.length);
         this.ui.scoreCounter.textContent = String(Math.floor(this.score));
         this.ui.killCounter.textContent = String(this.kills);
@@ -428,6 +445,8 @@ class Game {
 
         if (!this.entities.player) {
             this.ui.powerUpStatus.textContent = 'None';
+        } else if (this.entities.player.effects.respawnInvulnerability > 0) {
+            this.ui.powerUpStatus.textContent = `Respawn Shield ${this.entities.player.effects.respawnInvulnerability.toFixed(1)}s`;
         } else if (this.entities.player.effects.phase > 0) {
             this.ui.powerUpStatus.textContent = `Phase ${this.entities.player.effects.phase.toFixed(1)}s`;
         } else {
@@ -442,6 +461,19 @@ class Game {
 
     spawnPlayer() {
         this.entities.player = new Player(this.canvas.width * 0.5, this.canvas.height * 0.5);
+    }
+
+    handlePlayerDefeat() {
+        if (this.lives > 1) {
+            this.lives -= 1;
+            this.score = Math.max(0, this.score - 180);
+            this.spawnPlayer();
+            this.entities.player.effects.respawnInvulnerability = CONFIG.player.respawnProtection;
+            return;
+        }
+
+        this.lives = 0;
+        this.setState('game-over');
     }
 
     beginWave(waveNumber) {
@@ -575,7 +607,7 @@ class Game {
             }
 
             if (this.entities.player.hull <= 0) {
-                this.setState('game-over');
+                this.handlePlayerDefeat();
             }
         }
 
@@ -640,7 +672,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '18px Segoe UI';
-        ctx.fillText('Commit 9: Power-Ups Enter the Battlefield', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('Commit 10: Health and Lives System Online', canvas.width / 2, canvas.height / 2 + 24);
     }
 
     renderRunningFrame() {
@@ -681,13 +713,13 @@ class Game {
         ctx.font = '16px Segoe UI';
         ctx.textAlign = 'left';
         if (this.state === 'game-over') {
-            ctx.fillText(`Game Over | Final Score ${Math.floor(this.score)} | Kills ${this.kills}`, 20, 34);
+            ctx.fillText(`Game Over | Final Score ${Math.floor(this.score)} | Kills ${this.kills} | Lives ${this.lives}`, 20, 34);
         } else {
             const waveInfo = `${this.waveEnemiesDefeated}/${this.waveTargetCount}`;
             if (this.waveState === 'intermission') {
                 ctx.fillText(`Wave ${this.wave} cleared | Next in ${this.waveIntermissionTimer.toFixed(1)}s`, 20, 34);
             } else {
-                ctx.fillText(`Wave ${this.wave} (${waveInfo}) | Score ${Math.floor(this.score)} | Kills ${this.kills} | Pickups ${this.entities.pickups.length}`, 20, 34);
+                ctx.fillText(`Wave ${this.wave} (${waveInfo}) | Lives ${this.lives} | Score ${Math.floor(this.score)} | Pickups ${this.entities.pickups.length}`, 20, 34);
             }
         }
     }
