@@ -10,7 +10,7 @@
     <div class="game-shell">
         <header class="game-header">
             <h1>Chrono Bastion</h1>
-            <p class="subtitle">Commit 10: Health and Lives System</p>
+            <p class="subtitle">Commit 11: Reactive Sound Effects System</p>
         </header>
 
         <main class="game-main">
@@ -37,20 +37,22 @@
                     <p><span class="label">Kills:</span> <span id="killCounter">0</span></p>
                     <p><span class="label">Wave Progress:</span> <span id="waveProgress">0 / 0</span></p>
                     <p><span class="label">Power-Up:</span> <span id="powerUpStatus">None</span></p>
+                    <p><span class="label">Sound:</span> <span id="soundStatus">On</span></p>
                 </div>
 
                 <div class="button-row">
                     <button id="startBtn" type="button">Start</button>
                     <button id="resetBtn" type="button">Reset</button>
+                    <button id="muteBtn" type="button">Mute</button>
                 </div>
 
                 <section class="notes" aria-label="Commit notes">
                     <h3>Commit Notes</h3>
                     <ul>
-                        <li>Added finite lives with respawn-on-death flow</li>
-                        <li>Respawn now restores hull and shield at arena center</li>
-                        <li>Added temporary spawn protection after respawn</li>
-                        <li>Game over now triggers only when lives reach zero</li>
+                        <li>Added Web Audio based sound engine (no external files)</li>
+                        <li>Triggered SFX for hits, kills, pickups, wave clear, and game over</li>
+                        <li>Added mute toggle button and live sound status in HUD</li>
+                        <li>Audio context unlocks on first user interaction</li>
                     </ul>
                 </section>
             </aside>
