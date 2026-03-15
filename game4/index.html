@@ -10,7 +10,7 @@
     <div class="game-shell">
         <header class="game-header">
             <h1>Chrono Bastion</h1>
-            <p class="subtitle">Commit 8: Wave Progression and Level Flow</p>
+            <p class="subtitle">Commit 9: Dynamic Power-Up System</p>
         </header>
 
         <main class="game-main">
@@ -35,6 +35,7 @@
                     <p><span class="label">Score:</span> <span id="scoreCounter">0</span></p>
                     <p><span class="label">Kills:</span> <span id="killCounter">0</span></p>
                     <p><span class="label">Wave Progress:</span> <span id="waveProgress">0 / 0</span></p>
+                    <p><span class="label">Power-Up:</span> <span id="powerUpStatus">None</span></p>
                 </div>
 
                 <div class="button-row">
@@ -45,10 +46,10 @@
                 <section class="notes" aria-label="Commit notes">
                     <h3>Commit Notes</h3>
                     <ul>
-                        <li>Added structured wave lifecycle with clear completion goals</li>
-                        <li>Implemented intermission between waves with countdown</li>
-                        <li>Enemy stats and spawn pressure now scale by wave level</li>
-                        <li>Added wave progress tracker to HUD and combat overlay</li>
+                        <li>Added random power-up spawning in active combat</li>
+                        <li>Created collectible pickups with visual timer feedback</li>
+                        <li>Implemented Repair, Barrier, and Phase effects</li>
+                        <li>Added active power-up status display in HUD</li>
                     </ul>
                 </section>
             </aside>
