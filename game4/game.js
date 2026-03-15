@@ -40,6 +40,9 @@ const CONFIG = {
         phaseDuration: 6,
         repairValue: 25,
         barrierValue: 35
+    },
+    sound: {
+        masterVolume: 0.05
     }
 };
 
@@ -96,7 +99,7 @@ class Player {
 
     applyDamage(amount) {
         if (this.damageCooldown > 0 || this.effects.respawnInvulnerability > 0) {
-            return;
+            return false;
         }
 
         const phaseMultiplier = this.effects.phase > 0 ? 0.5 : 1;
@@ -115,6 +118,7 @@ class Player {
         }
 
         this.damageCooldown = 0.35;
+        return true;
     }
 
     applyPowerUp(type) {
@@ -290,6 +294,106 @@ class PowerUp {
     }
 }
 
+class AudioEngine {
+    constructor() {
+        this.context = null;
+        this.enabled = true;
+    }
+
+    ensureContext() {
+        if (!this.context) {
+            const AudioCtx = window.AudioContext || window.webkitAudioContext;
+            if (!AudioCtx) {
+                this.enabled = false;
+                return;
+            }
+            this.context = new AudioCtx();
+        }
+    }
+
+    unlock() {
+        this.ensureContext();
+        if (this.context && this.context.state === 'suspended') {
+            this.context.resume();
+        }
+    }
+
+    setEnabled(next) {
+        this.enabled = next;
+    }
+
+    tone(freq, duration, type = 'sine', gain = 1) {
+        if (!this.enabled) {
+            return;
+        }
+
+        this.ensureContext();
+        if (!this.context) {
+            return;
+        }
+
+        const now = this.context.currentTime;
+        const oscillator = this.context.createOscillator();
+        const envelope = this.context.createGain();
+
+        oscillator.type = type;
+        oscillator.frequency.setValueAtTime(freq, now);
+
+        envelope.gain.setValueAtTime(0, now);
+        envelope.gain.linearRampToValueAtTime(CONFIG.sound.masterVolume * gain, now + 0.01);
+        envelope.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+        oscillator.connect(envelope);
+        envelope.connect(this.context.destination);
+
+        oscillator.start(now);
+        oscillator.stop(now + duration);
+    }
+
+    play(eventName) {
+        if (eventName === 'start') {
+            this.tone(420, 0.14, 'triangle', 1.2);
+            setTimeout(() => this.tone(620, 0.12, 'triangle', 1.2), 80);
+            return;
+        }
+
+        if (eventName === 'hit') {
+            this.tone(160, 0.09, 'sawtooth', 1.4);
+            return;
+        }
+
+        if (eventName === 'enemyDown') {
+            this.tone(300, 0.06, 'square', 1.1);
+            setTimeout(() => this.tone(220, 0.09, 'square', 1.1), 35);
+            return;
+        }
+
+        if (eventName === 'pickup') {
+            this.tone(540, 0.08, 'triangle', 1.1);
+            setTimeout(() => this.tone(740, 0.1, 'triangle', 1.1), 40);
+            return;
+        }
+
+        if (eventName === 'waveClear') {
+            this.tone(480, 0.1, 'sine', 1.1);
+            setTimeout(() => this.tone(620, 0.1, 'sine', 1.1), 80);
+            setTimeout(() => this.tone(760, 0.14, 'sine', 1.1), 160);
+            return;
+        }
+
+        if (eventName === 'respawn') {
+            this.tone(360, 0.08, 'triangle', 1.2);
+            setTimeout(() => this.tone(500, 0.12, 'triangle', 1.2), 60);
+            return;
+        }
+
+        if (eventName === 'gameOver') {
+            this.tone(260, 0.18, 'sawtooth', 1.3);
+            setTimeout(() => this.tone(190, 0.2, 'sawtooth', 1.3), 120);
+        }
+    }
+}
+
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
@@ -308,10 +412,14 @@ class Game {
             killCounter: document.getElementById('killCounter'),
             waveProgress: document.getElementById('waveProgress'),
             powerUpStatus: document.getElementById('powerUpStatus'),
+            soundStatus: document.getElementById('soundStatus'),
             startBtn: document.getElementById('startBtn'),
             resetBtn: document.getElementById('resetBtn'),
+            muteBtn: document.getElementById('muteBtn'),
             bootOverlay: document.getElementById('bootOverlay')
         };
+
+        this.audio = new AudioEngine();
 
         this.state = 'waiting';
         this.wave = 0;
