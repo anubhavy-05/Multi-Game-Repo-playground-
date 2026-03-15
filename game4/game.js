@@ -30,6 +30,14 @@ const CONFIG = {
         enemyHealthScale: 0.18,
         enemySpeedScale: 0.08,
         spawnRateScale: 0.3
+    },
+    powerUp: {
+        spawnInterval: 9,
+        radius: 11,
+        lifetime: 12,
+        phaseDuration: 6,
+        repairValue: 25,
+        barrierValue: 35
     }
 };
 
@@ -48,11 +56,15 @@ class Player {
         this.vy = 0;
         this.speed = CONFIG.player.speed;
         this.damageCooldown = 0;
+        this.effects = {
+            phase: 0
+        };
     }
 
     update(deltaTime, keys, canvas) {
         this.corePulse += deltaTime * 4;
         this.damageCooldown = Math.max(0, this.damageCooldown - deltaTime);
+        this.effects.phase = Math.max(0, this.effects.phase - deltaTime);
 
         let moveX = 0;
         let moveY = 0;
@@ -83,7 +95,11 @@ class Player {
             return;
         }
 
+        const phaseMultiplier = this.effects.phase > 0 ? 0.5 : 1;
+        let adjustedAmount = amount * phaseMultiplier;
+
         let remaining = amount;
+        remaining = adjustedAmount;
         if (this.shield > 0) {
             const shieldBlocked = Math.min(this.shield, remaining);
             this.shield -= shieldBlocked;
@@ -95,6 +111,22 @@ class Player {
         }
 
         this.damageCooldown = 0.35;
+    }
+
+    applyPowerUp(type) {
+        if (type === 'repair') {
+            this.hull = Math.min(this.maxHull, this.hull + CONFIG.powerUp.repairValue);
+            return;
+        }
+
+        if (type === 'barrier') {
+            this.shield = Math.min(this.maxShield, this.shield + CONFIG.powerUp.barrierValue);
+            return;
+        }
+
+        if (type === 'phase') {
+            this.effects.phase = CONFIG.powerUp.phaseDuration;
+        }
     }
 
     render(ctx) {
@@ -192,6 +224,60 @@ class Enemy {
     }
 }
 
+class PowerUp {
+    constructor(x, y, type) {
+        this.x = x;
+        this.y = y;
+        this.type = type;
+        this.radius = CONFIG.powerUp.radius;
+        this.remaining = CONFIG.powerUp.lifetime;
+        this.pulse = 0;
+    }
+
+    update(deltaTime) {
+        this.remaining -= deltaTime;
+        this.pulse += deltaTime * 6;
+    }
+
+    isExpired() {
+        return this.remaining <= 0;
+    }
+
+    render(ctx) {
+        const pulseSize = Math.sin(this.pulse) * 2;
+        const icon = this.type === 'repair' ? '+' : this.type === 'barrier' ? 'B' : 'P';
+        const color = this.type === 'repair' ? '#67d679' : this.type === 'barrier' ? '#4ec6ff' : '#d79bff';
+
+        ctx.save();
+        ctx.translate(this.x, this.y);
+
+        ctx.fillStyle = 'rgba(8, 18, 28, 0.85)';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius + 5 + pulseSize, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.radius + pulseSize, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.fillStyle = color;
+        ctx.font = 'bold 11px Segoe UI';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(icon, 0, 0);
+
+        const lifePercent = Math.max(0, this.remaining / CONFIG.powerUp.lifetime);
+        ctx.fillStyle = 'rgba(20, 30, 45, 0.9)';
+        ctx.fillRect(-this.radius, this.radius + 6, this.radius * 2, 3);
+        ctx.fillStyle = color;
+        ctx.fillRect(-this.radius, this.radius + 6, this.radius * 2 * lifePercent, 3);
+
+        ctx.restore();
+    }
+}
+
 class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
@@ -208,6 +294,7 @@ class Game {
             scoreCounter: document.getElementById('scoreCounter'),
             killCounter: document.getElementById('killCounter'),
             waveProgress: document.getElementById('waveProgress'),
+            powerUpStatus: document.getElementById('powerUpStatus'),
             startBtn: document.getElementById('startBtn'),
             resetBtn: document.getElementById('resetBtn'),
             bootOverlay: document.getElementById('bootOverlay')
@@ -242,7 +329,8 @@ class Game {
             uiAccumulator: 0,
             elapsed: 0,
             frameCount: 0,
-            spawnAccumulator: 0
+            spawnAccumulator: 0,
+            powerUpAccumulator: 0
         };
 
         this.spawnPlayer();
@@ -310,6 +398,7 @@ class Game {
         this.kills = 0;
         this.survivalTime = 0;
         this.time.spawnAccumulator = 0;
+        this.time.powerUpAccumulator = 0;
         this.waveState = 'idle';
         this.waveIntermissionTimer = 0;
         this.waveTargetCount = 0;
@@ -336,6 +425,14 @@ class Game {
         this.ui.scoreCounter.textContent = String(Math.floor(this.score));
         this.ui.killCounter.textContent = String(this.kills);
         this.ui.waveProgress.textContent = `${this.waveEnemiesDefeated} / ${this.waveTargetCount}`;
+
+        if (!this.entities.player) {
+            this.ui.powerUpStatus.textContent = 'None';
+        } else if (this.entities.player.effects.phase > 0) {
+            this.ui.powerUpStatus.textContent = `Phase ${this.entities.player.effects.phase.toFixed(1)}s`;
+        } else {
+            this.ui.powerUpStatus.textContent = 'None';
+        }
 
         if (this.entities.player) {
             this.ui.playerHull.textContent = `${Math.round(this.entities.player.hull)} / ${this.entities.player.maxHull}`;
@@ -371,6 +468,40 @@ class Game {
         const y = this.canvas.height * 0.5 + Math.sin(angle) * spawnDistance;
         this.entities.enemies.push(new Enemy(x, y, this.wave));
         this.waveEnemiesSpawned += 1;
+    }
+
+    spawnPowerUp() {
+        const types = ['repair', 'barrier', 'phase'];
+        const type = types[Math.floor(Math.random() * types.length)];
+
+        const margin = 40;
+        const x = margin + Math.random() * (this.canvas.width - margin * 2);
+        const y = margin + Math.random() * (this.canvas.height - margin * 2);
+
+        this.entities.pickups.push(new PowerUp(x, y, type));
+    }
+
+    updatePowerUps(deltaTime) {
+        for (let i = this.entities.pickups.length - 1; i >= 0; i--) {
+            const pickup = this.entities.pickups[i];
+            pickup.update(deltaTime);
+
+            if (pickup.isExpired()) {
+                this.entities.pickups.splice(i, 1);
+                continue;
+            }
+
+            if (this.entities.player) {
+                const dx = pickup.x - this.entities.player.x;
+                const dy = pickup.y - this.entities.player.y;
+                const distance = Math.hypot(dx, dy);
+                if (distance < pickup.radius + this.entities.player.radius) {
+                    this.entities.player.applyPowerUp(pickup.type);
+                    this.score += 60;
+                    this.entities.pickups.splice(i, 1);
+                }
+            }
+        }
     }
 
     handleCollisions() {
@@ -426,6 +557,12 @@ class Game {
                     this.beginWave(this.wave + 1);
                 }
             }
+
+            this.time.powerUpAccumulator += deltaTime;
+            if (this.time.powerUpAccumulator >= CONFIG.powerUp.spawnInterval) {
+                this.spawnPowerUp();
+                this.time.powerUpAccumulator = 0;
+            }
         }
 
         if (this.entities.player) {
@@ -456,6 +593,7 @@ class Game {
         }
 
         this.handleCollisions();
+        this.updatePowerUps(deltaTime);
 
         if (this.time.uiAccumulator >= 1 / CONFIG.uiRefreshHz) {
             this.syncUI();
@@ -502,7 +640,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '18px Segoe UI';
-        ctx.fillText('Commit 8: Wave Progression Initialized', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('Commit 9: Power-Ups Enter the Battlefield', canvas.width / 2, canvas.height / 2 + 24);
     }
 
     renderRunningFrame() {
@@ -531,6 +669,10 @@ class Game {
             enemy.render(ctx);
         }
 
+        for (const pickup of this.entities.pickups) {
+            pickup.render(ctx);
+        }
+
         if (this.entities.player) {
             this.entities.player.render(ctx);
         }
@@ -545,7 +687,7 @@ class Game {
             if (this.waveState === 'intermission') {
                 ctx.fillText(`Wave ${this.wave} cleared | Next in ${this.waveIntermissionTimer.toFixed(1)}s`, 20, 34);
             } else {
-                ctx.fillText(`Wave ${this.wave} (${waveInfo}) | Score ${Math.floor(this.score)} | Kills ${this.kills}`, 20, 34);
+                ctx.fillText(`Wave ${this.wave} (${waveInfo}) | Score ${Math.floor(this.score)} | Kills ${this.kills} | Pickups ${this.entities.pickups.length}`, 20, 34);
             }
         }
     }
