@@ -514,6 +514,8 @@ class Game {
             return;
         }
 
+        this.audio.unlock();
+        this.audio.play('start');
         this.beginWave(1);
         this.setState('running');
         this.ui.bootOverlay.style.display = 'none';
@@ -584,10 +586,12 @@ class Game {
             this.score = Math.max(0, this.score - 180);
             this.spawnPlayer();
             this.entities.player.effects.respawnInvulnerability = CONFIG.player.respawnProtection;
+            this.audio.play('respawn');
             return;
         }
 
         this.lives = 0;
+        this.audio.play('gameOver');
         this.setState('game-over');
     }
 
@@ -606,6 +610,7 @@ class Game {
         this.waveIntermissionTimer = CONFIG.wave.intermissionSeconds;
         this.score += 250 + this.wave * 40;
         this.credits += 10 + this.wave * 2;
+        this.audio.play('waveClear');
     }
 
     spawnEnemy() {
@@ -645,6 +650,7 @@ class Game {
                 if (distance < pickup.radius + this.entities.player.radius) {
                     this.entities.player.applyPowerUp(pickup.type);
                     this.score += 60;
+                    this.audio.play('pickup');
                     this.entities.pickups.splice(i, 1);
                 }
             }
@@ -663,8 +669,11 @@ class Game {
             const overlap = this.entities.player.radius + enemy.radius - distance;
 
             if (overlap > 0) {
-                this.entities.player.applyDamage(CONFIG.enemy.touchDamage);
+                const tookDamage = this.entities.player.applyDamage(CONFIG.enemy.touchDamage);
                 enemy.health = Math.max(0, enemy.health - CONFIG.scoring.contactCounterDamage);
+                if (tookDamage) {
+                    this.audio.play('hit');
+                }
 
                 const nx = distance > 0 ? dx / distance : 1;
                 const ny = distance > 0 ? dy / distance : 0;
@@ -736,6 +745,7 @@ class Game {
                 this.waveEnemiesDefeated += 1;
                 this.credits += 5;
                 this.score += CONFIG.scoring.enemyDefeat;
+                this.audio.play('enemyDown');
             }
         }
 
@@ -787,7 +797,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '18px Segoe UI';
-        ctx.fillText('Commit 10: Health and Lives System Online', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('Commit 11: Sound Effects Integrated', canvas.width / 2, canvas.height / 2 + 24);
     }
 
     renderRunningFrame() {
