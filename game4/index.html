@@ -10,7 +10,7 @@
     <div class="game-shell">
         <header class="game-header">
             <h1>Chrono Bastion</h1>
-            <p class="subtitle">Commit 9: Dynamic Power-Up System</p>
+            <p class="subtitle">Commit 10: Health and Lives System</p>
         </header>
 
         <main class="game-main">
@@ -31,6 +31,7 @@
                     <p><span class="label">Integrity:</span> <span id="integrityCounter">100%</span></p>
                     <p><span class="label">Hull:</span> <span id="playerHull">100 / 100</span></p>
                     <p><span class="label">Shield:</span> <span id="playerShield">60 / 60</span></p>
+                    <p><span class="label">Lives:</span> <span id="livesCounter">3</span></p>
                     <p><span class="label">Enemies:</span> <span id="enemyCounter">0</span></p>
                     <p><span class="label">Score:</span> <span id="scoreCounter">0</span></p>
                     <p><span class="label">Kills:</span> <span id="killCounter">0</span></p>
@@ -46,10 +47,10 @@
                 <section class="notes" aria-label="Commit notes">
                     <h3>Commit Notes</h3>
                     <ul>
-                        <li>Added random power-up spawning in active combat</li>
-                        <li>Created collectible pickups with visual timer feedback</li>
-                        <li>Implemented Repair, Barrier, and Phase effects</li>
-                        <li>Added active power-up status display in HUD</li>
+                        <li>Added finite lives with respawn-on-death flow</li>
+                        <li>Respawn now restores hull and shield at arena center</li>
+                        <li>Added temporary spawn protection after respawn</li>
+                        <li>Game over now triggers only when lives reach zero</li>
                     </ul>
                 </section>
             </aside>
