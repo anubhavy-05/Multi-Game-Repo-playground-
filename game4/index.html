@@ -10,7 +10,7 @@
     <div class="game-shell">
         <header class="game-header">
             <h1>Chrono Bastion</h1>
-            <p class="subtitle">Commit 12: Upgrade System and Stat Progression</p>
+            <p class="subtitle">Commit 13: Special Abilities and Cooldowns</p>
         </header>
 
         <main class="game-main">
@@ -38,6 +38,7 @@
                     <p><span class="label">Wave Progress:</span> <span id="waveProgress">0 / 0</span></p>
                     <p><span class="label">Power-Up:</span> <span id="powerUpStatus">None</span></p>
                     <p><span class="label">Sound:</span> <span id="soundStatus">On</span></p>
+                    <p><span class="label">Abilities:</span> <span id="abilityStatus">Pulse[R] Ready | Dash[F] Ready</span></p>
                 </div>
 
                 <div class="button-row">
@@ -59,10 +60,10 @@
                 <section class="notes" aria-label="Commit notes">
                     <h3>Commit Notes</h3>
                     <ul>
-                        <li>Added three upgradable stats: Hull, Shield, and Speed</li>
-                        <li>Credits can now be spent on scaling upgrade costs</li>
-                        <li>Upgrade levels persist across player respawns</li>
-                        <li>HUD now shows upgrade levels and next purchase costs</li>
+                        <li>Added Pulse Blast ability (R) to damage nearby enemies</li>
+                        <li>Added Dash ability (F) for instant directional reposition</li>
+                        <li>Implemented per-ability cooldown timers and HUD status</li>
+                        <li>Abilities include sound and visual feedback in combat</li>
                     </ul>
                 </section>
             </aside>
