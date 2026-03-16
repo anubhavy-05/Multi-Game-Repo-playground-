@@ -118,6 +118,29 @@ body {
     gap: 0.6rem;
 }
 
+.upgrade-panel {
+    margin-top: 0.9rem;
+    border: 1px solid rgba(61, 194, 198, 0.35);
+    border-radius: 12px;
+    padding: 0.8rem;
+    background: rgba(7, 18, 26, 0.72);
+}
+
+.upgrade-panel h3 {
+    margin: 0 0 0.6rem;
+}
+
+.upgrade-grid {
+    display: grid;
+    gap: 0.5rem;
+}
+
+.upgrade-summary {
+    margin: 0.6rem 0 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+}
+
 button {
     border: 1px solid rgba(103, 214, 121, 0.65);
     color: var(--text);
@@ -131,6 +154,12 @@ button {
 button:hover {
     transform: translateY(-1px);
     background: rgba(33, 78, 93, 0.95);
+}
+
+button:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
 }
 
 .notes {
