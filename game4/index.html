@@ -10,7 +10,7 @@
     <div class="game-shell">
         <header class="game-header">
             <h1>Chrono Bastion</h1>
-            <p class="subtitle">Commit 11: Reactive Sound Effects System</p>
+            <p class="subtitle">Commit 12: Upgrade System and Stat Progression</p>
         </header>
 
         <main class="game-main">
@@ -46,13 +46,23 @@
                     <button id="muteBtn" type="button">Mute</button>
                 </div>
 
+                <section class="upgrade-panel" aria-label="Upgrade controls">
+                    <h3>Upgrades</h3>
+                    <div class="upgrade-grid">
+                        <button id="upgradeHullBtn" type="button">Hull Upgrade</button>
+                        <button id="upgradeShieldBtn" type="button">Shield Upgrade</button>
+                        <button id="upgradeSpeedBtn" type="button">Speed Upgrade</button>
+                    </div>
+                    <p class="upgrade-summary" id="upgradeSummary">Hull Lv0 | Shield Lv0 | Speed Lv0</p>
+                </section>
+
                 <section class="notes" aria-label="Commit notes">
                     <h3>Commit Notes</h3>
                     <ul>
-                        <li>Added Web Audio based sound engine (no external files)</li>
-                        <li>Triggered SFX for hits, kills, pickups, wave clear, and game over</li>
-                        <li>Added mute toggle button and live sound status in HUD</li>
-                        <li>Audio context unlocks on first user interaction</li>
+                        <li>Added three upgradable stats: Hull, Shield, and Speed</li>
+                        <li>Credits can now be spent on scaling upgrade costs</li>
+                        <li>Upgrade levels persist across player respawns</li>
+                        <li>HUD now shows upgrade levels and next purchase costs</li>
                     </ul>
                 </section>
             </aside>
