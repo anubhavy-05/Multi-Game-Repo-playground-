@@ -43,23 +43,28 @@ const CONFIG = {
     },
     sound: {
         masterVolume: 0.05
+    },
+    upgrades: {
+        hull: { baseCost: 35, costStep: 20, value: 20, maxLevel: 6 },
+        shield: { baseCost: 30, costStep: 18, value: 16, maxLevel: 6 },
+        speed: { baseCost: 45, costStep: 24, value: 16, maxLevel: 5 }
     }
 };
 
 class Player {
-    constructor(x, y) {
+    constructor(x, y, stats) {
         this.x = x;
         this.y = y;
         this.radius = CONFIG.player.radius;
-        this.hull = CONFIG.player.baseHull;
-        this.maxHull = CONFIG.player.baseHull;
-        this.shield = CONFIG.player.baseShield;
-        this.maxShield = CONFIG.player.baseShield;
+        this.maxHull = stats.maxHull;
+        this.hull = stats.maxHull;
+        this.maxShield = stats.maxShield;
+        this.shield = stats.maxShield;
         this.facing = 0;
         this.corePulse = 0;
         this.vx = 0;
         this.vy = 0;
-        this.speed = CONFIG.player.speed;
+        this.speed = stats.speed;
         this.damageCooldown = 0;
         this.effects = {
             phase: 0,
@@ -413,6 +418,10 @@ class Game {
             waveProgress: document.getElementById('waveProgress'),
             powerUpStatus: document.getElementById('powerUpStatus'),
             soundStatus: document.getElementById('soundStatus'),
+            upgradeHullBtn: document.getElementById('upgradeHullBtn'),
+            upgradeShieldBtn: document.getElementById('upgradeShieldBtn'),
+            upgradeSpeedBtn: document.getElementById('upgradeSpeedBtn'),
+            upgradeSummary: document.getElementById('upgradeSummary'),
             startBtn: document.getElementById('startBtn'),
             resetBtn: document.getElementById('resetBtn'),
             muteBtn: document.getElementById('muteBtn'),
@@ -435,6 +444,12 @@ class Game {
         this.waveTargetCount = 0;
         this.waveEnemiesSpawned = 0;
         this.waveEnemiesDefeated = 0;
+        this.upgradeLevels = { hull: 0, shield: 0, speed: 0 };
+        this.playerStats = {
+            maxHull: CONFIG.player.baseHull,
+            maxShield: CONFIG.player.baseShield,
+            speed: CONFIG.player.speed
+        };
 
         this.mouse = { x: 0, y: 0, inCanvas: false };
         this.keys = new Set();
@@ -476,6 +491,10 @@ class Game {
             this.ui.muteBtn.textContent = next ? 'Mute' : 'Unmute';
             this.syncUI();
         });
+
+        this.ui.upgradeHullBtn.addEventListener('click', () => this.applyUpgrade('hull'));
+        this.ui.upgradeShieldBtn.addEventListener('click', () => this.applyUpgrade('shield'));
+        this.ui.upgradeSpeedBtn.addEventListener('click', () => this.applyUpgrade('speed'));
 
         window.addEventListener('keydown', (event) => {
             this.keys.add(event.key.toLowerCase());
@@ -536,6 +555,12 @@ class Game {
         this.waveTargetCount = 0;
         this.waveEnemiesSpawned = 0;
         this.waveEnemiesDefeated = 0;
+        this.upgradeLevels = { hull: 0, shield: 0, speed: 0 };
+        this.playerStats = {
+            maxHull: CONFIG.player.baseHull,
+            maxShield: CONFIG.player.baseShield,
+            speed: CONFIG.player.speed
+        };
 
         this.spawnPlayer();
         this.entities.enemies = [];
@@ -560,6 +585,20 @@ class Game {
         this.ui.waveProgress.textContent = `${this.waveEnemiesDefeated} / ${this.waveTargetCount}`;
         this.ui.soundStatus.textContent = this.audio.enabled ? 'On' : 'Muted';
 
+        const hullCost = this.getUpgradeCost('hull');
+        const shieldCost = this.getUpgradeCost('shield');
+        const speedCost = this.getUpgradeCost('speed');
+
+        this.ui.upgradeHullBtn.textContent = hullCost === null ? 'Hull MAX' : `Hull +${CONFIG.upgrades.hull.value} (${hullCost})`;
+        this.ui.upgradeShieldBtn.textContent = shieldCost === null ? 'Shield MAX' : `Shield +${CONFIG.upgrades.shield.value} (${shieldCost})`;
+        this.ui.upgradeSpeedBtn.textContent = speedCost === null ? 'Speed MAX' : `Speed +${CONFIG.upgrades.speed.value} (${speedCost})`;
+
+        this.ui.upgradeHullBtn.disabled = hullCost === null || this.credits < hullCost;
+        this.ui.upgradeShieldBtn.disabled = shieldCost === null || this.credits < shieldCost;
+        this.ui.upgradeSpeedBtn.disabled = speedCost === null || this.credits < speedCost;
+
+        this.ui.upgradeSummary.textContent = `Hull Lv${this.upgradeLevels.hull} | Shield Lv${this.upgradeLevels.shield} | Speed Lv${this.upgradeLevels.speed}`;
+
         if (!this.entities.player) {
             this.ui.powerUpStatus.textContent = 'None';
         } else if (this.entities.player.effects.respawnInvulnerability > 0) {
@@ -577,7 +616,52 @@ class Game {
     }
 
     spawnPlayer() {
-        this.entities.player = new Player(this.canvas.width * 0.5, this.canvas.height * 0.5);
+        this.entities.player = new Player(this.canvas.width * 0.5, this.canvas.height * 0.5, this.playerStats);
+    }
+
+    getUpgradeCost(type) {
+        const cfg = CONFIG.upgrades[type];
+        const level = this.upgradeLevels[type];
+        if (level >= cfg.maxLevel) {
+            return null;
+        }
+        return cfg.baseCost + level * cfg.costStep;
+    }
+
+    applyUpgrade(type) {
+        const cost = this.getUpgradeCost(type);
+        if (cost === null || this.credits < cost) {
+            return;
+        }
+
+        this.credits -= cost;
+        this.upgradeLevels[type] += 1;
+
+        if (type === 'hull') {
+            this.playerStats.maxHull += CONFIG.upgrades.hull.value;
+            if (this.entities.player) {
+                this.entities.player.maxHull = this.playerStats.maxHull;
+                this.entities.player.hull = Math.min(this.entities.player.maxHull, this.entities.player.hull + CONFIG.upgrades.hull.value);
+            }
+        }
+
+        if (type === 'shield') {
+            this.playerStats.maxShield += CONFIG.upgrades.shield.value;
+            if (this.entities.player) {
+                this.entities.player.maxShield = this.playerStats.maxShield;
+                this.entities.player.shield = Math.min(this.entities.player.maxShield, this.entities.player.shield + CONFIG.upgrades.shield.value);
+            }
+        }
+
+        if (type === 'speed') {
+            this.playerStats.speed += CONFIG.upgrades.speed.value;
+            if (this.entities.player) {
+                this.entities.player.speed = this.playerStats.speed;
+            }
+        }
+
+        this.audio.play('pickup');
+        this.syncUI();
     }
 
     handlePlayerDefeat() {
@@ -797,7 +881,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '18px Segoe UI';
-        ctx.fillText('Commit 11: Sound Effects Integrated', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('Commit 12: Upgrade Economy Online', canvas.width / 2, canvas.height / 2 + 24);
     }
 
     renderRunningFrame() {
