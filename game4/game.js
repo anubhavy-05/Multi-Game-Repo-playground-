@@ -48,6 +48,13 @@ const CONFIG = {
         hull: { baseCost: 35, costStep: 20, value: 20, maxLevel: 6 },
         shield: { baseCost: 30, costStep: 18, value: 16, maxLevel: 6 },
         speed: { baseCost: 45, costStep: 24, value: 16, maxLevel: 5 }
+    },
+    abilities: {
+        pulseCooldown: 8,
+        pulseRange: 110,
+        pulseDamage: 35,
+        dashCooldown: 5,
+        dashDistance: 140
     }
 };
 
@@ -418,6 +425,7 @@ class Game {
             waveProgress: document.getElementById('waveProgress'),
             powerUpStatus: document.getElementById('powerUpStatus'),
             soundStatus: document.getElementById('soundStatus'),
+            abilityStatus: document.getElementById('abilityStatus'),
             upgradeHullBtn: document.getElementById('upgradeHullBtn'),
             upgradeShieldBtn: document.getElementById('upgradeShieldBtn'),
             upgradeSpeedBtn: document.getElementById('upgradeSpeedBtn'),
@@ -449,6 +457,13 @@ class Game {
             maxHull: CONFIG.player.baseHull,
             maxShield: CONFIG.player.baseShield,
             speed: CONFIG.player.speed
+        };
+        this.abilities = {
+            pulseCooldownRemaining: 0,
+            dashCooldownRemaining: 0,
+            pulseVisualTimer: 0,
+            pulseOriginX: 0,
+            pulseOriginY: 0
         };
 
         this.mouse = { x: 0, y: 0, inCanvas: false };
@@ -561,6 +576,13 @@ class Game {
             maxShield: CONFIG.player.baseShield,
             speed: CONFIG.player.speed
         };
+        this.abilities = {
+            pulseCooldownRemaining: 0,
+            dashCooldownRemaining: 0,
+            pulseVisualTimer: 0,
+            pulseOriginX: 0,
+            pulseOriginY: 0
+        };
 
         this.spawnPlayer();
         this.entities.enemies = [];
@@ -598,6 +620,14 @@ class Game {
         this.ui.upgradeSpeedBtn.disabled = speedCost === null || this.credits < speedCost;
 
         this.ui.upgradeSummary.textContent = `Hull Lv${this.upgradeLevels.hull} | Shield Lv${this.upgradeLevels.shield} | Speed Lv${this.upgradeLevels.speed}`;
+
+        const pulseStatus = this.abilities.pulseCooldownRemaining > 0
+            ? `Pulse[R] ${this.abilities.pulseCooldownRemaining.toFixed(1)}s`
+            : 'Pulse[R] Ready';
+        const dashStatus = this.abilities.dashCooldownRemaining > 0
+            ? `Dash[F] ${this.abilities.dashCooldownRemaining.toFixed(1)}s`
+            : 'Dash[F] Ready';
+        this.ui.abilityStatus.textContent = `${pulseStatus} | ${dashStatus}`;
 
         if (!this.entities.player) {
             this.ui.powerUpStatus.textContent = 'None';
@@ -662,6 +692,62 @@ class Game {
 
         this.audio.play('pickup');
         this.syncUI();
+    }
+
+    triggerPulseBlast() {
+        if (!this.entities.player || this.abilities.pulseCooldownRemaining > 0) {
+            return;
+        }
+
+        this.abilities.pulseCooldownRemaining = CONFIG.abilities.pulseCooldown;
+        this.abilities.pulseVisualTimer = 0.25;
+        this.abilities.pulseOriginX = this.entities.player.x;
+        this.abilities.pulseOriginY = this.entities.player.y;
+
+        for (const enemy of this.entities.enemies) {
+            const dx = enemy.x - this.entities.player.x;
+            const dy = enemy.y - this.entities.player.y;
+            const distance = Math.hypot(dx, dy);
+            if (distance <= CONFIG.abilities.pulseRange) {
+                enemy.health = Math.max(0, enemy.health - CONFIG.abilities.pulseDamage);
+                enemy.damageFlash = 0.2;
+            }
+        }
+
+        this.audio.play('waveClear');
+    }
+
+    triggerDash() {
+        if (!this.entities.player || this.abilities.dashCooldownRemaining > 0) {
+            return;
+        }
+
+        this.abilities.dashCooldownRemaining = CONFIG.abilities.dashCooldown;
+
+        let dirX = 0;
+        let dirY = 0;
+
+        if (this.keys.has('w') || this.keys.has('arrowup')) dirY -= 1;
+        if (this.keys.has('s') || this.keys.has('arrowdown')) dirY += 1;
+        if (this.keys.has('a') || this.keys.has('arrowleft')) dirX -= 1;
+        if (this.keys.has('d') || this.keys.has('arrowright')) dirX += 1;
+
+        if (dirX === 0 && dirY === 0) {
+            dirX = Math.cos(this.entities.player.facing);
+            dirY = Math.sin(this.entities.player.facing);
+        }
+
+        const length = Math.hypot(dirX, dirY) || 1;
+        dirX /= length;
+        dirY /= length;
+
+        this.entities.player.x += dirX * CONFIG.abilities.dashDistance;
+        this.entities.player.y += dirY * CONFIG.abilities.dashDistance;
+
+        this.entities.player.x = Math.max(this.entities.player.radius, Math.min(this.canvas.width - this.entities.player.radius, this.entities.player.x));
+        this.entities.player.y = Math.max(this.entities.player.radius, Math.min(this.canvas.height - this.entities.player.radius, this.entities.player.y));
+
+        this.audio.play('respawn');
     }
 
     handlePlayerDefeat() {
@@ -773,6 +859,20 @@ class Game {
         this.time.uiAccumulator += deltaTime;
         this.time.frameCount += 1;
 
+        this.abilities.pulseCooldownRemaining = Math.max(0, this.abilities.pulseCooldownRemaining - deltaTime);
+        this.abilities.dashCooldownRemaining = Math.max(0, this.abilities.dashCooldownRemaining - deltaTime);
+        this.abilities.pulseVisualTimer = Math.max(0, this.abilities.pulseVisualTimer - deltaTime);
+
+        if (this.state === 'running') {
+            if (this.keys.has('r')) {
+                this.triggerPulseBlast();
+            }
+
+            if (this.keys.has('f')) {
+                this.triggerDash();
+            }
+        }
+
         if (this.state === 'running') {
             this.survivalTime += deltaTime;
             this.score += CONFIG.scoring.survivalPerSecond * deltaTime;
@@ -881,7 +981,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '18px Segoe UI';
-        ctx.fillText('Commit 12: Upgrade Economy Online', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('Commit 13: Special Abilities Unlocked', canvas.width / 2, canvas.height / 2 + 24);
     }
 
     renderRunningFrame() {
@@ -914,6 +1014,16 @@ class Game {
             pickup.render(ctx);
         }
 
+        if (this.abilities.pulseVisualTimer > 0) {
+            const alpha = this.abilities.pulseVisualTimer / 0.25;
+            const radius = CONFIG.abilities.pulseRange * (1 - alpha * 0.35);
+            ctx.beginPath();
+            ctx.arc(this.abilities.pulseOriginX, this.abilities.pulseOriginY, radius, 0, Math.PI * 2);
+            ctx.strokeStyle = `rgba(78, 198, 255, ${alpha * 0.8})`;
+            ctx.lineWidth = 3;
+            ctx.stroke();
+        }
+
         if (this.entities.player) {
             this.entities.player.render(ctx);
         }
@@ -928,7 +1038,7 @@ class Game {
             if (this.waveState === 'intermission') {
                 ctx.fillText(`Wave ${this.wave} cleared | Next in ${this.waveIntermissionTimer.toFixed(1)}s`, 20, 34);
             } else {
-                ctx.fillText(`Wave ${this.wave} (${waveInfo}) | Lives ${this.lives} | Score ${Math.floor(this.score)} | Pickups ${this.entities.pickups.length}`, 20, 34);
+                ctx.fillText(`Wave ${this.wave} (${waveInfo}) | Lives ${this.lives} | Score ${Math.floor(this.score)} | R:Pulse F:Dash`, 20, 34);
             }
         }
     }
