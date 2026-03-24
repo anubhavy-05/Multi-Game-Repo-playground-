@@ -48,6 +48,16 @@ const CONFIG = {
         enemySpeedScale: 0.08,
         spawnRateScale: 0.3
     },
+    boss: {
+        waveInterval: 5,
+        baseHealth: 520,
+        healthPerWave: 110,
+        speed: 72,
+        radius: 30,
+        touchDamage: 24,
+        rewardScore: 1100,
+        rewardCredits: 26
+    },
     powerUp: {
         spawnInterval: 9,
         radius: 11,
