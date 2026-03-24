@@ -18,7 +18,22 @@ const CONFIG = {
         speed: 85,
         spawnPerSecondBase: 0.8,
         touchDamage: 14,
-        knockback: 18
+        knockback: 18,
+        archetypes: {
+            raider: { hpMultiplier: 1, speedMultiplier: 1, radiusOffset: 0 },
+            orbiter: { hpMultiplier: 0.9, speedMultiplier: 1.12, radiusOffset: -1 },
+            charger: { hpMultiplier: 1.05, speedMultiplier: 0.95, radiusOffset: 1 },
+            tank: { hpMultiplier: 2.2, speedMultiplier: 0.62, radiusOffset: 4 }
+        },
+        ai: {
+            orbiterPreferredRange: 110,
+            orbiterStrafeFactor: 0.92,
+            chargeTriggerRange: 260,
+            chargeWindup: 0.55,
+            chargeDuration: 0.45,
+            chargeCooldown: 2.6,
+            chargeSpeedMultiplier: 2.9
+        }
     },
     scoring: {
         survivalPerSecond: 4,
@@ -192,16 +207,28 @@ class Player {
 }
 
 class Enemy {
-    constructor(x, y, waveLevel) {
+    constructor(x, y, waveLevel, type = 'raider') {
+        const archetype = CONFIG.enemy.archetypes[type] || CONFIG.enemy.archetypes.raider;
         this.x = x;
         this.y = y;
-        this.radius = CONFIG.enemy.radius;
-        this.maxHealth = Math.round(CONFIG.enemy.baseHealth * (1 + (waveLevel - 1) * CONFIG.wave.enemyHealthScale));
+        this.type = type;
+        this.radius = Math.max(7, CONFIG.enemy.radius + archetype.radiusOffset);
+        this.maxHealth = Math.round(
+            CONFIG.enemy.baseHealth
+            * (1 + (waveLevel - 1) * CONFIG.wave.enemyHealthScale)
+            * archetype.hpMultiplier
+        );
         this.health = this.maxHealth;
-        this.speed = CONFIG.enemy.speed * (1 + (waveLevel - 1) * CONFIG.wave.enemySpeedScale);
+        this.speed = CONFIG.enemy.speed * (1 + (waveLevel - 1) * CONFIG.wave.enemySpeedScale) * archetype.speedMultiplier;
         this.vx = 0;
         this.vy = 0;
         this.damageFlash = 0;
+        this.strafeDirection = Math.random() > 0.5 ? 1 : -1;
+        this.state = 'approach';
+        this.stateTimer = Math.random() * CONFIG.enemy.ai.chargeCooldown;
+        this.chargeDirX = 0;
+        this.chargeDirY = 0;
+        this.wobble = Math.random() * Math.PI * 2;
     }
 
     update(deltaTime, player) {
@@ -212,9 +239,60 @@ class Enemy {
         const dx = player.x - this.x;
         const dy = player.y - this.y;
         const distance = Math.hypot(dx, dy) || 1;
+        const nx = dx / distance;
+        const ny = dy / distance;
 
-        this.vx = (dx / distance) * this.speed;
-        this.vy = (dy / distance) * this.speed;
+        if (this.type === 'orbiter') {
+            const preferred = CONFIG.enemy.ai.orbiterPreferredRange;
+            const radialError = (distance - preferred) / preferred;
+            const radialFactor = Math.max(-1, Math.min(1, radialError));
+            const tx = -ny * this.strafeDirection;
+            const ty = nx * this.strafeDirection;
+
+            this.vx = (nx * radialFactor + tx * CONFIG.enemy.ai.orbiterStrafeFactor) * this.speed;
+            this.vy = (ny * radialFactor + ty * CONFIG.enemy.ai.orbiterStrafeFactor) * this.speed;
+        } else if (this.type === 'charger') {
+            this.stateTimer = Math.max(0, this.stateTimer - deltaTime);
+
+            if (this.state === 'approach') {
+                this.vx = nx * this.speed * 0.85;
+                this.vy = ny * this.speed * 0.85;
+
+                if (distance < CONFIG.enemy.ai.chargeTriggerRange && this.stateTimer <= 0) {
+                    this.state = 'windup';
+                    this.stateTimer = CONFIG.enemy.ai.chargeWindup;
+                }
+            } else if (this.state === 'windup') {
+                this.vx = nx * this.speed * 0.15;
+                this.vy = ny * this.speed * 0.15;
+
+                if (this.stateTimer <= 0) {
+                    this.state = 'charge';
+                    this.stateTimer = CONFIG.enemy.ai.chargeDuration;
+                    this.chargeDirX = nx;
+                    this.chargeDirY = ny;
+                }
+            } else {
+                this.vx = this.chargeDirX * this.speed * CONFIG.enemy.ai.chargeSpeedMultiplier;
+                this.vy = this.chargeDirY * this.speed * CONFIG.enemy.ai.chargeSpeedMultiplier;
+
+                if (this.stateTimer <= 0) {
+                    this.state = 'approach';
+                    this.stateTimer = CONFIG.enemy.ai.chargeCooldown;
+                }
+            }
+        } else if (this.type === 'tank') {
+            this.wobble += deltaTime * 3;
+            const sway = Math.sin(this.wobble) * 0.25;
+            const tx = -ny;
+            const ty = nx;
+
+            this.vx = (nx + tx * sway) * this.speed;
+            this.vy = (ny + ty * sway) * this.speed;
+        } else {
+            this.vx = nx * this.speed;
+            this.vy = ny * this.speed;
+        }
 
         this.x += this.vx * deltaTime;
         this.y += this.vy * deltaTime;
@@ -227,14 +305,30 @@ class Enemy {
         ctx.save();
         ctx.translate(this.x, this.y);
 
+        const archetypeColors = {
+            raider: ['#ff9a6a', '#da5200', '#7f3104'],
+            orbiter: ['#ffd27d', '#e08f1a', '#755109'],
+            charger: ['#ff8d9e', '#cb2f45', '#641523'],
+            tank: ['#b4b7c2', '#71768b', '#373b4b']
+        };
+        const colors = archetypeColors[this.type] || archetypeColors.raider;
+
         const bodyGradient = ctx.createRadialGradient(-3, -3, 1, 0, 0, this.radius);
-        bodyGradient.addColorStop(0, '#ff9a6a');
-        bodyGradient.addColorStop(0.5, '#da5200');
-        bodyGradient.addColorStop(1, '#7f3104');
+        bodyGradient.addColorStop(0, colors[0]);
+        bodyGradient.addColorStop(0.5, colors[1]);
+        bodyGradient.addColorStop(1, colors[2]);
         ctx.fillStyle = bodyGradient;
         ctx.beginPath();
         ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
         ctx.fill();
+
+        if (this.type === 'charger' && this.state === 'windup') {
+            ctx.strokeStyle = 'rgba(255, 130, 145, 0.95)';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius + 5, 0, Math.PI * 2);
+            ctx.stroke();
+        }
 
         if (this.damageFlash > 0) {
             ctx.fillStyle = 'rgba(255, 255, 255, 0.35)';
@@ -783,12 +877,34 @@ class Game {
         this.audio.play('waveClear');
     }
 
+    getSpawnTypeForWave() {
+        const entries = [
+            { type: 'raider', weight: 60 },
+            { type: 'orbiter', weight: this.wave >= 2 ? 25 : 0 },
+            { type: 'charger', weight: this.wave >= 4 ? 18 : 0 },
+            { type: 'tank', weight: this.wave >= 5 ? 14 : 0 }
+        ];
+
+        const totalWeight = entries.reduce((sum, entry) => sum + entry.weight, 0);
+        let roll = Math.random() * totalWeight;
+
+        for (const entry of entries) {
+            roll -= entry.weight;
+            if (roll <= 0) {
+                return entry.type;
+            }
+        }
+
+        return 'raider';
+    }
+
     spawnEnemy() {
         const angle = Math.random() * Math.PI * 2;
         const spawnDistance = Math.max(this.canvas.width, this.canvas.height) * 0.45;
         const x = this.canvas.width * 0.5 + Math.cos(angle) * spawnDistance;
         const y = this.canvas.height * 0.5 + Math.sin(angle) * spawnDistance;
-        this.entities.enemies.push(new Enemy(x, y, this.wave));
+        const type = this.getSpawnTypeForWave();
+        this.entities.enemies.push(new Enemy(x, y, this.wave, type));
         this.waveEnemiesSpawned += 1;
     }
 
@@ -981,7 +1097,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '18px Segoe UI';
-        ctx.fillText('Commit 13: Special Abilities Unlocked', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('Commit 14: Advanced Enemy AI Online', canvas.width / 2, canvas.height / 2 + 24);
     }
 
     renderRunningFrame() {
