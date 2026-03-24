@@ -219,20 +219,28 @@ class Player {
 class Enemy {
     constructor(x, y, waveLevel, type = 'raider') {
         const archetype = CONFIG.enemy.archetypes[type] || CONFIG.enemy.archetypes.raider;
+        this.type = type;
+        this.isBoss = type === 'boss';
         this.x = x;
         this.y = y;
-        this.type = type;
-        this.radius = Math.max(7, CONFIG.enemy.radius + archetype.radiusOffset);
-        this.maxHealth = Math.round(
-            CONFIG.enemy.baseHealth
-            * (1 + (waveLevel - 1) * CONFIG.wave.enemyHealthScale)
-            * archetype.hpMultiplier
-        );
+        this.radius = this.isBoss ? CONFIG.boss.radius : Math.max(7, CONFIG.enemy.radius + archetype.radiusOffset);
+        this.maxHealth = this.isBoss
+            ? Math.round(CONFIG.boss.baseHealth + (waveLevel - 1) * CONFIG.boss.healthPerWave)
+            : Math.round(
+                CONFIG.enemy.baseHealth
+                * (1 + (waveLevel - 1) * CONFIG.wave.enemyHealthScale)
+                * archetype.hpMultiplier
+            );
         this.health = this.maxHealth;
-        this.speed = CONFIG.enemy.speed * (1 + (waveLevel - 1) * CONFIG.wave.enemySpeedScale) * archetype.speedMultiplier;
+        this.speed = this.isBoss
+            ? CONFIG.boss.speed * (1 + (waveLevel - 1) * 0.03)
+            : CONFIG.enemy.speed * (1 + (waveLevel - 1) * CONFIG.wave.enemySpeedScale) * archetype.speedMultiplier;
         this.vx = 0;
         this.vy = 0;
         this.damageFlash = 0;
+        this.contactDamage = this.isBoss ? CONFIG.boss.touchDamage : CONFIG.enemy.touchDamage;
+        this.rewardScore = this.isBoss ? CONFIG.boss.rewardScore : CONFIG.scoring.enemyDefeat;
+        this.rewardCredits = this.isBoss ? CONFIG.boss.rewardCredits : 5;
         this.strafeDirection = Math.random() > 0.5 ? 1 : -1;
         this.state = 'approach';
         this.stateTimer = Math.random() * CONFIG.enemy.ai.chargeCooldown;
