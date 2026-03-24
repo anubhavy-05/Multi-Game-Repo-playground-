@@ -260,7 +260,33 @@ class Enemy {
         const nx = dx / distance;
         const ny = dy / distance;
 
-        if (this.type === 'orbiter') {
+        if (this.type === 'boss') {
+            this.stateTimer = Math.max(0, this.stateTimer - deltaTime);
+            const healthRatio = this.health / this.maxHealth;
+            const phase = healthRatio > 0.65 ? 1 : healthRatio > 0.3 ? 2 : 3;
+
+            if (this.state === 'approach') {
+                const pressure = 0.75 + phase * 0.14;
+                this.vx = nx * this.speed * pressure;
+                this.vy = ny * this.speed * pressure;
+
+                if (distance < 280 && this.stateTimer <= 0) {
+                    this.state = 'charge';
+                    this.stateTimer = Math.max(0.3, 0.55 - phase * 0.08);
+                    this.chargeDirX = nx;
+                    this.chargeDirY = ny;
+                }
+            } else {
+                const burst = 2.1 + phase * 0.45;
+                this.vx = this.chargeDirX * this.speed * burst;
+                this.vy = this.chargeDirY * this.speed * burst;
+
+                if (this.stateTimer <= 0) {
+                    this.state = 'approach';
+                    this.stateTimer = Math.max(1.2, 2.4 - phase * 0.35);
+                }
+            }
+        } else if (this.type === 'orbiter') {
             const preferred = CONFIG.enemy.ai.orbiterPreferredRange;
             const radialError = (distance - preferred) / preferred;
             const radialFactor = Math.max(-1, Math.min(1, radialError));
@@ -327,7 +353,8 @@ class Enemy {
             raider: ['#ff9a6a', '#da5200', '#7f3104'],
             orbiter: ['#ffd27d', '#e08f1a', '#755109'],
             charger: ['#ff8d9e', '#cb2f45', '#641523'],
-            tank: ['#b4b7c2', '#71768b', '#373b4b']
+            tank: ['#b4b7c2', '#71768b', '#373b4b'],
+            boss: ['#ffcf6a', '#f16a18', '#722f06']
         };
         const colors = archetypeColors[this.type] || archetypeColors.raider;
 
@@ -345,6 +372,15 @@ class Enemy {
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.arc(0, 0, this.radius + 5, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        if (this.type === 'boss') {
+            const ringPulse = 0.45 + Math.sin(this.wobble * 1.4) * 0.2;
+            ctx.strokeStyle = `rgba(255, 210, 110, ${ringPulse})`;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius + 8, 0, Math.PI * 2);
             ctx.stroke();
         }
 
@@ -560,6 +596,7 @@ class Game {
         this.maxLives = CONFIG.player.startingLives;
         this.lives = this.maxLives;
         this.waveState = 'idle';
+        this.bossWave = false;
         this.waveIntermissionTimer = 0;
         this.waveTargetCount = 0;
         this.waveEnemiesSpawned = 0;
@@ -678,6 +715,7 @@ class Game {
         this.time.spawnAccumulator = 0;
         this.time.powerUpAccumulator = 0;
         this.waveState = 'idle';
+        this.bossWave = false;
         this.waveIntermissionTimer = 0;
         this.waveTargetCount = 0;
         this.waveEnemiesSpawned = 0;
@@ -879,11 +917,14 @@ class Game {
 
     beginWave(waveNumber) {
         this.wave = waveNumber;
+        this.bossWave = waveNumber % CONFIG.boss.waveInterval === 0;
         this.waveState = 'active';
         this.waveIntermissionTimer = 0;
         this.waveEnemiesSpawned = 0;
         this.waveEnemiesDefeated = 0;
-        this.waveTargetCount = CONFIG.wave.baseEnemyCount + (waveNumber - 1) * CONFIG.wave.enemyCountPerWave;
+        this.waveTargetCount = this.bossWave
+            ? 1
+            : CONFIG.wave.baseEnemyCount + (waveNumber - 1) * CONFIG.wave.enemyCountPerWave;
         this.time.spawnAccumulator = 0;
     }
 
@@ -896,6 +937,10 @@ class Game {
     }
 
     getSpawnTypeForWave() {
+        if (this.bossWave) {
+            return 'boss';
+        }
+
         const entries = [
             { type: 'raider', weight: 60 },
             { type: 'orbiter', weight: this.wave >= 2 ? 25 : 0 },
@@ -973,7 +1018,7 @@ class Game {
             const overlap = this.entities.player.radius + enemy.radius - distance;
 
             if (overlap > 0) {
-                const tookDamage = this.entities.player.applyDamage(CONFIG.enemy.touchDamage);
+                const tookDamage = this.entities.player.applyDamage(enemy.contactDamage);
                 enemy.health = Math.max(0, enemy.health - CONFIG.scoring.contactCounterDamage);
                 if (tookDamage) {
                     this.audio.play('hit');
@@ -1061,8 +1106,8 @@ class Game {
                 this.entities.enemies.splice(i, 1);
                 this.kills += 1;
                 this.waveEnemiesDefeated += 1;
-                this.credits += 5;
-                this.score += CONFIG.scoring.enemyDefeat;
+                this.credits += enemy.rewardCredits;
+                this.score += enemy.rewardScore;
                 this.audio.play('enemyDown');
             }
         }
@@ -1115,7 +1160,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '18px Segoe UI';
-        ctx.fillText('Commit 14: Advanced Enemy AI Online', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('Commit 15: Boss Waves Integrated', canvas.width / 2, canvas.height / 2 + 24);
     }
 
     renderRunningFrame() {
@@ -1162,6 +1207,28 @@ class Game {
             this.entities.player.render(ctx);
         }
 
+        const boss = this.entities.enemies.find((enemy) => enemy.isBoss);
+        if (boss) {
+            const barWidth = 420;
+            const barHeight = 14;
+            const x = (canvas.width - barWidth) * 0.5;
+            const y = 18;
+            const hpPct = Math.max(0, boss.health / boss.maxHealth);
+
+            ctx.fillStyle = 'rgba(12, 22, 34, 0.82)';
+            ctx.fillRect(x, y, barWidth, barHeight);
+            ctx.fillStyle = '#f5752b';
+            ctx.fillRect(x, y, barWidth * hpPct, barHeight);
+            ctx.strokeStyle = 'rgba(250, 206, 120, 0.95)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, barWidth, barHeight);
+            ctx.fillStyle = 'rgba(250, 228, 182, 0.95)';
+            ctx.font = 'bold 12px Segoe UI';
+            ctx.textAlign = 'center';
+            ctx.fillText('BOSS CORE', canvas.width * 0.5, y - 4);
+            ctx.textAlign = 'left';
+        }
+
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '16px Segoe UI';
         ctx.textAlign = 'left';
@@ -1172,7 +1239,8 @@ class Game {
             if (this.waveState === 'intermission') {
                 ctx.fillText(`Wave ${this.wave} cleared | Next in ${this.waveIntermissionTimer.toFixed(1)}s`, 20, 34);
             } else {
-                ctx.fillText(`Wave ${this.wave} (${waveInfo}) | Lives ${this.lives} | Score ${Math.floor(this.score)} | R:Pulse F:Dash`, 20, 34);
+                const waveLabel = this.bossWave ? `Boss Wave ${this.wave}` : `Wave ${this.wave}`;
+                ctx.fillText(`${waveLabel} (${waveInfo}) | Lives ${this.lives} | Score ${Math.floor(this.score)} | R:Pulse F:Dash`, 20, 34);
             }
         }
     }
