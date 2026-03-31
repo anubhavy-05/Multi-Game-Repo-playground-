@@ -93,6 +93,10 @@ const CONFIG = {
     },
     particles: {
         maxCount: 600
+    },
+    persistence: {
+        storageKey: 'chrono-bastion-save-v1',
+        autosaveInterval: 12
     }
 };
 
@@ -600,6 +604,7 @@ class Game {
             inventoryStatus: document.getElementById('inventoryStatus'),
             soundStatus: document.getElementById('soundStatus'),
             abilityStatus: document.getElementById('abilityStatus'),
+            saveStatus: document.getElementById('saveStatus'),
             upgradeHullBtn: document.getElementById('upgradeHullBtn'),
             upgradeShieldBtn: document.getElementById('upgradeShieldBtn'),
             upgradeSpeedBtn: document.getElementById('upgradeSpeedBtn'),
@@ -607,6 +612,9 @@ class Game {
             startBtn: document.getElementById('startBtn'),
             resetBtn: document.getElementById('resetBtn'),
             muteBtn: document.getElementById('muteBtn'),
+            saveBtn: document.getElementById('saveBtn'),
+            loadBtn: document.getElementById('loadBtn'),
+            clearSaveBtn: document.getElementById('clearSaveBtn'),
             bootOverlay: document.getElementById('bootOverlay')
         };
 
@@ -645,6 +653,12 @@ class Game {
             shieldCell: 0,
             overdrive: 0
         };
+        this.records = {
+            highestWave: 0,
+            bestScore: 0,
+            totalKills: 0
+        };
+        this.saveStatusMessage = 'No save loaded';
         this.keyLatch = new Set();
 
         this.mouse = { x: 0, y: 0, inCanvas: false };
@@ -664,13 +678,15 @@ class Game {
             elapsed: 0,
             frameCount: 0,
             spawnAccumulator: 0,
-            powerUpAccumulator: 0
+            powerUpAccumulator: 0,
+            autosaveAccumulator: 0
         };
 
         this.spawnPlayer();
 
         this.resizeCanvas();
         this.bindEvents();
+        this.loadProgress();
         this.syncUI();
         this.renderBootScreen();
 
@@ -691,6 +707,15 @@ class Game {
         this.ui.upgradeHullBtn.addEventListener('click', () => this.applyUpgrade('hull'));
         this.ui.upgradeShieldBtn.addEventListener('click', () => this.applyUpgrade('shield'));
         this.ui.upgradeSpeedBtn.addEventListener('click', () => this.applyUpgrade('speed'));
+        this.ui.saveBtn.addEventListener('click', () => this.saveProgress('Manual save complete'));
+        this.ui.loadBtn.addEventListener('click', () => {
+            this.loadProgress();
+            this.syncUI();
+        });
+        this.ui.clearSaveBtn.addEventListener('click', () => {
+            this.clearProgress();
+            this.syncUI();
+        });
 
         window.addEventListener('keydown', (event) => {
             this.keys.add(event.key.toLowerCase());
@@ -712,6 +737,81 @@ class Game {
         });
 
         window.addEventListener('resize', () => this.resizeCanvas());
+    }
+
+    makeSavePayload() {
+        return {
+            savedAt: Date.now(),
+            credits: this.credits,
+            upgradeLevels: { ...this.upgradeLevels },
+            inventory: { ...this.inventory },
+            records: { ...this.records }
+        };
+    }
+
+    rebuildPlayerStatsFromUpgrades() {
+        this.playerStats = {
+            maxHull: CONFIG.player.baseHull + this.upgradeLevels.hull * CONFIG.upgrades.hull.value,
+            maxShield: CONFIG.player.baseShield + this.upgradeLevels.shield * CONFIG.upgrades.shield.value,
+            speed: CONFIG.player.speed + this.upgradeLevels.speed * CONFIG.upgrades.speed.value
+        };
+
+        if (this.entities.player) {
+            this.entities.player.maxHull = this.playerStats.maxHull;
+            this.entities.player.maxShield = this.playerStats.maxShield;
+            this.entities.player.baseSpeed = this.playerStats.speed;
+            this.entities.player.speed = this.playerStats.speed;
+            this.entities.player.hull = Math.min(this.entities.player.maxHull, this.entities.player.hull);
+            this.entities.player.shield = Math.min(this.entities.player.maxShield, this.entities.player.shield);
+        }
+    }
+
+    saveProgress(statusMessage = 'Progress saved') {
+        try {
+            const payload = this.makeSavePayload();
+            localStorage.setItem(CONFIG.persistence.storageKey, JSON.stringify(payload));
+            const timeText = new Date(payload.savedAt).toLocaleTimeString();
+            this.saveStatusMessage = `${statusMessage} (${timeText})`;
+        } catch (error) {
+            this.saveStatusMessage = 'Save failed';
+        }
+    }
+
+    loadProgress() {
+        try {
+            const raw = localStorage.getItem(CONFIG.persistence.storageKey);
+            if (!raw) {
+                this.saveStatusMessage = 'No save loaded';
+                return;
+            }
+
+            const payload = JSON.parse(raw);
+            this.credits = Math.max(0, Number(payload.credits) || 0);
+            this.upgradeLevels.hull = Math.max(0, Math.min(CONFIG.upgrades.hull.maxLevel, Number(payload?.upgradeLevels?.hull) || 0));
+            this.upgradeLevels.shield = Math.max(0, Math.min(CONFIG.upgrades.shield.maxLevel, Number(payload?.upgradeLevels?.shield) || 0));
+            this.upgradeLevels.speed = Math.max(0, Math.min(CONFIG.upgrades.speed.maxLevel, Number(payload?.upgradeLevels?.speed) || 0));
+            this.inventory.medkit = Math.max(0, Math.min(CONFIG.inventory.maxPerItem, Number(payload?.inventory?.medkit) || 0));
+            this.inventory.shieldCell = Math.max(0, Math.min(CONFIG.inventory.maxPerItem, Number(payload?.inventory?.shieldCell) || 0));
+            this.inventory.overdrive = Math.max(0, Math.min(CONFIG.inventory.maxPerItem, Number(payload?.inventory?.overdrive) || 0));
+            this.records.highestWave = Math.max(0, Number(payload?.records?.highestWave) || 0);
+            this.records.bestScore = Math.max(0, Number(payload?.records?.bestScore) || 0);
+            this.records.totalKills = Math.max(0, Number(payload?.records?.totalKills) || 0);
+            this.rebuildPlayerStatsFromUpgrades();
+
+            const savedAt = Number(payload.savedAt) || Date.now();
+            this.saveStatusMessage = `Save loaded (${new Date(savedAt).toLocaleTimeString()})`;
+        } catch (error) {
+            this.saveStatusMessage = 'Load failed';
+        }
+    }
+
+    clearProgress() {
+        try {
+            localStorage.removeItem(CONFIG.persistence.storageKey);
+            this.saveStatusMessage = 'Save cleared';
+        } catch (error) {
+            this.saveStatusMessage = 'Clear failed';
+        }
     }
 
     resizeCanvas() {
@@ -809,6 +909,7 @@ class Game {
 
         this.ui.upgradeSummary.textContent = `Hull Lv${this.upgradeLevels.hull} | Shield Lv${this.upgradeLevels.shield} | Speed Lv${this.upgradeLevels.speed}`;
         this.ui.inventoryStatus.textContent = `[1] Medkit ${this.inventory.medkit} | [2] Shield Cell ${this.inventory.shieldCell} | [3] Overdrive ${this.inventory.overdrive}`;
+        this.ui.saveStatus.textContent = this.saveStatusMessage;
 
         const pulseStatus = this.abilities.pulseCooldownRemaining > 0
             ? `Pulse[R] ${this.abilities.pulseCooldownRemaining.toFixed(1)}s`
@@ -883,6 +984,7 @@ class Game {
         }
 
         this.audio.play('pickup');
+        this.saveProgress('Progress updated');
         this.syncUI();
     }
 
@@ -924,6 +1026,7 @@ class Game {
             this.entities.player.hull = Math.min(this.entities.player.maxHull, this.entities.player.hull + CONFIG.inventory.medkitHullRestore);
             this.spawnParticles(this.entities.player.x, this.entities.player.y, '#67d679', 18, 40, 180, 0.2, 0.45, 2, 4);
             this.audio.play('pickup');
+            this.saveProgress('Progress updated');
             this.syncUI();
             return;
         }
@@ -933,6 +1036,7 @@ class Game {
             this.entities.player.shield = Math.min(this.entities.player.maxShield, this.entities.player.shield + CONFIG.inventory.shieldCellRestore);
             this.spawnParticles(this.entities.player.x, this.entities.player.y, '#4ec6ff', 18, 40, 180, 0.2, 0.45, 2, 4);
             this.audio.play('pickup');
+            this.saveProgress('Progress updated');
             this.syncUI();
             return;
         }
@@ -942,6 +1046,7 @@ class Game {
             this.entities.player.effects.overdrive = CONFIG.inventory.overdriveDuration;
             this.spawnParticles(this.entities.player.x, this.entities.player.y, '#ffb86e', 28, 55, 220, 0.3, 0.7, 2, 5);
             this.audio.play('waveClear');
+            this.saveProgress('Progress updated');
             this.syncUI();
         }
     }
@@ -1064,11 +1169,13 @@ class Game {
 
         this.lives = 0;
         this.audio.play('gameOver');
+        this.saveProgress('Run auto-saved');
         this.setState('game-over');
     }
 
     beginWave(waveNumber) {
         this.wave = waveNumber;
+        this.records.highestWave = Math.max(this.records.highestWave, waveNumber);
         this.bossWave = waveNumber % CONFIG.boss.waveInterval === 0;
         this.waveState = 'active';
         this.waveIntermissionTimer = 0;
@@ -1192,6 +1299,7 @@ class Game {
         this.time.elapsed += deltaTime;
         this.time.uiAccumulator += deltaTime;
         this.time.frameCount += 1;
+        this.records.bestScore = Math.max(this.records.bestScore, Math.floor(this.score));
 
         const cooldownRate = this.entities.player && this.entities.player.effects.overdrive > 0 ? 1.35 : 1;
         this.abilities.pulseCooldownRemaining = Math.max(0, this.abilities.pulseCooldownRemaining - deltaTime * cooldownRate);
@@ -1222,6 +1330,7 @@ class Game {
         if (this.state === 'running') {
             this.survivalTime += deltaTime;
             this.score += CONFIG.scoring.survivalPerSecond * deltaTime;
+            this.time.autosaveAccumulator += deltaTime;
 
             if (this.waveState === 'active') {
                 this.time.spawnAccumulator += deltaTime;
@@ -1248,6 +1357,11 @@ class Game {
             if (this.time.powerUpAccumulator >= CONFIG.powerUp.spawnInterval) {
                 this.spawnPowerUp();
                 this.time.powerUpAccumulator = 0;
+            }
+
+            if (this.time.autosaveAccumulator >= CONFIG.persistence.autosaveInterval) {
+                this.saveProgress('Autosaved');
+                this.time.autosaveAccumulator = 0;
             }
         }
 
@@ -1283,6 +1397,7 @@ class Game {
                 this.spawnParticles(enemy.x, enemy.y, deathColor, burstCount, 45, enemy.isBoss ? 260 : 180, 0.2, enemy.isBoss ? 0.8 : 0.5, 2, enemy.isBoss ? 6 : 4);
                 this.entities.enemies.splice(i, 1);
                 this.kills += 1;
+                this.records.totalKills += 1;
                 this.waveEnemiesDefeated += 1;
                 this.credits += enemy.rewardCredits;
                 this.score += enemy.rewardScore;
