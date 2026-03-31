@@ -10,7 +10,7 @@
     <div class="game-shell">
         <header class="game-header">
             <h1>Chrono Bastion</h1>
-            <p class="subtitle">Commit 19: Achievements and Milestones</p>
+            <p class="subtitle">Commit 20: Tutorial Overlay and Final Polish</p>
         </header>
 
         <main class="game-main">
@@ -19,6 +19,18 @@
                 <div class="overlay" id="bootOverlay">
                     <h2>Tactical Defense RPG Prototype</h2>
                     <p>Canvas and interface are ready. Start building the systems commit-by-commit.</p>
+                </div>
+                <div class="overlay overlay-help hidden" id="helpOverlay" aria-live="polite">
+                    <h2>Mission Guide</h2>
+                    <p>Move, survive waves, and optimize upgrades and consumables.</p>
+                    <ul>
+                        <li>Movement: WASD or Arrow keys</li>
+                        <li>Abilities: R = Pulse Blast, F = Dash</li>
+                        <li>Inventory: 1 = Medkit, 2 = Shield Cell, 3 = Overdrive</li>
+                        <li>Utility: P = Pause/Resume, H = Toggle Help</li>
+                        <li>Objective: Clear waves, defeat bosses, unlock achievements</li>
+                    </ul>
+                    <p>Press H or Esc to close this guide.</p>
                 </div>
             </section>
 
@@ -47,6 +59,7 @@
                 <div class="button-row">
                     <button id="startBtn" type="button">Start</button>
                     <button id="resetBtn" type="button">Reset</button>
+                    <button id="helpBtn" type="button">Help</button>
                     <button id="muteBtn" type="button">Mute</button>
                     <button id="saveBtn" type="button">Save</button>
                     <button id="loadBtn" type="button">Load</button>
@@ -66,10 +79,10 @@
                 <section class="notes" aria-label="Commit notes">
                     <h3>Commit Notes</h3>
                     <ul>
-                        <li>Added achievement system with 6 progression milestones</li>
-                        <li>Tracks first kill, wave depth, score, and upgrade mastery</li>
-                        <li>Achievement unlocks now trigger status updates and FX</li>
-                        <li>Achievements are now persisted in save/load data</li>
+                        <li>Added in-game tutorial/help overlay with controls and goals</li>
+                        <li>Added pause/resume support with keyboard and state handling</li>
+                        <li>Help can be toggled via button, H key, or Esc close</li>
+                        <li>Final milestone improves onboarding and moment-to-moment UX</li>
                     </ul>
                 </section>
             </aside>
