@@ -10,7 +10,7 @@
     <div class="game-shell">
         <header class="game-header">
             <h1>Chrono Bastion</h1>
-            <p class="subtitle">Commit 15: Boss Encounter System</p>
+            <p class="subtitle">Commit 16: Inventory and Consumable Loadout</p>
         </header>
 
         <main class="game-main">
@@ -37,6 +37,7 @@
                     <p><span class="label">Kills:</span> <span id="killCounter">0</span></p>
                     <p><span class="label">Wave Progress:</span> <span id="waveProgress">0 / 0</span></p>
                     <p><span class="label">Power-Up:</span> <span id="powerUpStatus">None</span></p>
+                    <p><span class="label">Inventory:</span> <span id="inventoryStatus">[1] Medkit 0 | [2] Shield Cell 0 | [3] Overdrive 0</span></p>
                     <p><span class="label">Sound:</span> <span id="soundStatus">On</span></p>
                     <p><span class="label">Abilities:</span> <span id="abilityStatus">Pulse[R] Ready | Dash[F] Ready</span></p>
                 </div>
@@ -60,10 +61,10 @@
                 <section class="notes" aria-label="Commit notes">
                     <h3>Commit Notes</h3>
                     <ul>
-                        <li>Added periodic Boss Waves (every 5th wave)</li>
-                        <li>Introduced boss enemy with phase-based aggressive behavior</li>
-                        <li>Added boss health bar and wave labeling during combat</li>
-                        <li>Boss has unique stats, damage, and reward values</li>
+                        <li>Added inventory system with 3 consumable slots</li>
+                        <li>Enemies now drop recover items and temporary combat boosts</li>
+                        <li>Use hotkeys 1/2/3 to consume Medkit, Shield Cell, or Overdrive</li>
+                        <li>Inventory status is now visible in the main HUD</li>
                     </ul>
                 </section>
             </aside>
