@@ -10,7 +10,7 @@
     <div class="game-shell">
         <header class="game-header">
             <h1>Chrono Bastion</h1>
-            <p class="subtitle">Commit 17: Combat Particle FX and Feedback</p>
+            <p class="subtitle">Commit 18: Save and Load Progression</p>
         </header>
 
         <main class="game-main">
@@ -40,12 +40,16 @@
                     <p><span class="label">Inventory:</span> <span id="inventoryStatus">[1] Medkit 0 | [2] Shield Cell 0 | [3] Overdrive 0</span></p>
                     <p><span class="label">Sound:</span> <span id="soundStatus">On</span></p>
                     <p><span class="label">Abilities:</span> <span id="abilityStatus">Pulse[R] Ready | Dash[F] Ready</span></p>
+                    <p><span class="label">Save:</span> <span id="saveStatus">No save loaded</span></p>
                 </div>
 
                 <div class="button-row">
                     <button id="startBtn" type="button">Start</button>
                     <button id="resetBtn" type="button">Reset</button>
                     <button id="muteBtn" type="button">Mute</button>
+                    <button id="saveBtn" type="button">Save</button>
+                    <button id="loadBtn" type="button">Load</button>
+                    <button id="clearSaveBtn" type="button">Clear Save</button>
                 </div>
 
                 <section class="upgrade-panel" aria-label="Upgrade controls">
@@ -61,10 +65,10 @@
                 <section class="notes" aria-label="Commit notes">
                     <h3>Commit Notes</h3>
                     <ul>
-                        <li>Added generic particle FX engine for combat events</li>
-                        <li>Ability usage now emits pulse and dash impact particles</li>
-                        <li>Damage, pickups, and enemy deaths now have visual bursts</li>
-                        <li>Boss defeats trigger larger, higher-intensity FX explosions</li>
+                        <li>Added local save/load progression using browser storage</li>
+                        <li>Save captures upgrades, inventory, credits, and lifetime records</li>
+                        <li>Load restores progression and rebuilds player combat stats</li>
+                        <li>Added manual Save/Load/Clear controls with status feedback</li>
                     </ul>
                 </section>
             </aside>
