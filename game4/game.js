@@ -846,6 +846,7 @@ class Game {
         this.lives = this.maxLives;
         this.time.spawnAccumulator = 0;
         this.time.powerUpAccumulator = 0;
+        this.time.autosaveAccumulator = 0;
         this.waveState = 'idle';
         this.bossWave = false;
         this.waveIntermissionTimer = 0;
@@ -1455,7 +1456,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '18px Segoe UI';
-        ctx.fillText('Commit 16: Inventory and Consumables Online', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('Commit 18: Save and Load Progression', canvas.width / 2, canvas.height / 2 + 24);
     }
 
     renderRunningFrame() {
@@ -1536,7 +1537,6 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '16px Segoe UI';
-        ctx.fillText('Commit 17: Combat Particles and Impact FX', canvas.width / 2, canvas.height / 2 + 24);
         if (this.state === 'game-over') {
             ctx.fillText(`Game Over | Final Score ${Math.floor(this.score)} | Kills ${this.kills} | Lives ${this.lives}`, 20, 34);
         } else {
