@@ -85,6 +85,26 @@ body {
     color: var(--muted);
 }
 
+.overlay-help {
+    justify-content: flex-start;
+    text-align: left;
+    padding: 1.25rem 1.4rem;
+}
+
+.overlay-help ul {
+    margin: 0.7rem 0 0;
+    padding-left: 1rem;
+    color: var(--text);
+}
+
+.overlay-help li {
+    margin: 0.35rem 0;
+}
+
+.hidden {
+    display: none;
+}
+
 .hud-panel {
     border: 1px solid rgba(61, 194, 198, 0.6);
     border-radius: 12px;
