@@ -80,6 +80,16 @@ const CONFIG = {
         pulseDamage: 35,
         dashCooldown: 5,
         dashDistance: 140
+    },
+    inventory: {
+        maxPerItem: 9,
+        dropChance: 0.2,
+        medkitHullRestore: 38,
+        shieldCellRestore: 34,
+        overdriveDuration: 7,
+        overdriveSpeedMultiplier: 1.35,
+        overdrivePulseBonus: 16,
+        bossGuaranteedDrop: 'overdrive'
     }
 };
 
@@ -96,11 +106,13 @@ class Player {
         this.corePulse = 0;
         this.vx = 0;
         this.vy = 0;
+        this.baseSpeed = stats.speed;
         this.speed = stats.speed;
         this.damageCooldown = 0;
         this.effects = {
             phase: 0,
-            respawnInvulnerability: 0
+            respawnInvulnerability: 0,
+            overdrive: 0
         };
     }
 
@@ -109,6 +121,8 @@ class Player {
         this.damageCooldown = Math.max(0, this.damageCooldown - deltaTime);
         this.effects.phase = Math.max(0, this.effects.phase - deltaTime);
         this.effects.respawnInvulnerability = Math.max(0, this.effects.respawnInvulnerability - deltaTime);
+        this.effects.overdrive = Math.max(0, this.effects.overdrive - deltaTime);
+        this.speed = this.baseSpeed * (this.effects.overdrive > 0 ? CONFIG.inventory.overdriveSpeedMultiplier : 1);
 
         let moveX = 0;
         let moveY = 0;
@@ -190,6 +204,14 @@ class Player {
             ctx.beginPath();
             ctx.arc(0, 0, this.radius + 11, 0, Math.PI * 2);
             ctx.strokeStyle = 'rgba(78, 198, 255, 0.75)';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        if (this.effects.overdrive > 0) {
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius + 14, 0, Math.PI * 2);
+            ctx.strokeStyle = 'rgba(255, 180, 82, 0.82)';
             ctx.lineWidth = 2;
             ctx.stroke();
         }
@@ -572,6 +594,7 @@ class Game {
             killCounter: document.getElementById('killCounter'),
             waveProgress: document.getElementById('waveProgress'),
             powerUpStatus: document.getElementById('powerUpStatus'),
+            inventoryStatus: document.getElementById('inventoryStatus'),
             soundStatus: document.getElementById('soundStatus'),
             abilityStatus: document.getElementById('abilityStatus'),
             upgradeHullBtn: document.getElementById('upgradeHullBtn'),
@@ -614,6 +637,12 @@ class Game {
             pulseOriginX: 0,
             pulseOriginY: 0
         };
+        this.inventory = {
+            medkit: 0,
+            shieldCell: 0,
+            overdrive: 0
+        };
+        this.keyLatch = new Set();
 
         this.mouse = { x: 0, y: 0, inCanvas: false };
         this.keys = new Set();
@@ -733,6 +762,12 @@ class Game {
             pulseOriginX: 0,
             pulseOriginY: 0
         };
+        this.inventory = {
+            medkit: 0,
+            shieldCell: 0,
+            overdrive: 0
+        };
+        this.keyLatch.clear();
 
         this.spawnPlayer();
         this.entities.enemies = [];
@@ -770,6 +805,7 @@ class Game {
         this.ui.upgradeSpeedBtn.disabled = speedCost === null || this.credits < speedCost;
 
         this.ui.upgradeSummary.textContent = `Hull Lv${this.upgradeLevels.hull} | Shield Lv${this.upgradeLevels.shield} | Speed Lv${this.upgradeLevels.speed}`;
+        this.ui.inventoryStatus.textContent = `[1] Medkit ${this.inventory.medkit} | [2] Shield Cell ${this.inventory.shieldCell} | [3] Overdrive ${this.inventory.overdrive}`;
 
         const pulseStatus = this.abilities.pulseCooldownRemaining > 0
             ? `Pulse[R] ${this.abilities.pulseCooldownRemaining.toFixed(1)}s`
@@ -783,6 +819,8 @@ class Game {
             this.ui.powerUpStatus.textContent = 'None';
         } else if (this.entities.player.effects.respawnInvulnerability > 0) {
             this.ui.powerUpStatus.textContent = `Respawn Shield ${this.entities.player.effects.respawnInvulnerability.toFixed(1)}s`;
+        } else if (this.entities.player.effects.overdrive > 0) {
+            this.ui.powerUpStatus.textContent = `Overdrive ${this.entities.player.effects.overdrive.toFixed(1)}s`;
         } else if (this.entities.player.effects.phase > 0) {
             this.ui.powerUpStatus.textContent = `Phase ${this.entities.player.effects.phase.toFixed(1)}s`;
         } else {
@@ -836,6 +874,7 @@ class Game {
         if (type === 'speed') {
             this.playerStats.speed += CONFIG.upgrades.speed.value;
             if (this.entities.player) {
+                this.entities.player.baseSpeed = this.playerStats.speed;
                 this.entities.player.speed = this.playerStats.speed;
             }
         }
@@ -844,11 +883,69 @@ class Game {
         this.syncUI();
     }
 
+    addInventoryItem(itemType, amount = 1) {
+        const key = itemType === 'shieldCell' ? 'shieldCell' : itemType;
+        if (!Object.prototype.hasOwnProperty.call(this.inventory, key)) {
+            return;
+        }
+        this.inventory[key] = Math.min(CONFIG.inventory.maxPerItem, this.inventory[key] + amount);
+    }
+
+    maybeDropInventoryItem(enemy) {
+        if (enemy.isBoss) {
+            this.addInventoryItem(CONFIG.inventory.bossGuaranteedDrop, 1);
+            return;
+        }
+
+        if (Math.random() > CONFIG.inventory.dropChance) {
+            return;
+        }
+
+        const roll = Math.random();
+        if (roll < 0.45) {
+            this.addInventoryItem('medkit', 1);
+        } else if (roll < 0.8) {
+            this.addInventoryItem('shieldCell', 1);
+        } else {
+            this.addInventoryItem('overdrive', 1);
+        }
+    }
+
+    tryUseInventorySlot(slot) {
+        if (!this.entities.player || this.state !== 'running') {
+            return;
+        }
+
+        if (slot === '1' && this.inventory.medkit > 0) {
+            this.inventory.medkit -= 1;
+            this.entities.player.hull = Math.min(this.entities.player.maxHull, this.entities.player.hull + CONFIG.inventory.medkitHullRestore);
+            this.audio.play('pickup');
+            this.syncUI();
+            return;
+        }
+
+        if (slot === '2' && this.inventory.shieldCell > 0) {
+            this.inventory.shieldCell -= 1;
+            this.entities.player.shield = Math.min(this.entities.player.maxShield, this.entities.player.shield + CONFIG.inventory.shieldCellRestore);
+            this.audio.play('pickup');
+            this.syncUI();
+            return;
+        }
+
+        if (slot === '3' && this.inventory.overdrive > 0) {
+            this.inventory.overdrive -= 1;
+            this.entities.player.effects.overdrive = CONFIG.inventory.overdriveDuration;
+            this.audio.play('waveClear');
+            this.syncUI();
+        }
+    }
+
     triggerPulseBlast() {
         if (!this.entities.player || this.abilities.pulseCooldownRemaining > 0) {
             return;
         }
 
+        const overdriveBonus = this.entities.player.effects.overdrive > 0 ? CONFIG.inventory.overdrivePulseBonus : 0;
         this.abilities.pulseCooldownRemaining = CONFIG.abilities.pulseCooldown;
         this.abilities.pulseVisualTimer = 0.25;
         this.abilities.pulseOriginX = this.entities.player.x;
@@ -859,7 +956,7 @@ class Game {
             const dy = enemy.y - this.entities.player.y;
             const distance = Math.hypot(dx, dy);
             if (distance <= CONFIG.abilities.pulseRange) {
-                enemy.health = Math.max(0, enemy.health - CONFIG.abilities.pulseDamage);
+                enemy.health = Math.max(0, enemy.health - (CONFIG.abilities.pulseDamage + overdriveBonus));
                 enemy.damageFlash = 0.2;
             }
         }
@@ -1038,8 +1135,9 @@ class Game {
         this.time.uiAccumulator += deltaTime;
         this.time.frameCount += 1;
 
-        this.abilities.pulseCooldownRemaining = Math.max(0, this.abilities.pulseCooldownRemaining - deltaTime);
-        this.abilities.dashCooldownRemaining = Math.max(0, this.abilities.dashCooldownRemaining - deltaTime);
+        const cooldownRate = this.entities.player && this.entities.player.effects.overdrive > 0 ? 1.35 : 1;
+        this.abilities.pulseCooldownRemaining = Math.max(0, this.abilities.pulseCooldownRemaining - deltaTime * cooldownRate);
+        this.abilities.dashCooldownRemaining = Math.max(0, this.abilities.dashCooldownRemaining - deltaTime * cooldownRate);
         this.abilities.pulseVisualTimer = Math.max(0, this.abilities.pulseVisualTimer - deltaTime);
 
         if (this.state === 'running') {
@@ -1049,6 +1147,17 @@ class Game {
 
             if (this.keys.has('f')) {
                 this.triggerDash();
+            }
+
+            for (const slot of ['1', '2', '3']) {
+                if (this.keys.has(slot)) {
+                    if (!this.keyLatch.has(slot)) {
+                        this.tryUseInventorySlot(slot);
+                        this.keyLatch.add(slot);
+                    }
+                } else {
+                    this.keyLatch.delete(slot);
+                }
             }
         }
 
@@ -1108,6 +1217,7 @@ class Game {
                 this.waveEnemiesDefeated += 1;
                 this.credits += enemy.rewardCredits;
                 this.score += enemy.rewardScore;
+                this.maybeDropInventoryItem(enemy);
                 this.audio.play('enemyDown');
             }
         }
@@ -1160,7 +1270,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '18px Segoe UI';
-        ctx.fillText('Commit 15: Boss Waves Integrated', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('Commit 16: Inventory and Consumables Online', canvas.width / 2, canvas.height / 2 + 24);
     }
 
     renderRunningFrame() {
@@ -1240,7 +1350,7 @@ class Game {
                 ctx.fillText(`Wave ${this.wave} cleared | Next in ${this.waveIntermissionTimer.toFixed(1)}s`, 20, 34);
             } else {
                 const waveLabel = this.bossWave ? `Boss Wave ${this.wave}` : `Wave ${this.wave}`;
-                ctx.fillText(`${waveLabel} (${waveInfo}) | Lives ${this.lives} | Score ${Math.floor(this.score)} | R:Pulse F:Dash`, 20, 34);
+                ctx.fillText(`${waveLabel} (${waveInfo}) | Lives ${this.lives} | Score ${Math.floor(this.score)} | R:Pulse F:Dash 1/2/3:Items`, 20, 34);
             }
         }
     }
