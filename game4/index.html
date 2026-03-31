@@ -10,7 +10,7 @@
     <div class="game-shell">
         <header class="game-header">
             <h1>Chrono Bastion</h1>
-            <p class="subtitle">Commit 20: Tutorial Overlay and Final Polish</p>
+            <p class="subtitle">Commit 21: Difficulty Presets and Run Summary</p>
         </header>
 
         <main class="game-main">
@@ -54,6 +54,7 @@
                     <p><span class="label">Abilities:</span> <span id="abilityStatus">Pulse[R] Ready | Dash[F] Ready</span></p>
                     <p><span class="label">Save:</span> <span id="saveStatus">No save loaded</span></p>
                     <p><span class="label">Achievements:</span> <span id="achievementStatus">0 / 6 unlocked</span></p>
+                    <p><span class="label">Run Summary:</span> <span id="runSummaryStatus">No run completed yet</span></p>
                 </div>
 
                 <div class="button-row">
@@ -65,6 +66,16 @@
                     <button id="loadBtn" type="button">Load</button>
                     <button id="clearSaveBtn" type="button">Clear Save</button>
                 </div>
+
+                <section class="upgrade-panel" aria-label="Difficulty settings">
+                    <h3>Difficulty</h3>
+                    <div class="upgrade-grid">
+                        <button id="difficultyStoryBtn" type="button">Story</button>
+                        <button id="difficultyNormalBtn" type="button">Normal</button>
+                        <button id="difficultyEliteBtn" type="button">Elite</button>
+                    </div>
+                    <p class="upgrade-summary" id="difficultySummary">Current: Normal</p>
+                </section>
 
                 <section class="upgrade-panel" aria-label="Upgrade controls">
                     <h3>Upgrades</h3>
@@ -79,10 +90,10 @@
                 <section class="notes" aria-label="Commit notes">
                     <h3>Commit Notes</h3>
                     <ul>
-                        <li>Added in-game tutorial/help overlay with controls and goals</li>
-                        <li>Added pause/resume support with keyboard and state handling</li>
-                        <li>Help can be toggled via button, H key, or Esc close</li>
-                        <li>Final milestone improves onboarding and moment-to-moment UX</li>
+                        <li>Added 3 difficulty presets: Story, Normal, and Elite</li>
+                        <li>Difficulty now scales enemy stats, spawn pressure, and rewards</li>
+                        <li>Added run summary tracking for final score, wave, and kill count</li>
+                        <li>HUD now reflects current difficulty and most recent run result</li>
                     </ul>
                 </section>
             </aside>
