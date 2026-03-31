@@ -90,6 +90,9 @@ const CONFIG = {
         overdriveSpeedMultiplier: 1.35,
         overdrivePulseBonus: 16,
         bossGuaranteedDrop: 'overdrive'
+    },
+    particles: {
+        maxCount: 600
     }
 };
 
@@ -919,6 +922,7 @@ class Game {
         if (slot === '1' && this.inventory.medkit > 0) {
             this.inventory.medkit -= 1;
             this.entities.player.hull = Math.min(this.entities.player.maxHull, this.entities.player.hull + CONFIG.inventory.medkitHullRestore);
+            this.spawnParticles(this.entities.player.x, this.entities.player.y, '#67d679', 18, 40, 180, 0.2, 0.45, 2, 4);
             this.audio.play('pickup');
             this.syncUI();
             return;
@@ -927,6 +931,7 @@ class Game {
         if (slot === '2' && this.inventory.shieldCell > 0) {
             this.inventory.shieldCell -= 1;
             this.entities.player.shield = Math.min(this.entities.player.maxShield, this.entities.player.shield + CONFIG.inventory.shieldCellRestore);
+            this.spawnParticles(this.entities.player.x, this.entities.player.y, '#4ec6ff', 18, 40, 180, 0.2, 0.45, 2, 4);
             this.audio.play('pickup');
             this.syncUI();
             return;
@@ -935,8 +940,50 @@ class Game {
         if (slot === '3' && this.inventory.overdrive > 0) {
             this.inventory.overdrive -= 1;
             this.entities.player.effects.overdrive = CONFIG.inventory.overdriveDuration;
+            this.spawnParticles(this.entities.player.x, this.entities.player.y, '#ffb86e', 28, 55, 220, 0.3, 0.7, 2, 5);
             this.audio.play('waveClear');
             this.syncUI();
+        }
+    }
+
+    spawnParticles(x, y, color, count, speedMin, speedMax, lifeMin, lifeMax, sizeMin, sizeMax) {
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = speedMin + Math.random() * (speedMax - speedMin);
+            const life = lifeMin + Math.random() * (lifeMax - lifeMin);
+            const size = sizeMin + Math.random() * (sizeMax - sizeMin);
+
+            this.entities.effects.push({
+                x,
+                y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                life,
+                maxLife: life,
+                size,
+                color,
+                drag: 0.92
+            });
+        }
+
+        if (this.entities.effects.length > CONFIG.particles.maxCount) {
+            this.entities.effects.splice(0, this.entities.effects.length - CONFIG.particles.maxCount);
+        }
+    }
+
+    updateEffects(deltaTime) {
+        for (let i = this.entities.effects.length - 1; i >= 0; i--) {
+            const particle = this.entities.effects[i];
+            particle.life -= deltaTime;
+            if (particle.life <= 0) {
+                this.entities.effects.splice(i, 1);
+                continue;
+            }
+
+            particle.vx *= particle.drag;
+            particle.vy *= particle.drag;
+            particle.x += particle.vx * deltaTime;
+            particle.y += particle.vy * deltaTime;
         }
     }
 
@@ -960,6 +1007,8 @@ class Game {
                 enemy.damageFlash = 0.2;
             }
         }
+
+        this.spawnParticles(this.entities.player.x, this.entities.player.y, '#69d3ff', 32, 60, 260, 0.2, 0.55, 2, 5);
 
         this.audio.play('waveClear');
     }
@@ -988,11 +1037,17 @@ class Game {
         dirX /= length;
         dirY /= length;
 
+        const startX = this.entities.player.x;
+        const startY = this.entities.player.y;
+
         this.entities.player.x += dirX * CONFIG.abilities.dashDistance;
         this.entities.player.y += dirY * CONFIG.abilities.dashDistance;
 
         this.entities.player.x = Math.max(this.entities.player.radius, Math.min(this.canvas.width - this.entities.player.radius, this.entities.player.x));
         this.entities.player.y = Math.max(this.entities.player.radius, Math.min(this.canvas.height - this.entities.player.radius, this.entities.player.y));
+
+        this.spawnParticles(startX, startY, '#84ddff', 14, 45, 170, 0.15, 0.35, 2, 4);
+        this.spawnParticles(this.entities.player.x, this.entities.player.y, '#84ddff', 20, 50, 210, 0.15, 0.45, 2, 5);
 
         this.audio.play('respawn');
     }
@@ -1095,6 +1150,8 @@ class Game {
                 const distance = Math.hypot(dx, dy);
                 if (distance < pickup.radius + this.entities.player.radius) {
                     this.entities.player.applyPowerUp(pickup.type);
+                    const pickupColor = pickup.type === 'repair' ? '#67d679' : pickup.type === 'barrier' ? '#4ec6ff' : '#d79bff';
+                    this.spawnParticles(pickup.x, pickup.y, pickupColor, 18, 40, 170, 0.18, 0.45, 2, 4);
                     this.score += 60;
                     this.audio.play('pickup');
                     this.entities.pickups.splice(i, 1);
@@ -1118,6 +1175,7 @@ class Game {
                 const tookDamage = this.entities.player.applyDamage(enemy.contactDamage);
                 enemy.health = Math.max(0, enemy.health - CONFIG.scoring.contactCounterDamage);
                 if (tookDamage) {
+                    this.spawnParticles(this.entities.player.x, this.entities.player.y, '#ff7d7d', 12, 35, 140, 0.12, 0.3, 2, 4);
                     this.audio.play('hit');
                 }
 
@@ -1212,6 +1270,17 @@ class Game {
             enemy.update(deltaTime, this.entities.player);
 
             if (enemy.health <= 0) {
+                const deathColor = enemy.type === 'boss'
+                    ? '#ffb468'
+                    : enemy.type === 'tank'
+                        ? '#acb5cf'
+                        : enemy.type === 'charger'
+                            ? '#ff8a9a'
+                            : enemy.type === 'orbiter'
+                                ? '#ffd27d'
+                                : '#ff9a6a';
+                const burstCount = enemy.isBoss ? 56 : 20;
+                this.spawnParticles(enemy.x, enemy.y, deathColor, burstCount, 45, enemy.isBoss ? 260 : 180, 0.2, enemy.isBoss ? 0.8 : 0.5, 2, enemy.isBoss ? 6 : 4);
                 this.entities.enemies.splice(i, 1);
                 this.kills += 1;
                 this.waveEnemiesDefeated += 1;
@@ -1224,6 +1293,7 @@ class Game {
 
         this.handleCollisions();
         this.updatePowerUps(deltaTime);
+        this.updateEffects(deltaTime);
 
         if (this.time.uiAccumulator >= 1 / CONFIG.uiRefreshHz) {
             this.syncUI();
@@ -1303,6 +1373,16 @@ class Game {
             pickup.render(ctx);
         }
 
+        for (const particle of this.entities.effects) {
+            const alpha = Math.max(0, particle.life / particle.maxLife);
+            this.ctx.fillStyle = particle.color;
+            this.ctx.globalAlpha = alpha;
+            this.ctx.beginPath();
+            this.ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+            this.ctx.fill();
+            this.ctx.globalAlpha = 1;
+        }
+
         if (this.abilities.pulseVisualTimer > 0) {
             const alpha = this.abilities.pulseVisualTimer / 0.25;
             const radius = CONFIG.abilities.pulseRange * (1 - alpha * 0.35);
@@ -1341,7 +1421,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '16px Segoe UI';
-        ctx.textAlign = 'left';
+        ctx.fillText('Commit 17: Combat Particles and Impact FX', canvas.width / 2, canvas.height / 2 + 24);
         if (this.state === 'game-over') {
             ctx.fillText(`Game Over | Final Score ${Math.floor(this.score)} | Kills ${this.kills} | Lives ${this.lives}`, 20, 34);
         } else {
