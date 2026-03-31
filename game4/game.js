@@ -629,11 +629,13 @@ class Game {
             upgradeSummary: document.getElementById('upgradeSummary'),
             startBtn: document.getElementById('startBtn'),
             resetBtn: document.getElementById('resetBtn'),
+            helpBtn: document.getElementById('helpBtn'),
             muteBtn: document.getElementById('muteBtn'),
             saveBtn: document.getElementById('saveBtn'),
             loadBtn: document.getElementById('loadBtn'),
             clearSaveBtn: document.getElementById('clearSaveBtn'),
-            bootOverlay: document.getElementById('bootOverlay')
+            bootOverlay: document.getElementById('bootOverlay'),
+            helpOverlay: document.getElementById('helpOverlay')
         };
 
         this.audio = new AudioEngine();
@@ -679,6 +681,7 @@ class Game {
         };
         this.achievements = getDefaultAchievementsState();
         this.saveStatusMessage = 'No save loaded';
+        this.stateBeforeHelp = 'waiting';
         this.keyLatch = new Set();
 
         this.mouse = { x: 0, y: 0, inCanvas: false };
@@ -717,6 +720,7 @@ class Game {
     bindEvents() {
         this.ui.startBtn.addEventListener('click', () => this.start());
         this.ui.resetBtn.addEventListener('click', () => this.reset());
+        this.ui.helpBtn.addEventListener('click', () => this.toggleHelp());
         this.ui.muteBtn.addEventListener('click', () => {
             const next = !this.audio.enabled;
             this.audio.setEnabled(next);
@@ -738,7 +742,27 @@ class Game {
         });
 
         window.addEventListener('keydown', (event) => {
-            this.keys.add(event.key.toLowerCase());
+            const key = event.key.toLowerCase();
+
+            if (key === 'h' || key === '?') {
+                event.preventDefault();
+                this.toggleHelp();
+                return;
+            }
+
+            if (key === 'escape' && !this.ui.helpOverlay.classList.contains('hidden')) {
+                event.preventDefault();
+                this.toggleHelp(false);
+                return;
+            }
+
+            if (key === 'p') {
+                event.preventDefault();
+                this.togglePause();
+                return;
+            }
+
+            this.keys.add(key);
         });
 
         window.addEventListener('keyup', (event) => {
@@ -757,6 +781,42 @@ class Game {
         });
 
         window.addEventListener('resize', () => this.resizeCanvas());
+    }
+
+    togglePause(forceRunning) {
+        if (this.state === 'waiting' || this.state === 'game-over') {
+            return;
+        }
+
+        if (typeof forceRunning === 'boolean') {
+            this.setState(forceRunning ? 'running' : 'paused');
+            return;
+        }
+
+        if (this.state === 'running') {
+            this.setState('paused');
+        } else if (this.state === 'paused') {
+            this.setState('running');
+        }
+    }
+
+    toggleHelp(forceOpen) {
+        const isHidden = this.ui.helpOverlay.classList.contains('hidden');
+        const shouldOpen = typeof forceOpen === 'boolean' ? forceOpen : isHidden;
+
+        if (shouldOpen) {
+            this.stateBeforeHelp = this.state;
+            this.ui.helpOverlay.classList.remove('hidden');
+            if (this.state === 'running') {
+                this.setState('paused');
+            }
+            return;
+        }
+
+        this.ui.helpOverlay.classList.add('hidden');
+        if (this.state === 'paused' && this.stateBeforeHelp === 'running') {
+            this.setState('running');
+        }
     }
 
     makeSavePayload() {
@@ -901,6 +961,7 @@ class Game {
         this.audio.unlock();
         this.audio.play('start');
         this.beginWave(1);
+        this.ui.helpOverlay.classList.add('hidden');
         this.setState('running');
         this.ui.bootOverlay.style.display = 'none';
     }
@@ -941,6 +1002,7 @@ class Game {
             overdrive: 0
         };
         this.keyLatch.clear();
+        this.ui.helpOverlay.classList.add('hidden');
 
         this.spawnPlayer();
         this.entities.enemies = [];
@@ -1370,6 +1432,15 @@ class Game {
         this.time.elapsed += deltaTime;
         this.time.uiAccumulator += deltaTime;
         this.time.frameCount += 1;
+
+        if (this.state === 'paused') {
+            if (this.time.uiAccumulator >= 1 / CONFIG.uiRefreshHz) {
+                this.syncUI();
+                this.time.uiAccumulator = 0;
+            }
+            return;
+        }
+
         this.records.bestScore = Math.max(this.records.bestScore, Math.floor(this.score));
         this.evaluateAchievements();
 
@@ -1530,7 +1601,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '18px Segoe UI';
-        ctx.fillText('Commit 19: Achievements and Milestones', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('Commit 20: Tutorial Overlay and Final Polish', canvas.width / 2, canvas.height / 2 + 24);
     }
 
     renderRunningFrame() {
@@ -1611,6 +1682,22 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '16px Segoe UI';
+        if (this.state === 'paused') {
+            ctx.fillStyle = 'rgba(8, 18, 28, 0.62)';
+            ctx.fillRect(canvas.width * 0.34, canvas.height * 0.45, canvas.width * 0.32, 70);
+            ctx.strokeStyle = 'rgba(103, 214, 121, 0.9)';
+            ctx.strokeRect(canvas.width * 0.34, canvas.height * 0.45, canvas.width * 0.32, 70);
+            ctx.fillStyle = '#e7f8f8';
+            ctx.font = 'bold 24px Segoe UI';
+            ctx.textAlign = 'center';
+            ctx.fillText('PAUSED', canvas.width * 0.5, canvas.height * 0.5 - 4);
+            ctx.font = '14px Segoe UI';
+            ctx.fillText('Press P to resume | H for help', canvas.width * 0.5, canvas.height * 0.5 + 18);
+            ctx.textAlign = 'left';
+            ctx.font = '16px Segoe UI';
+            ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
+        }
+
         if (this.state === 'game-over') {
             ctx.fillText(`Game Over | Final Score ${Math.floor(this.score)} | Kills ${this.kills} | Lives ${this.lives}`, 20, 34);
         } else {
@@ -1625,7 +1712,7 @@ class Game {
     }
 
     render() {
-        if (this.state === 'running') {
+        if (this.state === 'running' || this.state === 'paused' || this.state === 'game-over') {
             this.renderRunningFrame();
             return;
         }
