@@ -109,6 +109,36 @@ const ACHIEVEMENTS = {
     stockpile: { title: 'Stockpile', check: (g) => (g.inventory.medkit + g.inventory.shieldCell + g.inventory.overdrive) >= 6 }
 };
 
+const DIFFICULTY_PRESETS = {
+    story: {
+        label: 'Story',
+        enemyHealthMultiplier: 0.85,
+        enemySpeedMultiplier: 0.88,
+        enemyDamageMultiplier: 0.85,
+        spawnRateMultiplier: 0.84,
+        waveCountMultiplier: 0.9,
+        rewardMultiplier: 0.9
+    },
+    normal: {
+        label: 'Normal',
+        enemyHealthMultiplier: 1,
+        enemySpeedMultiplier: 1,
+        enemyDamageMultiplier: 1,
+        spawnRateMultiplier: 1,
+        waveCountMultiplier: 1,
+        rewardMultiplier: 1
+    },
+    elite: {
+        label: 'Elite',
+        enemyHealthMultiplier: 1.2,
+        enemySpeedMultiplier: 1.12,
+        enemyDamageMultiplier: 1.16,
+        spawnRateMultiplier: 1.22,
+        waveCountMultiplier: 1.15,
+        rewardMultiplier: 1.25
+    }
+};
+
 function getDefaultAchievementsState() {
     const state = {};
     for (const key of Object.keys(ACHIEVEMENTS)) {
@@ -623,9 +653,14 @@ class Game {
             abilityStatus: document.getElementById('abilityStatus'),
             saveStatus: document.getElementById('saveStatus'),
             achievementStatus: document.getElementById('achievementStatus'),
+            runSummaryStatus: document.getElementById('runSummaryStatus'),
             upgradeHullBtn: document.getElementById('upgradeHullBtn'),
             upgradeShieldBtn: document.getElementById('upgradeShieldBtn'),
             upgradeSpeedBtn: document.getElementById('upgradeSpeedBtn'),
+            difficultyStoryBtn: document.getElementById('difficultyStoryBtn'),
+            difficultyNormalBtn: document.getElementById('difficultyNormalBtn'),
+            difficultyEliteBtn: document.getElementById('difficultyEliteBtn'),
+            difficultySummary: document.getElementById('difficultySummary'),
             upgradeSummary: document.getElementById('upgradeSummary'),
             startBtn: document.getElementById('startBtn'),
             resetBtn: document.getElementById('resetBtn'),
@@ -681,6 +716,8 @@ class Game {
         };
         this.achievements = getDefaultAchievementsState();
         this.saveStatusMessage = 'No save loaded';
+        this.difficulty = 'normal';
+        this.runSummary = null;
         this.stateBeforeHelp = 'waiting';
         this.keyLatch = new Set();
 
@@ -731,6 +768,9 @@ class Game {
         this.ui.upgradeHullBtn.addEventListener('click', () => this.applyUpgrade('hull'));
         this.ui.upgradeShieldBtn.addEventListener('click', () => this.applyUpgrade('shield'));
         this.ui.upgradeSpeedBtn.addEventListener('click', () => this.applyUpgrade('speed'));
+        this.ui.difficultyStoryBtn.addEventListener('click', () => this.setDifficulty('story'));
+        this.ui.difficultyNormalBtn.addEventListener('click', () => this.setDifficulty('normal'));
+        this.ui.difficultyEliteBtn.addEventListener('click', () => this.setDifficulty('elite'));
         this.ui.saveBtn.addEventListener('click', () => this.saveProgress('Manual save complete'));
         this.ui.loadBtn.addEventListener('click', () => {
             this.loadProgress();
@@ -823,6 +863,7 @@ class Game {
         return {
             savedAt: Date.now(),
             credits: this.credits,
+            difficulty: this.difficulty,
             upgradeLevels: { ...this.upgradeLevels },
             inventory: { ...this.inventory },
             records: { ...this.records },
@@ -901,6 +942,7 @@ class Game {
 
             const payload = JSON.parse(raw);
             this.credits = Math.max(0, Number(payload.credits) || 0);
+            this.setDifficulty(payload?.difficulty || 'normal', false);
             this.upgradeLevels.hull = Math.max(0, Math.min(CONFIG.upgrades.hull.maxLevel, Number(payload?.upgradeLevels?.hull) || 0));
             this.upgradeLevels.shield = Math.max(0, Math.min(CONFIG.upgrades.shield.maxLevel, Number(payload?.upgradeLevels?.shield) || 0));
             this.upgradeLevels.speed = Math.max(0, Math.min(CONFIG.upgrades.speed.maxLevel, Number(payload?.upgradeLevels?.speed) || 0));
@@ -930,6 +972,7 @@ class Game {
     clearProgress() {
         try {
             localStorage.removeItem(CONFIG.persistence.storageKey);
+            this.setDifficulty('normal', false);
             this.records = {
                 highestWave: 0,
                 bestScore: 0,
@@ -950,6 +993,22 @@ class Game {
 
     setState(nextState) {
         this.state = nextState;
+        this.syncUI();
+    }
+
+    setDifficulty(level, persist = true) {
+        if (!Object.prototype.hasOwnProperty.call(DIFFICULTY_PRESETS, level)) {
+            return;
+        }
+        if (this.state === 'running') {
+            this.saveStatusMessage = 'Difficulty change available between runs';
+            return;
+        }
+
+        this.difficulty = level;
+        if (persist) {
+            this.saveProgress('Difficulty updated');
+        }
         this.syncUI();
     }
 
@@ -1001,6 +1060,7 @@ class Game {
             shieldCell: 0,
             overdrive: 0
         };
+        this.runSummary = null;
         this.keyLatch.clear();
         this.ui.helpOverlay.classList.add('hidden');
 
@@ -1043,6 +1103,16 @@ class Game {
         this.ui.inventoryStatus.textContent = `[1] Medkit ${this.inventory.medkit} | [2] Shield Cell ${this.inventory.shieldCell} | [3] Overdrive ${this.inventory.overdrive}`;
         this.ui.saveStatus.textContent = this.saveStatusMessage;
         this.ui.achievementStatus.textContent = `${this.getUnlockedAchievementCount()} / ${Object.keys(ACHIEVEMENTS).length} unlocked`;
+        const preset = DIFFICULTY_PRESETS[this.difficulty];
+        this.ui.difficultySummary.textContent = `Current: ${preset.label}`;
+        this.ui.difficultyStoryBtn.disabled = this.difficulty === 'story' || this.state === 'running';
+        this.ui.difficultyNormalBtn.disabled = this.difficulty === 'normal' || this.state === 'running';
+        this.ui.difficultyEliteBtn.disabled = this.difficulty === 'elite' || this.state === 'running';
+        if (!this.runSummary) {
+            this.ui.runSummaryStatus.textContent = 'No run completed yet';
+        } else {
+            this.ui.runSummaryStatus.textContent = `Wave ${this.runSummary.wave} | Score ${this.runSummary.score} | Kills ${this.runSummary.kills} (${this.runSummary.difficulty})`;
+        }
 
         const pulseStatus = this.abilities.pulseCooldownRemaining > 0
             ? `Pulse[R] ${this.abilities.pulseCooldownRemaining.toFixed(1)}s`
@@ -1301,12 +1371,19 @@ class Game {
         }
 
         this.lives = 0;
+        this.runSummary = {
+            wave: this.wave,
+            score: Math.floor(this.score),
+            kills: this.kills,
+            difficulty: DIFFICULTY_PRESETS[this.difficulty].label
+        };
         this.audio.play('gameOver');
         this.saveProgress('Run auto-saved');
         this.setState('game-over');
     }
 
     beginWave(waveNumber) {
+        const difficultyPreset = DIFFICULTY_PRESETS[this.difficulty];
         this.wave = waveNumber;
         this.records.highestWave = Math.max(this.records.highestWave, waveNumber);
         this.bossWave = waveNumber % CONFIG.boss.waveInterval === 0;
@@ -1316,7 +1393,7 @@ class Game {
         this.waveEnemiesDefeated = 0;
         this.waveTargetCount = this.bossWave
             ? 1
-            : CONFIG.wave.baseEnemyCount + (waveNumber - 1) * CONFIG.wave.enemyCountPerWave;
+            : Math.max(1, Math.round((CONFIG.wave.baseEnemyCount + (waveNumber - 1) * CONFIG.wave.enemyCountPerWave) * difficultyPreset.waveCountMultiplier));
         this.time.spawnAccumulator = 0;
     }
 
@@ -1354,12 +1431,20 @@ class Game {
     }
 
     spawnEnemy() {
+        const difficultyPreset = DIFFICULTY_PRESETS[this.difficulty];
         const angle = Math.random() * Math.PI * 2;
         const spawnDistance = Math.max(this.canvas.width, this.canvas.height) * 0.45;
         const x = this.canvas.width * 0.5 + Math.cos(angle) * spawnDistance;
         const y = this.canvas.height * 0.5 + Math.sin(angle) * spawnDistance;
         const type = this.getSpawnTypeForWave();
-        this.entities.enemies.push(new Enemy(x, y, this.wave, type));
+        const enemy = new Enemy(x, y, this.wave, type);
+        enemy.maxHealth = Math.max(1, Math.round(enemy.maxHealth * difficultyPreset.enemyHealthMultiplier));
+        enemy.health = Math.min(enemy.health, enemy.maxHealth);
+        enemy.speed *= difficultyPreset.enemySpeedMultiplier;
+        enemy.contactDamage *= difficultyPreset.enemyDamageMultiplier;
+        enemy.rewardScore = Math.round(enemy.rewardScore * difficultyPreset.rewardMultiplier);
+        enemy.rewardCredits = Math.max(1, Math.round(enemy.rewardCredits * difficultyPreset.rewardMultiplier));
+        this.entities.enemies.push(enemy);
         this.waveEnemiesSpawned += 1;
     }
 
@@ -1476,8 +1561,9 @@ class Game {
             this.time.autosaveAccumulator += deltaTime;
 
             if (this.waveState === 'active') {
+                const difficultyPreset = DIFFICULTY_PRESETS[this.difficulty];
                 this.time.spawnAccumulator += deltaTime;
-                const spawnRate = CONFIG.enemy.spawnPerSecondBase + this.wave * CONFIG.wave.spawnRateScale;
+                const spawnRate = (CONFIG.enemy.spawnPerSecondBase + this.wave * CONFIG.wave.spawnRateScale) * difficultyPreset.spawnRateMultiplier;
                 const spawnInterval = 1 / spawnRate;
 
                 if (this.waveEnemiesSpawned < this.waveTargetCount && this.time.spawnAccumulator >= spawnInterval) {
@@ -1601,7 +1687,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '18px Segoe UI';
-        ctx.fillText('Commit 20: Tutorial Overlay and Final Polish', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('Commit 21: Difficulty Presets and Run Summary', canvas.width / 2, canvas.height / 2 + 24);
     }
 
     renderRunningFrame() {
@@ -1706,7 +1792,7 @@ class Game {
                 ctx.fillText(`Wave ${this.wave} cleared | Next in ${this.waveIntermissionTimer.toFixed(1)}s`, 20, 34);
             } else {
                 const waveLabel = this.bossWave ? `Boss Wave ${this.wave}` : `Wave ${this.wave}`;
-                ctx.fillText(`${waveLabel} (${waveInfo}) | Lives ${this.lives} | Score ${Math.floor(this.score)} | R:Pulse F:Dash 1/2/3:Items`, 20, 34);
+                ctx.fillText(`${waveLabel} (${waveInfo}) | Lives ${this.lives} | Score ${Math.floor(this.score)} | R/F Abilities | 1/2/3 Items | P Pause`, 20, 34);
             }
         }
     }
