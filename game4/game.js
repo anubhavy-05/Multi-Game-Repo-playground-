@@ -100,6 +100,23 @@ const CONFIG = {
     }
 };
 
+const ACHIEVEMENTS = {
+    firstBlood: { title: 'First Blood', check: (g) => g.records.totalKills >= 1 },
+    waveBreaker: { title: 'Wave Breaker', check: (g) => g.records.highestWave >= 5 },
+    acePilot: { title: 'Ace Pilot', check: (g) => g.records.bestScore >= 5000 },
+    engineer: { title: 'Engineer', check: (g) => (g.upgradeLevels.hull + g.upgradeLevels.shield + g.upgradeLevels.speed) >= 8 },
+    juggernaut: { title: 'Juggernaut', check: (g) => g.records.bossKills >= 1 },
+    stockpile: { title: 'Stockpile', check: (g) => (g.inventory.medkit + g.inventory.shieldCell + g.inventory.overdrive) >= 6 }
+};
+
+function getDefaultAchievementsState() {
+    const state = {};
+    for (const key of Object.keys(ACHIEVEMENTS)) {
+        state[key] = false;
+    }
+    return state;
+}
+
 class Player {
     constructor(x, y, stats) {
         this.x = x;
@@ -605,6 +622,7 @@ class Game {
             soundStatus: document.getElementById('soundStatus'),
             abilityStatus: document.getElementById('abilityStatus'),
             saveStatus: document.getElementById('saveStatus'),
+            achievementStatus: document.getElementById('achievementStatus'),
             upgradeHullBtn: document.getElementById('upgradeHullBtn'),
             upgradeShieldBtn: document.getElementById('upgradeShieldBtn'),
             upgradeSpeedBtn: document.getElementById('upgradeSpeedBtn'),
@@ -656,8 +674,10 @@ class Game {
         this.records = {
             highestWave: 0,
             bestScore: 0,
-            totalKills: 0
+            totalKills: 0,
+            bossKills: 0
         };
+        this.achievements = getDefaultAchievementsState();
         this.saveStatusMessage = 'No save loaded';
         this.keyLatch = new Set();
 
@@ -745,8 +765,42 @@ class Game {
             credits: this.credits,
             upgradeLevels: { ...this.upgradeLevels },
             inventory: { ...this.inventory },
-            records: { ...this.records }
+            records: { ...this.records },
+            achievements: { ...this.achievements }
         };
+    }
+
+    getUnlockedAchievementCount() {
+        let unlocked = 0;
+        for (const key of Object.keys(this.achievements)) {
+            if (this.achievements[key]) {
+                unlocked += 1;
+            }
+        }
+        return unlocked;
+    }
+
+    unlockAchievement(key) {
+        if (!Object.prototype.hasOwnProperty.call(this.achievements, key) || this.achievements[key]) {
+            return;
+        }
+
+        this.achievements[key] = true;
+        const achievement = ACHIEVEMENTS[key];
+        this.saveStatusMessage = `Achievement unlocked: ${achievement.title}`;
+        if (this.entities.player) {
+            this.spawnParticles(this.entities.player.x, this.entities.player.y, '#ffd773', 26, 55, 220, 0.25, 0.65, 2, 5);
+        }
+        this.audio.play('waveClear');
+        this.saveProgress('Achievement auto-saved');
+    }
+
+    evaluateAchievements() {
+        for (const [key, achievement] of Object.entries(ACHIEVEMENTS)) {
+            if (!this.achievements[key] && achievement.check(this)) {
+                this.unlockAchievement(key);
+            }
+        }
     }
 
     rebuildPlayerStatsFromUpgrades() {
@@ -796,7 +850,15 @@ class Game {
             this.records.highestWave = Math.max(0, Number(payload?.records?.highestWave) || 0);
             this.records.bestScore = Math.max(0, Number(payload?.records?.bestScore) || 0);
             this.records.totalKills = Math.max(0, Number(payload?.records?.totalKills) || 0);
+            this.records.bossKills = Math.max(0, Number(payload?.records?.bossKills) || 0);
+            this.achievements = getDefaultAchievementsState();
+            if (payload?.achievements && typeof payload.achievements === 'object') {
+                for (const key of Object.keys(this.achievements)) {
+                    this.achievements[key] = Boolean(payload.achievements[key]);
+                }
+            }
             this.rebuildPlayerStatsFromUpgrades();
+            this.evaluateAchievements();
 
             const savedAt = Number(payload.savedAt) || Date.now();
             this.saveStatusMessage = `Save loaded (${new Date(savedAt).toLocaleTimeString()})`;
@@ -808,6 +870,13 @@ class Game {
     clearProgress() {
         try {
             localStorage.removeItem(CONFIG.persistence.storageKey);
+            this.records = {
+                highestWave: 0,
+                bestScore: 0,
+                totalKills: 0,
+                bossKills: 0
+            };
+            this.achievements = getDefaultAchievementsState();
             this.saveStatusMessage = 'Save cleared';
         } catch (error) {
             this.saveStatusMessage = 'Clear failed';
@@ -911,6 +980,7 @@ class Game {
         this.ui.upgradeSummary.textContent = `Hull Lv${this.upgradeLevels.hull} | Shield Lv${this.upgradeLevels.shield} | Speed Lv${this.upgradeLevels.speed}`;
         this.ui.inventoryStatus.textContent = `[1] Medkit ${this.inventory.medkit} | [2] Shield Cell ${this.inventory.shieldCell} | [3] Overdrive ${this.inventory.overdrive}`;
         this.ui.saveStatus.textContent = this.saveStatusMessage;
+        this.ui.achievementStatus.textContent = `${this.getUnlockedAchievementCount()} / ${Object.keys(ACHIEVEMENTS).length} unlocked`;
 
         const pulseStatus = this.abilities.pulseCooldownRemaining > 0
             ? `Pulse[R] ${this.abilities.pulseCooldownRemaining.toFixed(1)}s`
@@ -1301,6 +1371,7 @@ class Game {
         this.time.uiAccumulator += deltaTime;
         this.time.frameCount += 1;
         this.records.bestScore = Math.max(this.records.bestScore, Math.floor(this.score));
+        this.evaluateAchievements();
 
         const cooldownRate = this.entities.player && this.entities.player.effects.overdrive > 0 ? 1.35 : 1;
         this.abilities.pulseCooldownRemaining = Math.max(0, this.abilities.pulseCooldownRemaining - deltaTime * cooldownRate);
@@ -1399,6 +1470,9 @@ class Game {
                 this.entities.enemies.splice(i, 1);
                 this.kills += 1;
                 this.records.totalKills += 1;
+                if (enemy.isBoss) {
+                    this.records.bossKills += 1;
+                }
                 this.waveEnemiesDefeated += 1;
                 this.credits += enemy.rewardCredits;
                 this.score += enemy.rewardScore;
@@ -1456,7 +1530,7 @@ class Game {
 
         ctx.fillStyle = 'rgba(159, 184, 188, 0.95)';
         ctx.font = '18px Segoe UI';
-        ctx.fillText('Commit 18: Save and Load Progression', canvas.width / 2, canvas.height / 2 + 24);
+        ctx.fillText('Commit 19: Achievements and Milestones', canvas.width / 2, canvas.height / 2 + 24);
     }
 
     renderRunningFrame() {
