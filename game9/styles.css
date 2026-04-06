@@ -1,0 +1,152 @@
+:root {
+    --bg-top: #0a1118;
+    --bg-mid: #0e1d2b;
+    --bg-bottom: #152f45;
+    --panel: rgba(8, 18, 28, 0.88);
+    --panel-border: rgba(102, 190, 255, 0.28);
+    --accent: #58c4ff;
+    --accent-strong: #b5ecff;
+    --text-main: #f1f8ff;
+    --text-dim: #b7c8d6;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    min-height: 100vh;
+    font-family: "Trebuchet MS", "Segoe UI", sans-serif;
+    color: var(--text-main);
+    background:
+        radial-gradient(circle at 12% 18%, rgba(88, 196, 255, 0.18), transparent 42%),
+        radial-gradient(circle at 86% 12%, rgba(255, 170, 90, 0.16), transparent 40%),
+        linear-gradient(170deg, var(--bg-top) 0%, var(--bg-mid) 52%, var(--bg-bottom) 100%);
+    padding: 20px;
+}
+
+.app-shell {
+    max-width: 1420px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.top-header {
+    border: 1px solid var(--panel-border);
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 14px 20px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.top-header h1 {
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.2rem);
+}
+
+.subtitle {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+}
+
+.game-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    gap: 16px;
+}
+
+.canvas-panel {
+    position: relative;
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgba(6, 14, 22, 0.9);
+}
+
+#gameCanvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16 / 9;
+    background: #0b1420;
+}
+
+.boot-overlay {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    max-width: 360px;
+    background: rgba(10, 22, 34, 0.85);
+    border: 1px solid rgba(181, 236, 255, 0.2);
+    border-radius: 10px;
+    padding: 12px 14px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.3);
+}
+
+.boot-overlay h2 {
+    font-size: 1.05rem;
+    margin-bottom: 8px;
+}
+
+.boot-overlay p {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    line-height: 1.45;
+}
+
+.hud-panel {
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 14px;
+    background: var(--panel);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.hud-panel h2 {
+    font-size: 1rem;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent-strong);
+}
+
+.hud-row {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid rgba(183, 200, 214, 0.14);
+    padding-bottom: 8px;
+    color: var(--text-dim);
+}
+
+.hud-row strong {
+    color: var(--accent);
+    font-weight: 700;
+}
+
+.footer-note {
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 10px 14px;
+    background: rgba(8, 18, 28, 0.72);
+    color: var(--text-dim);
+    font-size: 0.92rem;
+}
+
+@media (max-width: 980px) {
+    .game-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .hud-panel {
+        order: -1;
+    }
+}
