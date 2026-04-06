@@ -8,6 +8,7 @@ const CONFIG = {
     uiRefreshMs: 120,
     player: {
         radius: 22,
+        speed: 280,
         maxHealth: 100,
         maxEnergy: 100,
         bodyColor: "#5fd0ff",
@@ -29,6 +30,7 @@ class Player {
         this.x = x;
         this.y = y;
         this.radius = CONFIG.player.radius;
+        this.speed = CONFIG.player.speed;
         this.maxHealth = CONFIG.player.maxHealth;
         this.health = this.maxHealth;
         this.maxEnergy = CONFIG.player.maxEnergy;
@@ -39,6 +41,39 @@ class Player {
 
     update(deltaMs) {
         this.phase += deltaMs * 0.006;
+    }
+
+    move(input, bounds, deltaMs) {
+        const left = input.isDown("arrowleft") || input.isDown("a");
+        const right = input.isDown("arrowright") || input.isDown("d");
+        const up = input.isDown("arrowup") || input.isDown("w");
+        const down = input.isDown("arrowdown") || input.isDown("s");
+
+        const axisX = (right ? 1 : 0) - (left ? 1 : 0);
+        const axisY = (down ? 1 : 0) - (up ? 1 : 0);
+
+        if (axisX === 0 && axisY === 0) {
+            return;
+        }
+
+        const magnitude = Math.hypot(axisX, axisY) || 1;
+        const dirX = axisX / magnitude;
+        const dirY = axisY / magnitude;
+
+        this.facing.x = dirX;
+        this.facing.y = dirY;
+
+        const deltaSeconds = deltaMs / 1000;
+        this.x += dirX * this.speed * deltaSeconds;
+        this.y += dirY * this.speed * deltaSeconds;
+
+        const minX = bounds.left + this.radius;
+        const maxX = bounds.right - this.radius;
+        const minY = bounds.top + this.radius;
+        const maxY = bounds.bottom - this.radius;
+
+        this.x = Math.max(minX, Math.min(maxX, this.x));
+        this.y = Math.max(minY, Math.min(maxY, this.y));
     }
 
     draw(ctx) {
@@ -122,8 +157,22 @@ class Game {
             uiClock: 0
         };
 
+        this.input = {
+            pressed: new Set(),
+            isDown: (key) => this.input.pressed.has(key)
+        };
+
+        this.arenaBounds = {
+            left: 70,
+            top: 70,
+            right: CONFIG.canvasWidth - 70,
+            bottom: CONFIG.canvasHeight - 70
+        };
+
         this.tick = this.tick.bind(this);
         this.handleResize = this.handleResize.bind(this);
+        this.handleKeyDown = this.handleKeyDown.bind(this);
+        this.handleKeyUp = this.handleKeyUp.bind(this);
 
         this.initialize();
     }
@@ -140,6 +189,7 @@ class Game {
         this.createPlayer();
 
         this.bindUiEvents();
+        this.bindInputEvents();
         this.handleResize();
         window.addEventListener("resize", this.handleResize);
 
@@ -170,6 +220,27 @@ class Game {
         }
     }
 
+    bindInputEvents() {
+        window.addEventListener("keydown", this.handleKeyDown);
+        window.addEventListener("keyup", this.handleKeyUp);
+    }
+
+    handleKeyDown(event) {
+        const key = event.key.toLowerCase();
+        const trackedKeys = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
+
+        if (!trackedKeys.includes(key)) {
+            return;
+        }
+
+        event.preventDefault();
+        this.input.pressed.add(key);
+    }
+
+    handleKeyUp(event) {
+        this.input.pressed.delete(event.key.toLowerCase());
+    }
+
     setMode(nextMode) {
         this.state.mode = nextMode;
 
@@ -180,7 +251,7 @@ class Game {
         if (this.ui.bootOverlay) {
             const activeText = {
                 booting: "Booting systems...",
-                ready: "Commit 3: Player entity initialized.",
+                ready: "Commit 4: Movement controls initialized.",
                 running: "Simulation active.",
                 paused: "Simulation paused.",
                 reset: "Simulation reset.",
@@ -262,6 +333,10 @@ class Game {
 
     update(_deltaMs) {
         if (this.world.player) {
+            if (this.state.mode === "running") {
+                this.world.player.move(this.input, this.arenaBounds, _deltaMs);
+            }
+
             this.world.player.update(_deltaMs);
             this.state.playerHealth = Math.round(this.world.player.health);
             this.state.playerEnergy = Math.round(this.world.player.energy);
@@ -333,7 +408,10 @@ class Game {
 
         ctx.fillStyle = CONFIG.colors.subText;
         ctx.font = "400 20px Trebuchet MS";
-        ctx.fillText(`Commit 3: Player rendered (${state.mode})`, canvas.width * 0.5, canvas.height * 0.51);
+        ctx.fillText(`Commit 4: Player movement active (${state.mode})`, canvas.width * 0.5, canvas.height * 0.51);
+
+        ctx.font = "400 16px Trebuchet MS";
+        ctx.fillText("Move with WASD or Arrow Keys", canvas.width * 0.5, canvas.height * 0.55);
     }
 
     updateHud(force) {
