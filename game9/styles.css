@@ -132,6 +132,41 @@ body {
     font-weight: 700;
 }
 
+.controls {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.control-btn {
+    border: 1px solid rgba(181, 236, 255, 0.32);
+    border-radius: 8px;
+    padding: 9px 10px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: #f3f9ff;
+    cursor: pointer;
+    transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.control-btn:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.06);
+}
+
+.control-start {
+    background: linear-gradient(160deg, #176f45, #20a260);
+}
+
+.control-pause {
+    background: linear-gradient(160deg, #7b6317, #b0902a);
+}
+
+.control-reset {
+    background: linear-gradient(160deg, #7a2431, #ab3a4b);
+}
+
 .footer-note {
     border: 1px solid var(--panel-border);
     border-radius: 10px;
