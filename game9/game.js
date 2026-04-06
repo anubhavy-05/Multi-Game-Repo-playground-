@@ -16,6 +16,20 @@ const CONFIG = {
         shadowColor: "rgba(0, 0, 0, 0.34)",
         headingColor: "#ffd37b"
     },
+    enemy: {
+        minRadius: 14,
+        maxRadius: 22,
+        minSpeed: 70,
+        maxSpeed: 130,
+        spawnIntervalMs: 1500,
+        maxAlive: 14,
+        colors: ["#ff6f91", "#ff9671", "#ffc75f", "#f9f871"]
+    },
+    obstacle: {
+        color: "rgba(80, 113, 140, 0.72)",
+        border: "rgba(186, 219, 242, 0.6)",
+        count: 5
+    },
     colors: {
         backgroundTop: "#07111d",
         backgroundBottom: "#0d2236",
@@ -24,6 +38,95 @@ const CONFIG = {
         subText: "#8fb5c8"
     }
 };
+
+class Enemy {
+    constructor(x, y, radius, speed, color) {
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+        this.speed = speed;
+        this.color = color;
+        this.health = 20;
+        this.phase = Math.random() * Math.PI * 2;
+    }
+
+    update(deltaMs, target, bounds) {
+        this.phase += deltaMs * 0.006;
+
+        const toTargetX = target.x - this.x;
+        const toTargetY = target.y - this.y;
+        const dist = Math.hypot(toTargetX, toTargetY) || 1;
+        const dirX = toTargetX / dist;
+        const dirY = toTargetY / dist;
+
+        const deltaSeconds = deltaMs / 1000;
+        this.x += dirX * this.speed * deltaSeconds;
+        this.y += dirY * this.speed * deltaSeconds;
+
+        const minX = bounds.left + this.radius;
+        const maxX = bounds.right - this.radius;
+        const minY = bounds.top + this.radius;
+        const maxY = bounds.bottom - this.radius;
+        this.x = Math.max(minX, Math.min(maxX, this.x));
+        this.y = Math.max(minY, Math.min(maxY, this.y));
+    }
+
+    draw(ctx) {
+        const pulse = 1 + Math.sin(this.phase) * 0.05;
+        const drawRadius = this.radius * pulse;
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y + drawRadius + 6, drawRadius * 0.85, 6, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        const body = ctx.createRadialGradient(
+            this.x - drawRadius * 0.28,
+            this.y - drawRadius * 0.34,
+            drawRadius * 0.12,
+            this.x,
+            this.y,
+            drawRadius
+        );
+        body.addColorStop(0, "#fff6eb");
+        body.addColorStop(1, this.color);
+
+        ctx.fillStyle = body;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, drawRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = "rgba(20, 34, 48, 0.86)";
+        ctx.beginPath();
+        ctx.arc(this.x - drawRadius * 0.26, this.y - drawRadius * 0.1, drawRadius * 0.14, 0, Math.PI * 2);
+        ctx.arc(this.x + drawRadius * 0.26, this.y - drawRadius * 0.1, drawRadius * 0.14, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
+
+class Obstacle {
+    constructor(x, y, radius) {
+        this.x = x;
+        this.y = y;
+        this.radius = radius;
+    }
+
+    draw(ctx) {
+        ctx.fillStyle = CONFIG.obstacle.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = CONFIG.obstacle.border;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(220, 240, 255, 0.2)";
+        ctx.beginPath();
+        ctx.arc(this.x - this.radius * 0.22, this.y - this.radius * 0.22, this.radius * 0.35, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
 
 class Player {
     constructor(x, y) {
@@ -154,7 +257,8 @@ class Game {
         this.loop = {
             frameId: 0,
             previousTime: 0,
-            uiClock: 0
+            uiClock: 0,
+            enemySpawnClock: 0
         };
 
         this.input = {
@@ -186,6 +290,7 @@ class Game {
         this.canvas.width = CONFIG.canvasWidth;
         this.canvas.height = CONFIG.canvasHeight;
 
+        this.createObstacles();
         this.createPlayer();
 
         this.bindUiEvents();
@@ -202,6 +307,52 @@ class Game {
         this.world.player = new Player(CONFIG.canvasWidth * 0.5, CONFIG.canvasHeight * 0.56);
         this.state.playerHealth = this.world.player.health;
         this.state.playerEnergy = this.world.player.energy;
+    }
+
+    createObstacles() {
+        this.world.obstacles.length = 0;
+        const points = [
+            { x: 290, y: 190, r: 34 },
+            { x: 515, y: 340, r: 42 },
+            { x: 760, y: 220, r: 36 },
+            { x: 980, y: 430, r: 48 },
+            { x: 410, y: 520, r: 38 }
+        ];
+
+        for (let i = 0; i < points.length; i += 1) {
+            const p = points[i];
+            this.world.obstacles.push(new Obstacle(p.x, p.y, p.r));
+        }
+    }
+
+    spawnEnemy() {
+        if (this.world.enemies.length >= CONFIG.enemy.maxAlive) {
+            return;
+        }
+
+        const side = Math.floor(Math.random() * 4);
+        const padding = 20;
+        let x = this.arenaBounds.left + padding;
+        let y = this.arenaBounds.top + padding;
+
+        if (side === 0) {
+            x = this.arenaBounds.left + padding;
+            y = this.arenaBounds.top + Math.random() * (this.arenaBounds.bottom - this.arenaBounds.top);
+        } else if (side === 1) {
+            x = this.arenaBounds.right - padding;
+            y = this.arenaBounds.top + Math.random() * (this.arenaBounds.bottom - this.arenaBounds.top);
+        } else if (side === 2) {
+            x = this.arenaBounds.left + Math.random() * (this.arenaBounds.right - this.arenaBounds.left);
+            y = this.arenaBounds.top + padding;
+        } else {
+            x = this.arenaBounds.left + Math.random() * (this.arenaBounds.right - this.arenaBounds.left);
+            y = this.arenaBounds.bottom - padding;
+        }
+
+        const radius = CONFIG.enemy.minRadius + Math.random() * (CONFIG.enemy.maxRadius - CONFIG.enemy.minRadius);
+        const speed = CONFIG.enemy.minSpeed + Math.random() * (CONFIG.enemy.maxSpeed - CONFIG.enemy.minSpeed);
+        const color = CONFIG.enemy.colors[Math.floor(Math.random() * CONFIG.enemy.colors.length)];
+        this.world.enemies.push(new Enemy(x, y, radius, speed, color));
     }
 
     bindUiEvents() {
@@ -251,7 +402,7 @@ class Game {
         if (this.ui.bootOverlay) {
             const activeText = {
                 booting: "Booting systems...",
-                ready: "Commit 4: Movement controls initialized.",
+                ready: "Commit 5: Enemy and obstacle systems initialized.",
                 running: "Simulation active.",
                 paused: "Simulation paused.",
                 reset: "Simulation reset.",
@@ -298,11 +449,13 @@ class Game {
         this.state.playerEnergy = CONFIG.player.maxEnergy;
         this.state.fps = 0;
         this.loop.uiClock = 0;
+        this.loop.enemySpawnClock = 0;
         this.world.enemies.length = 0;
         this.world.projectiles.length = 0;
         this.world.obstacles.length = 0;
         this.world.pickups.length = 0;
         this.world.particles.length = 0;
+        this.createObstacles();
         this.createPlayer();
         this.setMode("reset");
         this.updateHud(true);
@@ -335,6 +488,16 @@ class Game {
         if (this.world.player) {
             if (this.state.mode === "running") {
                 this.world.player.move(this.input, this.arenaBounds, _deltaMs);
+
+                this.loop.enemySpawnClock += _deltaMs;
+                if (this.loop.enemySpawnClock >= CONFIG.enemy.spawnIntervalMs) {
+                    this.loop.enemySpawnClock = 0;
+                    this.spawnEnemy();
+                }
+
+                for (let i = 0; i < this.world.enemies.length; i += 1) {
+                    this.world.enemies[i].update(_deltaMs, this.world.player, this.arenaBounds);
+                }
             }
 
             this.world.player.update(_deltaMs);
@@ -355,8 +518,22 @@ class Game {
 
         this.drawGrid();
         this.drawArenaMarkers();
+        this.drawObstacles();
+        this.drawEnemies();
         this.drawPlayer();
         this.drawDebugBanner();
+    }
+
+    drawObstacles() {
+        for (let i = 0; i < this.world.obstacles.length; i += 1) {
+            this.world.obstacles[i].draw(this.ctx);
+        }
+    }
+
+    drawEnemies() {
+        for (let i = 0; i < this.world.enemies.length; i += 1) {
+            this.world.enemies[i].draw(this.ctx);
+        }
     }
 
     drawArenaMarkers() {
@@ -408,10 +585,10 @@ class Game {
 
         ctx.fillStyle = CONFIG.colors.subText;
         ctx.font = "400 20px Trebuchet MS";
-        ctx.fillText(`Commit 4: Player movement active (${state.mode})`, canvas.width * 0.5, canvas.height * 0.51);
+        ctx.fillText(`Commit 5: Enemy and obstacle systems active (${state.mode})`, canvas.width * 0.5, canvas.height * 0.51);
 
         ctx.font = "400 16px Trebuchet MS";
-        ctx.fillText("Move with WASD or Arrow Keys", canvas.width * 0.5, canvas.height * 0.55);
+        ctx.fillText("Move with WASD or Arrow Keys - avoid enemy swarms", canvas.width * 0.5, canvas.height * 0.55);
     }
 
     updateHud(force) {
@@ -438,6 +615,10 @@ class Game {
         if (this.ui.fpsEl) {
             this.ui.fpsEl.textContent = String(this.state.fps);
         }
+
+        if (this.ui.enemiesEl) {
+            this.ui.enemiesEl.textContent = String(this.world.enemies.length);
+        }
     }
 
     handleResize() {
@@ -460,6 +641,7 @@ function buildUiRefs() {
         scoreEl: document.getElementById("scoreValue"),
         waveEl: document.getElementById("waveValue"),
         fpsEl: document.getElementById("fpsValue"),
+        enemiesEl: document.getElementById("enemiesValue"),
         startBtn: document.getElementById("startBtn"),
         pauseBtn: document.getElementById("pauseBtn"),
         resetBtn: document.getElementById("resetBtn"),
