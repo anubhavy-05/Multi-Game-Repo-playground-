@@ -6,6 +6,15 @@ const CONFIG = {
     gridSize: 40,
     targetFps: 60,
     uiRefreshMs: 120,
+    player: {
+        radius: 22,
+        maxHealth: 100,
+        maxEnergy: 100,
+        bodyColor: "#5fd0ff",
+        trimColor: "#dcf5ff",
+        shadowColor: "rgba(0, 0, 0, 0.34)",
+        headingColor: "#ffd37b"
+    },
     colors: {
         backgroundTop: "#07111d",
         backgroundBottom: "#0d2236",
@@ -14,6 +23,72 @@ const CONFIG = {
         subText: "#8fb5c8"
     }
 };
+
+class Player {
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.radius = CONFIG.player.radius;
+        this.maxHealth = CONFIG.player.maxHealth;
+        this.health = this.maxHealth;
+        this.maxEnergy = CONFIG.player.maxEnergy;
+        this.energy = this.maxEnergy;
+        this.facing = { x: 1, y: 0 };
+        this.phase = 0;
+    }
+
+    update(deltaMs) {
+        this.phase += deltaMs * 0.006;
+    }
+
+    draw(ctx) {
+        const bob = Math.sin(this.phase) * 1.8;
+        const drawY = this.y + bob;
+
+        ctx.fillStyle = CONFIG.player.shadowColor;
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y + this.radius + 8, this.radius * 0.92, 8, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        const bodyGradient = ctx.createRadialGradient(
+            this.x - this.radius * 0.35,
+            drawY - this.radius * 0.45,
+            this.radius * 0.15,
+            this.x,
+            drawY,
+            this.radius * 1.1
+        );
+        bodyGradient.addColorStop(0, CONFIG.player.trimColor);
+        bodyGradient.addColorStop(1, CONFIG.player.bodyColor);
+
+        ctx.fillStyle = bodyGradient;
+        ctx.beginPath();
+        ctx.arc(this.x, drawY, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.5)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        const headingLength = this.radius * 0.75;
+        const headingX = this.x + this.facing.x * headingLength;
+        const headingY = drawY + this.facing.y * headingLength;
+
+        ctx.strokeStyle = CONFIG.player.headingColor;
+        ctx.lineWidth = 4;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        ctx.moveTo(this.x, drawY);
+        ctx.lineTo(headingX, headingY);
+        ctx.stroke();
+        ctx.lineCap = "butt";
+
+        ctx.fillStyle = "rgba(8, 18, 28, 0.7)";
+        ctx.beginPath();
+        ctx.arc(this.x, drawY, this.radius * 0.38, 0, Math.PI * 2);
+        ctx.fill();
+    }
+}
 
 class Game {
     constructor(canvas, ui) {
@@ -26,8 +101,8 @@ class Game {
             running: false,
             score: 0,
             wave: 0,
-            playerHealth: 0,
-            playerEnergy: 0,
+            playerHealth: CONFIG.player.maxHealth,
+            playerEnergy: CONFIG.player.maxEnergy,
             elapsedMs: 0,
             fps: 0
         };
@@ -62,6 +137,8 @@ class Game {
         this.canvas.width = CONFIG.canvasWidth;
         this.canvas.height = CONFIG.canvasHeight;
 
+        this.createPlayer();
+
         this.bindUiEvents();
         this.handleResize();
         window.addEventListener("resize", this.handleResize);
@@ -69,6 +146,12 @@ class Game {
         this.setMode("ready");
         this.updateHud(true);
         this.render();
+    }
+
+    createPlayer() {
+        this.world.player = new Player(CONFIG.canvasWidth * 0.5, CONFIG.canvasHeight * 0.56);
+        this.state.playerHealth = this.world.player.health;
+        this.state.playerEnergy = this.world.player.energy;
     }
 
     bindUiEvents() {
@@ -97,7 +180,7 @@ class Game {
         if (this.ui.bootOverlay) {
             const activeText = {
                 booting: "Booting systems...",
-                ready: "Commit 2: Core Game class initialized.",
+                ready: "Commit 3: Player entity initialized.",
                 running: "Simulation active.",
                 paused: "Simulation paused.",
                 reset: "Simulation reset.",
@@ -140,8 +223,8 @@ class Game {
         this.state.elapsedMs = 0;
         this.state.score = 0;
         this.state.wave = 0;
-        this.state.playerHealth = 0;
-        this.state.playerEnergy = 0;
+        this.state.playerHealth = CONFIG.player.maxHealth;
+        this.state.playerEnergy = CONFIG.player.maxEnergy;
         this.state.fps = 0;
         this.loop.uiClock = 0;
         this.world.enemies.length = 0;
@@ -149,6 +232,7 @@ class Game {
         this.world.obstacles.length = 0;
         this.world.pickups.length = 0;
         this.world.particles.length = 0;
+        this.createPlayer();
         this.setMode("reset");
         this.updateHud(true);
         this.render();
@@ -177,7 +261,11 @@ class Game {
     }
 
     update(_deltaMs) {
-        // Reserved for gameplay systems introduced in later commits.
+        if (this.world.player) {
+            this.world.player.update(_deltaMs);
+            this.state.playerHealth = Math.round(this.world.player.health);
+            this.state.playerEnergy = Math.round(this.world.player.energy);
+        }
     }
 
     render() {
@@ -191,7 +279,29 @@ class Game {
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         this.drawGrid();
+        this.drawArenaMarkers();
+        this.drawPlayer();
         this.drawDebugBanner();
+    }
+
+    drawArenaMarkers() {
+        const { ctx, canvas } = this;
+        ctx.strokeStyle = "rgba(88, 196, 255, 0.24)";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(70, 70, canvas.width - 140, canvas.height - 140);
+
+        ctx.fillStyle = "rgba(181, 236, 255, 0.5)";
+        ctx.font = "600 16px Trebuchet MS";
+        ctx.textAlign = "left";
+        ctx.fillText("Arena initialized", 82, 96);
+    }
+
+    drawPlayer() {
+        if (!this.world.player) {
+            return;
+        }
+
+        this.world.player.draw(this.ctx);
     }
 
     drawGrid() {
@@ -223,7 +333,7 @@ class Game {
 
         ctx.fillStyle = CONFIG.colors.subText;
         ctx.font = "400 20px Trebuchet MS";
-        ctx.fillText(`Commit 2: Game class active (${state.mode})`, canvas.width * 0.5, canvas.height * 0.51);
+        ctx.fillText(`Commit 3: Player rendered (${state.mode})`, canvas.width * 0.5, canvas.height * 0.51);
     }
 
     updateHud(force) {
