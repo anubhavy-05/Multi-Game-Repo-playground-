@@ -30,6 +30,12 @@ const CONFIG = {
         border: "rgba(186, 219, 242, 0.6)",
         count: 5
     },
+    collision: {
+        contactCooldownMs: 320,
+        playerFlashMs: 140,
+        enemySeparationPush: 2,
+        obstaclePadding: 2
+    },
     colors: {
         backgroundTop: "#07111d",
         backgroundBottom: "#0d2236",
@@ -48,10 +54,12 @@ class Enemy {
         this.color = color;
         this.health = 20;
         this.phase = Math.random() * Math.PI * 2;
+        this.contactCooldown = 0;
     }
 
     update(deltaMs, target, bounds) {
         this.phase += deltaMs * 0.006;
+        this.contactCooldown = Math.max(0, this.contactCooldown - deltaMs);
 
         const toTargetX = target.x - this.x;
         const toTargetY = target.y - this.y;
@@ -140,10 +148,12 @@ class Player {
         this.energy = this.maxEnergy;
         this.facing = { x: 1, y: 0 };
         this.phase = 0;
+        this.flashMs = 0;
     }
 
     update(deltaMs) {
         this.phase += deltaMs * 0.006;
+        this.flashMs = Math.max(0, this.flashMs - deltaMs);
     }
 
     move(input, bounds, deltaMs) {
@@ -225,6 +235,15 @@ class Player {
         ctx.beginPath();
         ctx.arc(this.x, drawY, this.radius * 0.38, 0, Math.PI * 2);
         ctx.fill();
+
+        if (this.flashMs > 0) {
+            const alpha = 0.25 + (this.flashMs / CONFIG.collision.playerFlashMs) * 0.35;
+            ctx.strokeStyle = "rgba(255, 120, 120, " + String(Math.min(0.65, alpha)) + ")";
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.arc(this.x, drawY, this.radius + 6, 0, Math.PI * 2);
+            ctx.stroke();
+        }
     }
 }
 
@@ -241,6 +260,7 @@ class Game {
             wave: 0,
             playerHealth: CONFIG.player.maxHealth,
             playerEnergy: CONFIG.player.maxEnergy,
+            impacts: 0,
             elapsedMs: 0,
             fps: 0
         };
@@ -402,7 +422,7 @@ class Game {
         if (this.ui.bootOverlay) {
             const activeText = {
                 booting: "Booting systems...",
-                ready: "Commit 5: Enemy and obstacle systems initialized.",
+                ready: "Commit 6: Collision system initialized.",
                 running: "Simulation active.",
                 paused: "Simulation paused.",
                 reset: "Simulation reset.",
@@ -447,6 +467,7 @@ class Game {
         this.state.wave = 0;
         this.state.playerHealth = CONFIG.player.maxHealth;
         this.state.playerEnergy = CONFIG.player.maxEnergy;
+        this.state.impacts = 0;
         this.state.fps = 0;
         this.loop.uiClock = 0;
         this.loop.enemySpawnClock = 0;
@@ -498,11 +519,108 @@ class Game {
                 for (let i = 0; i < this.world.enemies.length; i += 1) {
                     this.world.enemies[i].update(_deltaMs, this.world.player, this.arenaBounds);
                 }
+
+                this.handleCollisions();
             }
 
             this.world.player.update(_deltaMs);
             this.state.playerHealth = Math.round(this.world.player.health);
             this.state.playerEnergy = Math.round(this.world.player.energy);
+        }
+    }
+
+    handleCollisions() {
+        this.resolvePlayerObstacleCollisions();
+        this.resolveEnemyObstacleCollisions();
+        this.resolveEnemyEnemyCollisions();
+        this.resolvePlayerEnemyCollisions();
+    }
+
+    circlesOverlap(a, b, padding) {
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const minDist = a.radius + b.radius + (padding || 0);
+        return dx * dx + dy * dy < minDist * minDist;
+    }
+
+    separateCircles(a, b, share) {
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.hypot(dx, dy) || 0.0001;
+        const overlap = a.radius + b.radius - dist;
+
+        if (overlap <= 0) {
+            return;
+        }
+
+        const nx = dx / dist;
+        const ny = dy / dist;
+        const pushA = overlap * (share ? 0.5 : 1);
+        const pushB = overlap * 0.5;
+
+        a.x -= nx * pushA;
+        a.y -= ny * pushA;
+        if (share) {
+            b.x += nx * pushB;
+            b.y += ny * pushB;
+        }
+
+        a.x = Math.max(this.arenaBounds.left + a.radius, Math.min(this.arenaBounds.right - a.radius, a.x));
+        a.y = Math.max(this.arenaBounds.top + a.radius, Math.min(this.arenaBounds.bottom - a.radius, a.y));
+        b.x = Math.max(this.arenaBounds.left + b.radius, Math.min(this.arenaBounds.right - b.radius, b.x));
+        b.y = Math.max(this.arenaBounds.top + b.radius, Math.min(this.arenaBounds.bottom - b.radius, b.y));
+    }
+
+    resolvePlayerObstacleCollisions() {
+        const player = this.world.player;
+        for (let i = 0; i < this.world.obstacles.length; i += 1) {
+            const obstacle = this.world.obstacles[i];
+            if (this.circlesOverlap(player, obstacle, CONFIG.collision.obstaclePadding)) {
+                this.separateCircles(player, obstacle, false);
+            }
+        }
+    }
+
+    resolveEnemyObstacleCollisions() {
+        for (let i = 0; i < this.world.enemies.length; i += 1) {
+            const enemy = this.world.enemies[i];
+            for (let j = 0; j < this.world.obstacles.length; j += 1) {
+                const obstacle = this.world.obstacles[j];
+                if (this.circlesOverlap(enemy, obstacle, CONFIG.collision.obstaclePadding)) {
+                    this.separateCircles(enemy, obstacle, false);
+                }
+            }
+        }
+    }
+
+    resolveEnemyEnemyCollisions() {
+        const enemies = this.world.enemies;
+        for (let i = 0; i < enemies.length; i += 1) {
+            for (let j = i + 1; j < enemies.length; j += 1) {
+                const a = enemies[i];
+                const b = enemies[j];
+                if (this.circlesOverlap(a, b, 0)) {
+                    this.separateCircles(a, b, true);
+                }
+            }
+        }
+    }
+
+    resolvePlayerEnemyCollisions() {
+        const player = this.world.player;
+        for (let i = 0; i < this.world.enemies.length; i += 1) {
+            const enemy = this.world.enemies[i];
+            if (!this.circlesOverlap(player, enemy, 0)) {
+                continue;
+            }
+
+            this.separateCircles(player, enemy, true);
+
+            if (enemy.contactCooldown <= 0) {
+                enemy.contactCooldown = CONFIG.collision.contactCooldownMs;
+                player.flashMs = CONFIG.collision.playerFlashMs;
+                this.state.impacts += 1;
+            }
         }
     }
 
@@ -585,10 +703,10 @@ class Game {
 
         ctx.fillStyle = CONFIG.colors.subText;
         ctx.font = "400 20px Trebuchet MS";
-        ctx.fillText(`Commit 5: Enemy and obstacle systems active (${state.mode})`, canvas.width * 0.5, canvas.height * 0.51);
+        ctx.fillText("Commit 6: Collision detection active (" + state.mode + ")", canvas.width * 0.5, canvas.height * 0.51);
 
         ctx.font = "400 16px Trebuchet MS";
-        ctx.fillText("Move with WASD or Arrow Keys - avoid enemy swarms", canvas.width * 0.5, canvas.height * 0.55);
+        ctx.fillText("Player, enemies, and obstacles now resolve contact overlap", canvas.width * 0.5, canvas.height * 0.55);
     }
 
     updateHud(force) {
@@ -619,6 +737,10 @@ class Game {
         if (this.ui.enemiesEl) {
             this.ui.enemiesEl.textContent = String(this.world.enemies.length);
         }
+
+        if (this.ui.impactsEl) {
+            this.ui.impactsEl.textContent = String(this.state.impacts);
+        }
     }
 
     handleResize() {
@@ -629,7 +751,7 @@ class Game {
 
         const maxWidth = panel.clientWidth;
         const scale = Math.min(1, maxWidth / CONFIG.canvasWidth);
-        this.canvas.style.width = `${Math.floor(CONFIG.canvasWidth * scale)}px`;
+        this.canvas.style.width = String(Math.floor(CONFIG.canvasWidth * scale)) + "px";
     }
 }
 
@@ -642,6 +764,7 @@ function buildUiRefs() {
         waveEl: document.getElementById("waveValue"),
         fpsEl: document.getElementById("fpsValue"),
         enemiesEl: document.getElementById("enemiesValue"),
+        impactsEl: document.getElementById("impactsValue"),
         startBtn: document.getElementById("startBtn"),
         pauseBtn: document.getElementById("pauseBtn"),
         resetBtn: document.getElementById("resetBtn"),
