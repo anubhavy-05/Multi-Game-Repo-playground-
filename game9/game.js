@@ -338,6 +338,7 @@ class Game {
             score: 0,
             highScore: 0,
             scoreMultiplier: 1,
+            scoreBonusMultiplier: 1,
             wave: CONFIG.wave.startingWave,
             wavePhase: "intermission",
             waveEnemiesToSpawn: 0,
@@ -347,6 +348,8 @@ class Game {
             playerHealth: CONFIG.player.maxHealth,
             playerEnergy: CONFIG.player.maxEnergy,
             impacts: 0,
+            activePowerUp: "none",
+            powerUpRemainingMs: 0,
             elapsedMs: 0,
             lastImpactAtMs: 0,
             fps: 0
@@ -366,8 +369,11 @@ class Game {
             previousTime: 0,
             uiClock: 0,
             enemySpawnClock: 0,
-            waveClock: CONFIG.wave.intermissionMs
+            waveClock: CONFIG.wave.intermissionMs,
+            powerUpSpawnClock: 0
         };
+
+        this.basePlayerSpeed = CONFIG.player.speed;
 
         this.input = {
             pressed: new Set(),
@@ -534,7 +540,7 @@ class Game {
         if (this.ui.bootOverlay) {
             const activeText = {
                 booting: "Booting systems...",
-                ready: "Commit 8: Wave system initialized.",
+                ready: "Commit 9: Power-up system initialized.",
                 running: "Simulation active.",
                 paused: "Simulation paused.",
                 reset: "Simulation reset.",
@@ -577,6 +583,7 @@ class Game {
         this.state.elapsedMs = 0;
         this.state.score = 0;
         this.state.scoreMultiplier = 1;
+        this.state.scoreBonusMultiplier = 1;
         this.state.wave = CONFIG.wave.startingWave;
         this.state.wavePhase = "intermission";
         this.state.waveEnemiesToSpawn = 0;
@@ -586,11 +593,14 @@ class Game {
         this.state.playerHealth = CONFIG.player.maxHealth;
         this.state.playerEnergy = CONFIG.player.maxEnergy;
         this.state.impacts = 0;
+        this.state.activePowerUp = "none";
+        this.state.powerUpRemainingMs = 0;
         this.state.lastImpactAtMs = 0;
         this.state.fps = 0;
         this.loop.uiClock = 0;
         this.loop.enemySpawnClock = 0;
         this.loop.waveClock = CONFIG.wave.intermissionMs;
+        this.loop.powerUpSpawnClock = 0;
         this.world.enemies.length = 0;
         this.world.projectiles.length = 0;
         this.world.obstacles.length = 0;
@@ -599,6 +609,7 @@ class Game {
         this.createObstacles();
         this.createPlayer();
         this.setupWave(CONFIG.wave.startingWave);
+        this.removePowerUpEffects();
         this.setMode("reset");
         this.updateHud(true);
         this.render();
@@ -634,6 +645,9 @@ class Game {
                 this.updateWaveSystem(_deltaMs);
 
                 this.updateEnemies(_deltaMs);
+                this.updatePickups(_deltaMs);
+                this.updatePowerUpTimer(_deltaMs);
+                this.updateRandomPowerUpSpawns(_deltaMs);
 
                 this.handleCollisions();
                 this.updateScoring(_deltaMs);
@@ -690,7 +704,106 @@ class Game {
             if (expired) {
                 this.world.enemies.splice(i, 1);
                 this.state.waveEscaped += 1;
+                if (Math.random() < CONFIG.powerUps.spawnOnEscapeChance) {
+                    this.spawnPowerUpAt(enemy.x, enemy.y);
+                }
             }
+        }
+    }
+
+    updatePickups(deltaMs) {
+        for (let i = this.world.pickups.length - 1; i >= 0; i -= 1) {
+            const pickup = this.world.pickups[i];
+            const expired = pickup.update(deltaMs);
+            if (expired) {
+                this.world.pickups.splice(i, 1);
+            }
+        }
+    }
+
+    updatePowerUpTimer(deltaMs) {
+        if (this.state.powerUpRemainingMs <= 0) {
+            return;
+        }
+
+        this.state.powerUpRemainingMs -= deltaMs;
+        if (this.state.powerUpRemainingMs <= 0) {
+            this.removePowerUpEffects();
+        }
+    }
+
+    updateRandomPowerUpSpawns(deltaMs) {
+        this.loop.powerUpSpawnClock += deltaMs;
+        if (this.loop.powerUpSpawnClock < CONFIG.powerUps.spawnCheckMs) {
+            return;
+        }
+
+        this.loop.powerUpSpawnClock = 0;
+        if (this.world.pickups.length >= CONFIG.powerUps.maxPickups) {
+            return;
+        }
+
+        if (Math.random() < CONFIG.powerUps.randomSpawnChance) {
+            this.spawnPowerUpAt(
+                this.arenaBounds.left + 40 + Math.random() * (this.arenaBounds.right - this.arenaBounds.left - 80),
+                this.arenaBounds.top + 40 + Math.random() * (this.arenaBounds.bottom - this.arenaBounds.top - 80)
+            );
+        }
+    }
+
+    spawnPowerUpAt(x, y) {
+        if (this.world.pickups.length >= CONFIG.powerUps.maxPickups) {
+            return;
+        }
+
+        const keys = Object.keys(CONFIG.powerUps.types);
+        const typeKey = keys[Math.floor(Math.random() * keys.length)];
+        const spec = CONFIG.powerUps.types[typeKey];
+        this.world.pickups.push(new Pickup(x, y, typeKey, spec));
+    }
+
+    applyPowerUp(pickup) {
+        const typeKey = pickup.typeKey;
+        const spec = pickup.spec;
+
+        if (typeKey === "heal") {
+            this.world.player.health = Math.min(this.world.player.maxHealth, this.world.player.health + spec.amount);
+            return;
+        }
+
+        if (typeKey === "energy") {
+            this.world.player.energy = Math.min(this.world.player.maxEnergy, this.world.player.energy + spec.amount);
+            return;
+        }
+
+        this.removePowerUpEffects();
+
+        if (typeKey === "shield") {
+            this.state.activePowerUp = "Shield";
+            this.state.powerUpRemainingMs = spec.durationMs;
+            return;
+        }
+
+        if (typeKey === "haste") {
+            this.state.activePowerUp = "Haste";
+            this.state.powerUpRemainingMs = spec.durationMs;
+            this.world.player.speed = this.basePlayerSpeed + spec.amount;
+            return;
+        }
+
+        if (typeKey === "scoreBurst") {
+            this.state.activePowerUp = "Score Burst";
+            this.state.powerUpRemainingMs = spec.durationMs;
+            this.state.scoreBonusMultiplier = 1 + spec.amount;
+        }
+    }
+
+    removePowerUpEffects() {
+        this.state.activePowerUp = "none";
+        this.state.powerUpRemainingMs = 0;
+        this.state.scoreBonusMultiplier = 1;
+        if (this.world.player) {
+            this.world.player.speed = this.basePlayerSpeed;
         }
     }
 
@@ -699,6 +812,7 @@ class Game {
         this.resolveEnemyObstacleCollisions();
         this.resolveEnemyEnemyCollisions();
         this.resolvePlayerEnemyCollisions();
+        this.resolvePlayerPickupCollisions();
     }
 
     updateScoring(deltaMs) {
@@ -713,7 +827,7 @@ class Game {
 
         const crowdFactor = 1 + this.world.enemies.length * CONFIG.score.crowdBonusFactor;
         const points = CONFIG.score.basePerSecond * (deltaMs / 1000) * crowdFactor * this.state.scoreMultiplier;
-        this.state.score += points;
+        this.state.score += points * this.state.scoreBonusMultiplier;
 
         if (this.state.wavePhase === "complete") {
             this.state.score += (this.state.wave * 10) * (deltaMs / 1000);
@@ -805,11 +919,27 @@ class Game {
             this.separateCircles(player, enemy, true);
 
             if (enemy.contactCooldown <= 0) {
+                if (this.state.activePowerUp === "Shield") {
+                    enemy.contactCooldown = CONFIG.collision.contactCooldownMs;
+                    return;
+                }
+
                 enemy.contactCooldown = CONFIG.collision.contactCooldownMs;
                 player.flashMs = CONFIG.collision.playerFlashMs;
                 this.state.impacts += 1;
                 this.state.lastImpactAtMs = this.state.elapsedMs;
                 this.state.score = Math.max(0, this.state.score - CONFIG.score.impactPenalty);
+            }
+        }
+    }
+
+    resolvePlayerPickupCollisions() {
+        const player = this.world.player;
+        for (let i = this.world.pickups.length - 1; i >= 0; i -= 1) {
+            const pickup = this.world.pickups[i];
+            if (this.circlesOverlap(player, pickup, 0)) {
+                this.applyPowerUp(pickup);
+                this.world.pickups.splice(i, 1);
             }
         }
     }
@@ -828,8 +958,15 @@ class Game {
         this.drawArenaMarkers();
         this.drawObstacles();
         this.drawEnemies();
+        this.drawPickups();
         this.drawPlayer();
         this.drawDebugBanner();
+    }
+
+    drawPickups() {
+        for (let i = 0; i < this.world.pickups.length; i += 1) {
+            this.world.pickups[i].draw(this.ctx);
+        }
     }
 
     drawObstacles() {
@@ -893,10 +1030,10 @@ class Game {
 
         ctx.fillStyle = CONFIG.colors.subText;
         ctx.font = "400 20px Trebuchet MS";
-        ctx.fillText("Commit 8: Wave progression active (" + state.mode + ")", canvas.width * 0.5, canvas.height * 0.51);
+        ctx.fillText("Commit 9: Power-ups active (" + state.mode + ")", canvas.width * 0.5, canvas.height * 0.51);
 
         ctx.font = "400 16px Trebuchet MS";
-        ctx.fillText("Survive escalating waves with adaptive spawn pressure", canvas.width * 0.5, canvas.height * 0.55);
+        ctx.fillText("Collect pickups for healing, shield, haste, and score boosts", canvas.width * 0.5, canvas.height * 0.55);
     }
 
     updateHud(force) {
@@ -952,6 +1089,18 @@ class Game {
         if (this.ui.impactsEl) {
             this.ui.impactsEl.textContent = String(this.state.impacts);
         }
+
+        if (this.ui.powerUpEl) {
+            if (this.state.powerUpRemainingMs > 0) {
+                this.ui.powerUpEl.textContent = this.state.activePowerUp + " " + String(Math.ceil(this.state.powerUpRemainingMs / 1000)) + "s";
+            } else {
+                this.ui.powerUpEl.textContent = this.state.activePowerUp;
+            }
+        }
+
+        if (this.ui.pickupsEl) {
+            this.ui.pickupsEl.textContent = String(this.world.pickups.length);
+        }
     }
 
     handleResize() {
@@ -980,6 +1129,8 @@ function buildUiRefs() {
         fpsEl: document.getElementById("fpsValue"),
         enemiesEl: document.getElementById("enemiesValue"),
         impactsEl: document.getElementById("impactsValue"),
+        powerUpEl: document.getElementById("powerUpValue"),
+        pickupsEl: document.getElementById("pickupsValue"),
         startBtn: document.getElementById("startBtn"),
         pauseBtn: document.getElementById("pauseBtn"),
         resetBtn: document.getElementById("resetBtn"),
