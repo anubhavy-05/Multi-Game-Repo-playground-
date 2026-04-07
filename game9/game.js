@@ -54,6 +54,20 @@ const CONFIG = {
         minSpawnIntervalMs: 520,
         enemyLifetimeMs: 10500
     },
+    powerUps: {
+        spawnCheckMs: 1800,
+        randomSpawnChance: 0.22,
+        spawnOnEscapeChance: 0.18,
+        maxPickups: 4,
+        pickupLifeMs: 12000,
+        types: {
+            heal: { label: "Heal", color: "#60e889", durationMs: 0, amount: 20 },
+            energy: { label: "Energy", color: "#79d3ff", durationMs: 0, amount: 25 },
+            shield: { label: "Shield", color: "#f7d26b", durationMs: 5500, amount: 0 },
+            haste: { label: "Haste", color: "#ff9f66", durationMs: 5000, amount: 70 },
+            scoreBurst: { label: "Score Burst", color: "#f08dff", durationMs: 6500, amount: 0.8 }
+        }
+    },
     colors: {
         backgroundTop: "#07111d",
         backgroundBottom: "#0d2236",
@@ -156,6 +170,48 @@ class Obstacle {
         ctx.beginPath();
         ctx.arc(this.x - this.radius * 0.22, this.y - this.radius * 0.22, this.radius * 0.35, 0, Math.PI * 2);
         ctx.fill();
+    }
+}
+
+class Pickup {
+    constructor(x, y, typeKey, spec) {
+        this.x = x;
+        this.y = y;
+        this.typeKey = typeKey;
+        this.spec = spec;
+        this.radius = 14;
+        this.lifeMs = CONFIG.powerUps.pickupLifeMs;
+        this.phase = Math.random() * Math.PI * 2;
+    }
+
+    update(deltaMs) {
+        this.phase += deltaMs * 0.007;
+        this.lifeMs -= deltaMs;
+        return this.lifeMs <= 0;
+    }
+
+    draw(ctx) {
+        const pulse = 1 + Math.sin(this.phase) * 0.08;
+        const r = this.radius * pulse;
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.25)";
+        ctx.beginPath();
+        ctx.ellipse(this.x, this.y + r + 5, r * 0.8, 5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = this.spec.color;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, r, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        ctx.fillStyle = "rgba(12, 22, 34, 0.86)";
+        ctx.font = "700 10px Trebuchet MS";
+        ctx.textAlign = "center";
+        ctx.fillText(this.spec.label.charAt(0), this.x, this.y + 3);
     }
 }
 
