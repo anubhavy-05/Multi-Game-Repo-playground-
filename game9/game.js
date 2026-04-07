@@ -36,6 +36,14 @@ const CONFIG = {
         enemySeparationPush: 2,
         obstaclePadding: 2
     },
+    score: {
+        basePerSecond: 12,
+        crowdBonusFactor: 0.08,
+        impactPenalty: 8,
+        cleanWindowMs: 4000,
+        multiplierStep: 0.25,
+        maxMultiplier: 3.5
+    },
     colors: {
         backgroundTop: "#07111d",
         backgroundBottom: "#0d2236",
@@ -257,11 +265,14 @@ class Game {
             mode: "booting",
             running: false,
             score: 0,
+            highScore: 0,
+            scoreMultiplier: 1,
             wave: 0,
             playerHealth: CONFIG.player.maxHealth,
             playerEnergy: CONFIG.player.maxEnergy,
             impacts: 0,
             elapsedMs: 0,
+            lastImpactAtMs: 0,
             fps: 0
         };
 
@@ -422,7 +433,7 @@ class Game {
         if (this.ui.bootOverlay) {
             const activeText = {
                 booting: "Booting systems...",
-                ready: "Commit 6: Collision system initialized.",
+                ready: "Commit 7: Scoring system initialized.",
                 running: "Simulation active.",
                 paused: "Simulation paused.",
                 reset: "Simulation reset.",
@@ -464,10 +475,12 @@ class Game {
         this.state.running = false;
         this.state.elapsedMs = 0;
         this.state.score = 0;
+        this.state.scoreMultiplier = 1;
         this.state.wave = 0;
         this.state.playerHealth = CONFIG.player.maxHealth;
         this.state.playerEnergy = CONFIG.player.maxEnergy;
         this.state.impacts = 0;
+        this.state.lastImpactAtMs = 0;
         this.state.fps = 0;
         this.loop.uiClock = 0;
         this.loop.enemySpawnClock = 0;
@@ -521,6 +534,7 @@ class Game {
                 }
 
                 this.handleCollisions();
+                this.updateScoring(_deltaMs);
             }
 
             this.world.player.update(_deltaMs);
@@ -534,6 +548,25 @@ class Game {
         this.resolveEnemyObstacleCollisions();
         this.resolveEnemyEnemyCollisions();
         this.resolvePlayerEnemyCollisions();
+    }
+
+    updateScoring(deltaMs) {
+        const cleanDuration = Math.max(0, this.state.elapsedMs - this.state.lastImpactAtMs);
+        if (cleanDuration >= CONFIG.score.cleanWindowMs) {
+            const fullWindows = Math.floor(cleanDuration / CONFIG.score.cleanWindowMs);
+            const multiplier = 1 + fullWindows * CONFIG.score.multiplierStep;
+            this.state.scoreMultiplier = Math.min(CONFIG.score.maxMultiplier, multiplier);
+        } else {
+            this.state.scoreMultiplier = 1;
+        }
+
+        const crowdFactor = 1 + this.world.enemies.length * CONFIG.score.crowdBonusFactor;
+        const points = CONFIG.score.basePerSecond * (deltaMs / 1000) * crowdFactor * this.state.scoreMultiplier;
+        this.state.score += points;
+
+        if (this.state.score > this.state.highScore) {
+            this.state.highScore = this.state.score;
+        }
     }
 
     circlesOverlap(a, b, padding) {
@@ -620,6 +653,8 @@ class Game {
                 enemy.contactCooldown = CONFIG.collision.contactCooldownMs;
                 player.flashMs = CONFIG.collision.playerFlashMs;
                 this.state.impacts += 1;
+                this.state.lastImpactAtMs = this.state.elapsedMs;
+                this.state.score = Math.max(0, this.state.score - CONFIG.score.impactPenalty);
             }
         }
     }
@@ -703,10 +738,10 @@ class Game {
 
         ctx.fillStyle = CONFIG.colors.subText;
         ctx.font = "400 20px Trebuchet MS";
-        ctx.fillText("Commit 6: Collision detection active (" + state.mode + ")", canvas.width * 0.5, canvas.height * 0.51);
+        ctx.fillText("Commit 7: Scoring system active (" + state.mode + ")", canvas.width * 0.5, canvas.height * 0.51);
 
         ctx.font = "400 16px Trebuchet MS";
-        ctx.fillText("Player, enemies, and obstacles now resolve contact overlap", canvas.width * 0.5, canvas.height * 0.55);
+        ctx.fillText("Stay clean for multiplier boosts; impacts apply score penalties", canvas.width * 0.5, canvas.height * 0.55);
     }
 
     updateHud(force) {
@@ -723,7 +758,15 @@ class Game {
         }
 
         if (this.ui.scoreEl) {
-            this.ui.scoreEl.textContent = String(this.state.score);
+            this.ui.scoreEl.textContent = String(Math.floor(this.state.score));
+        }
+
+        if (this.ui.highScoreEl) {
+            this.ui.highScoreEl.textContent = String(Math.floor(this.state.highScore));
+        }
+
+        if (this.ui.multiplierEl) {
+            this.ui.multiplierEl.textContent = this.state.scoreMultiplier.toFixed(2) + "x";
         }
 
         if (this.ui.waveEl) {
@@ -761,6 +804,8 @@ function buildUiRefs() {
         healthEl: document.getElementById("playerHealth"),
         energyEl: document.getElementById("playerEnergy"),
         scoreEl: document.getElementById("scoreValue"),
+        highScoreEl: document.getElementById("highScoreValue"),
+        multiplierEl: document.getElementById("multiplierValue"),
         waveEl: document.getElementById("waveValue"),
         fpsEl: document.getElementById("fpsValue"),
         enemiesEl: document.getElementById("enemiesValue"),
