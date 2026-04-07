@@ -11,6 +11,9 @@ const CONFIG = {
         speed: 280,
         maxHealth: 100,
         maxEnergy: 100,
+        startingLives: 3,
+        contactDamage: 28,
+        respawnInvulnerableMs: 1800,
         bodyColor: "#5fd0ff",
         trimColor: "#dcf5ff",
         shadowColor: "rgba(0, 0, 0, 0.34)",
@@ -228,11 +231,13 @@ class Player {
         this.facing = { x: 1, y: 0 };
         this.phase = 0;
         this.flashMs = 0;
+        this.invulnerableMs = 0;
     }
 
     update(deltaMs) {
         this.phase += deltaMs * 0.006;
         this.flashMs = Math.max(0, this.flashMs - deltaMs);
+        this.invulnerableMs = Math.max(0, this.invulnerableMs - deltaMs);
     }
 
     move(input, bounds, deltaMs) {
@@ -323,6 +328,15 @@ class Player {
             ctx.arc(this.x, drawY, this.radius + 6, 0, Math.PI * 2);
             ctx.stroke();
         }
+
+        if (this.invulnerableMs > 0) {
+            const pulse = 0.2 + Math.abs(Math.sin(this.phase * 2.2)) * 0.45;
+            ctx.strokeStyle = "rgba(126, 235, 255, " + String(Math.min(0.7, pulse)) + ")";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(this.x, drawY, this.radius + 12, 0, Math.PI * 2);
+            ctx.stroke();
+        }
     }
 }
 
@@ -346,6 +360,7 @@ class Game {
             waveEscaped: 0,
             waveDefeated: 0,
             playerHealth: CONFIG.player.maxHealth,
+            playerLives: CONFIG.player.startingLives,
             playerEnergy: CONFIG.player.maxEnergy,
             impacts: 0,
             activePowerUp: "none",
@@ -443,6 +458,7 @@ class Game {
     createPlayer() {
         this.world.player = new Player(CONFIG.canvasWidth * 0.5, CONFIG.canvasHeight * 0.56);
         this.state.playerHealth = this.world.player.health;
+        this.state.playerLives = CONFIG.player.startingLives;
         this.state.playerEnergy = this.world.player.energy;
     }
 
@@ -540,10 +556,11 @@ class Game {
         if (this.ui.bootOverlay) {
             const activeText = {
                 booting: "Booting systems...",
-                ready: "Commit 9: Power-up system initialized.",
+                ready: "Commit 10: Health and lives system initialized.",
                 running: "Simulation active.",
                 paused: "Simulation paused.",
                 reset: "Simulation reset.",
+                "game-over": "All lives lost. Reset to try again.",
                 "canvas-error": "Canvas context failed to initialize."
             };
             this.ui.bootOverlay.querySelector("p").textContent = activeText[nextMode] || "System idle.";
@@ -591,6 +608,7 @@ class Game {
         this.state.waveEscaped = 0;
         this.state.waveDefeated = 0;
         this.state.playerHealth = CONFIG.player.maxHealth;
+        this.state.playerLives = CONFIG.player.startingLives;
         this.state.playerEnergy = CONFIG.player.maxEnergy;
         this.state.impacts = 0;
         this.state.activePowerUp = "none";
@@ -655,9 +673,58 @@ class Game {
 
             this.world.player.update(_deltaMs);
             this.state.playerHealth = Math.round(this.world.player.health);
+            this.state.playerLives = Math.max(0, this.state.playerLives);
             this.state.playerEnergy = Math.round(this.world.player.energy);
         }
     }
+
+        applyPlayerDamage(amount) {
+            const player = this.world.player;
+            if (!player || player.invulnerableMs > 0 || this.state.mode !== "running") {
+                return;
+            }
+
+            player.health = Math.max(0, player.health - amount);
+            player.flashMs = CONFIG.collision.playerFlashMs;
+            this.state.playerHealth = Math.round(player.health);
+
+            if (player.health <= 0) {
+                this.handleLifeLost();
+            }
+        }
+
+        handleLifeLost() {
+            this.state.playerLives -= 1;
+
+            if (this.state.playerLives <= 0) {
+                this.state.playerLives = 0;
+                this.endGame();
+                return;
+            }
+
+            this.respawnPlayer();
+        }
+
+        respawnPlayer() {
+            const player = this.world.player;
+            if (!player) {
+                return;
+            }
+
+            player.x = CONFIG.canvasWidth * 0.5;
+            player.y = CONFIG.canvasHeight * 0.56;
+            player.health = player.maxHealth;
+            player.invulnerableMs = CONFIG.player.respawnInvulnerableMs;
+            player.flashMs = 0;
+            this.state.playerHealth = player.health;
+        }
+
+        endGame() {
+            this.removePowerUpEffects();
+            this.state.running = false;
+            this.setMode("game-over");
+            this.updateHud(true);
+        }
 
     updateWaveSystem(deltaMs) {
         if (this.state.wavePhase === "intermission" || this.state.wavePhase === "complete") {
@@ -921,11 +988,11 @@ class Game {
             if (enemy.contactCooldown <= 0) {
                 if (this.state.activePowerUp === "Shield") {
                     enemy.contactCooldown = CONFIG.collision.contactCooldownMs;
-                    return;
+                    continue;
                 }
 
                 enemy.contactCooldown = CONFIG.collision.contactCooldownMs;
-                player.flashMs = CONFIG.collision.playerFlashMs;
+                this.applyPlayerDamage(CONFIG.player.contactDamage);
                 this.state.impacts += 1;
                 this.state.lastImpactAtMs = this.state.elapsedMs;
                 this.state.score = Math.max(0, this.state.score - CONFIG.score.impactPenalty);
@@ -1030,10 +1097,10 @@ class Game {
 
         ctx.fillStyle = CONFIG.colors.subText;
         ctx.font = "400 20px Trebuchet MS";
-        ctx.fillText("Commit 9: Power-ups active (" + state.mode + ")", canvas.width * 0.5, canvas.height * 0.51);
+        ctx.fillText("Commit 10: Health and lives online (" + state.mode + ")", canvas.width * 0.5, canvas.height * 0.51);
 
         ctx.font = "400 16px Trebuchet MS";
-        ctx.fillText("Collect pickups for healing, shield, haste, and score boosts", canvas.width * 0.5, canvas.height * 0.55);
+        ctx.fillText("Survive with limited lives while collecting pickups for tactical advantage", canvas.width * 0.5, canvas.height * 0.55);
     }
 
     updateHud(force) {
@@ -1043,6 +1110,10 @@ class Game {
 
         if (this.ui.healthEl) {
             this.ui.healthEl.textContent = String(this.state.playerHealth);
+        }
+
+        if (this.ui.livesEl) {
+            this.ui.livesEl.textContent = String(this.state.playerLives);
         }
 
         if (this.ui.energyEl) {
@@ -1119,6 +1190,7 @@ function buildUiRefs() {
     return {
         stateEl: document.getElementById("gameState"),
         healthEl: document.getElementById("playerHealth"),
+        livesEl: document.getElementById("livesValue"),
         energyEl: document.getElementById("playerEnergy"),
         scoreEl: document.getElementById("scoreValue"),
         highScoreEl: document.getElementById("highScoreValue"),
