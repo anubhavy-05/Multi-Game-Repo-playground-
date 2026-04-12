@@ -18,9 +18,9 @@
                 <canvas id="gameCanvas" width="1280" height="720"></canvas>
 
                 <div id="bootOverlay" class="boot-overlay" aria-live="polite">
-                    <h2>Commit 11: Audio and Cues</h2>
-                    <p>Wave, impact, pickup, and game-over sounds are now live.</p>
-                    <p>Use the mute control (or press M) to toggle audio instantly.</p>
+                    <h2>Commit 12: Projectile Combat</h2>
+                    <p>Fire bolts with Space or click/tap to damage and defeat enemies.</p>
+                    <p>Energy management now drives your attack rhythm in each wave.</p>
                 </div>
             </section>
 
@@ -82,12 +82,20 @@
                     <strong id="impactsValue">0</strong>
                 </div>
                 <div class="hud-row">
+                    <span>Defeated</span>
+                    <strong id="defeatedValue">0</strong>
+                </div>
+                <div class="hud-row">
                     <span>Power-Up</span>
                     <strong id="powerUpValue">none</strong>
                 </div>
                 <div class="hud-row">
                     <span>Pickups</span>
                     <strong id="pickupsValue">0</strong>
+                </div>
+                <div class="hud-row">
+                    <span>Accuracy</span>
+                    <strong id="accuracyValue">0%</strong>
                 </div>
                 <div class="hud-row">
                     <span>Audio</span>
@@ -104,7 +112,7 @@
         </main>
 
         <footer class="footer-note">
-            <p>Use WASD or Arrow Keys to move the player around the arena.</p>
+            <p>Move with WASD/Arrows, fire with Space or click/tap, and press M to mute audio.</p>
         </footer>
     </div>
 
