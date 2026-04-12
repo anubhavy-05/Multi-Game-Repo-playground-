@@ -39,6 +39,17 @@ const CONFIG = {
         enemySeparationPush: 2,
         obstaclePadding: 2
     },
+    combat: {
+        projectileRadius: 6,
+        projectileSpeed: 620,
+        projectileLifetimeMs: 1250,
+        projectileDamage: 20,
+        fireCooldownMs: 170,
+        fireEnergyCost: 14,
+        energyRegenPerSecond: 18,
+        defeatScore: 36,
+        spawnOnDefeatChance: 0.14
+    },
     score: {
         basePerSecond: 12,
         crowdBonusFactor: 0.08,
@@ -189,6 +200,16 @@ class AudioEngine {
 
         if (eventName === "pickup") {
             this.chirp(580, 860, 0.09, 0.13, "sine", t);
+            return;
+        }
+
+        if (eventName === "shoot") {
+            this.chirp(980, 620, 0.08, 0.1, "square", t);
+            return;
+        }
+
+        if (eventName === "enemyDown") {
+            this.chirp(360, 780, 0.1, 0.13, "triangle", t);
             return;
         }
 
@@ -410,6 +431,47 @@ class Pickup {
     }
 }
 
+class Projectile {
+    constructor(x, y, dirX, dirY) {
+        this.x = x;
+        this.y = y;
+        this.dirX = dirX;
+        this.dirY = dirY;
+        this.radius = CONFIG.combat.projectileRadius;
+        this.speed = CONFIG.combat.projectileSpeed;
+        this.lifeMs = CONFIG.combat.projectileLifetimeMs;
+    }
+
+    update(deltaMs, bounds) {
+        const deltaSeconds = deltaMs / 1000;
+        this.x += this.dirX * this.speed * deltaSeconds;
+        this.y += this.dirY * this.speed * deltaSeconds;
+        this.lifeMs -= deltaMs;
+
+        if (this.lifeMs <= 0) {
+            return true;
+        }
+
+        return (
+            this.x < bounds.left - this.radius ||
+            this.x > bounds.right + this.radius ||
+            this.y < bounds.top - this.radius ||
+            this.y > bounds.bottom + this.radius
+        );
+    }
+
+    draw(ctx) {
+        ctx.fillStyle = "rgba(255, 231, 156, 0.9)";
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.9)";
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+    }
+}
+
 class Player {
     constructor(x, y) {
         this.x = x;
@@ -560,6 +622,8 @@ class Game {
             powerUpRemainingMs: 0,
             elapsedMs: 0,
             lastImpactAtMs: 0,
+            shotsFired: 0,
+            shotsHit: 0,
             fps: 0
         };
 
@@ -578,7 +642,8 @@ class Game {
             uiClock: 0,
             enemySpawnClock: 0,
             waveClock: CONFIG.wave.intermissionMs,
-            powerUpSpawnClock: 0
+            powerUpSpawnClock: 0,
+            shootCooldownMs: 0
         };
 
         this.basePlayerSpeed = CONFIG.player.speed;
@@ -599,6 +664,7 @@ class Game {
         this.handleResize = this.handleResize.bind(this);
         this.handleKeyDown = this.handleKeyDown.bind(this);
         this.handleKeyUp = this.handleKeyUp.bind(this);
+        this.handlePointerDown = this.handlePointerDown.bind(this);
 
         this.initialize();
     }
@@ -727,6 +793,7 @@ class Game {
     bindInputEvents() {
         window.addEventListener("keydown", this.handleKeyDown);
         window.addEventListener("keyup", this.handleKeyUp);
+        this.canvas.addEventListener("pointerdown", this.handlePointerDown);
     }
 
     handleKeyDown(event) {
@@ -734,6 +801,12 @@ class Game {
         if (key === "m") {
             event.preventDefault();
             this.toggleMute();
+            return;
+        }
+
+        if (key === " " || key === "spacebar") {
+            event.preventDefault();
+            this.tryFireProjectile();
             return;
         }
 
@@ -751,6 +824,23 @@ class Game {
         this.input.pressed.delete(event.key.toLowerCase());
     }
 
+    handlePointerDown(event) {
+        if (!this.world.player) {
+            return;
+        }
+
+        const rect = this.canvas.getBoundingClientRect();
+        const canvasX = ((event.clientX - rect.left) / rect.width) * this.canvas.width;
+        const canvasY = ((event.clientY - rect.top) / rect.height) * this.canvas.height;
+
+        const dx = canvasX - this.world.player.x;
+        const dy = canvasY - this.world.player.y;
+        const mag = Math.hypot(dx, dy) || 1;
+        this.world.player.facing.x = dx / mag;
+        this.world.player.facing.y = dy / mag;
+        this.tryFireProjectile();
+    }
+
     setMode(nextMode) {
         this.state.mode = nextMode;
 
@@ -761,7 +851,7 @@ class Game {
         if (this.ui.bootOverlay) {
             const activeText = {
                 booting: "Booting systems...",
-                ready: "Commit 11: Audio system armed. Press M to mute.",
+                ready: "Commit 12: Projectile combat armed. Space or click to fire.",
                 running: "Simulation active.",
                 paused: "Simulation paused.",
                 reset: "Simulation reset.",
@@ -834,11 +924,14 @@ class Game {
         this.state.activePowerUp = "none";
         this.state.powerUpRemainingMs = 0;
         this.state.lastImpactAtMs = 0;
+        this.state.shotsFired = 0;
+        this.state.shotsHit = 0;
         this.state.fps = 0;
         this.loop.uiClock = 0;
         this.loop.enemySpawnClock = 0;
         this.loop.waveClock = CONFIG.wave.intermissionMs;
         this.loop.powerUpSpawnClock = 0;
+        this.loop.shootCooldownMs = 0;
         this.world.enemies.length = 0;
         this.world.projectiles.length = 0;
         this.world.obstacles.length = 0;
@@ -879,10 +972,12 @@ class Game {
         if (this.world.player) {
             if (this.state.mode === "running") {
                 this.world.player.move(this.input, this.arenaBounds, _deltaMs);
+                this.updatePlayerResources(_deltaMs);
 
                 this.updateWaveSystem(_deltaMs);
 
                 this.updateEnemies(_deltaMs);
+                this.updateProjectiles(_deltaMs);
                 this.updatePickups(_deltaMs);
                 this.updatePowerUpTimer(_deltaMs);
                 this.updateRandomPowerUpSpawns(_deltaMs);
@@ -896,6 +991,41 @@ class Game {
             this.state.playerLives = Math.max(0, this.state.playerLives);
             this.state.playerEnergy = Math.round(this.world.player.energy);
         }
+    }
+
+    updatePlayerResources(deltaMs) {
+        if (!this.world.player) {
+            return;
+        }
+
+        const regen = CONFIG.combat.energyRegenPerSecond * (deltaMs / 1000);
+        this.world.player.energy = Math.min(this.world.player.maxEnergy, this.world.player.energy + regen);
+    }
+
+    tryFireProjectile() {
+        if (!this.world.player || this.state.mode !== "running") {
+            return;
+        }
+
+        if (this.loop.shootCooldownMs > 0) {
+            return;
+        }
+
+        if (this.world.player.energy < CONFIG.combat.fireEnergyCost) {
+            return;
+        }
+
+        const dirX = this.world.player.facing.x;
+        const dirY = this.world.player.facing.y;
+        const spawnOffset = this.world.player.radius + CONFIG.combat.projectileRadius + 4;
+        const spawnX = this.world.player.x + dirX * spawnOffset;
+        const spawnY = this.world.player.y + dirY * spawnOffset;
+        this.world.projectiles.push(new Projectile(spawnX, spawnY, dirX, dirY));
+
+        this.world.player.energy = Math.max(0, this.world.player.energy - CONFIG.combat.fireEnergyCost);
+        this.state.shotsFired += 1;
+        this.loop.shootCooldownMs = CONFIG.combat.fireCooldownMs;
+        this.audio.play("shoot");
     }
 
     toggleMute() {
@@ -1012,6 +1142,18 @@ class Game {
         }
     }
 
+    updateProjectiles(deltaMs) {
+        this.loop.shootCooldownMs = Math.max(0, this.loop.shootCooldownMs - deltaMs);
+
+        for (let i = this.world.projectiles.length - 1; i >= 0; i -= 1) {
+            const projectile = this.world.projectiles[i];
+            const expired = projectile.update(deltaMs, this.arenaBounds);
+            if (expired) {
+                this.world.projectiles.splice(i, 1);
+            }
+        }
+    }
+
     updatePickups(deltaMs) {
         for (let i = this.world.pickups.length - 1; i >= 0; i -= 1) {
             const pickup = this.world.pickups[i];
@@ -1117,6 +1259,7 @@ class Game {
         this.resolvePlayerObstacleCollisions();
         this.resolveEnemyObstacleCollisions();
         this.resolveEnemyEnemyCollisions();
+        this.resolveProjectileEnemyCollisions();
         this.resolvePlayerEnemyCollisions();
         this.resolvePlayerPickupCollisions();
     }
@@ -1240,6 +1383,40 @@ class Game {
         }
     }
 
+    resolveProjectileEnemyCollisions() {
+        for (let i = this.world.projectiles.length - 1; i >= 0; i -= 1) {
+            const projectile = this.world.projectiles[i];
+            let consumed = false;
+
+            for (let j = this.world.enemies.length - 1; j >= 0; j -= 1) {
+                const enemy = this.world.enemies[j];
+                if (!this.circlesOverlap(projectile, enemy, 0)) {
+                    continue;
+                }
+
+                enemy.health -= CONFIG.combat.projectileDamage;
+                this.state.shotsHit += 1;
+                consumed = true;
+
+                if (enemy.health <= 0) {
+                    const defeatedEnemy = this.world.enemies.splice(j, 1)[0];
+                    this.state.waveDefeated += 1;
+                    this.state.score += CONFIG.combat.defeatScore * this.state.scoreMultiplier * this.state.scoreBonusMultiplier;
+                    this.audio.play("enemyDown");
+                    if (defeatedEnemy && Math.random() < CONFIG.combat.spawnOnDefeatChance) {
+                        this.spawnPowerUpAt(defeatedEnemy.x, defeatedEnemy.y);
+                    }
+                }
+
+                break;
+            }
+
+            if (consumed) {
+                this.world.projectiles.splice(i, 1);
+            }
+        }
+    }
+
     resolvePlayerPickupCollisions() {
         const player = this.world.player;
         for (let i = this.world.pickups.length - 1; i >= 0; i -= 1) {
@@ -1265,9 +1442,16 @@ class Game {
         this.drawArenaMarkers();
         this.drawObstacles();
         this.drawEnemies();
+        this.drawProjectiles();
         this.drawPickups();
         this.drawPlayer();
         this.drawDebugBanner();
+    }
+
+    drawProjectiles() {
+        for (let i = 0; i < this.world.projectiles.length; i += 1) {
+            this.world.projectiles[i].draw(this.ctx);
+        }
     }
 
     drawPickups() {
@@ -1337,10 +1521,10 @@ class Game {
 
         ctx.fillStyle = CONFIG.colors.subText;
         ctx.font = "400 20px Trebuchet MS";
-        ctx.fillText("Commit 11: Reactive audio online (" + state.mode + ")", canvas.width * 0.5, canvas.height * 0.51);
+        ctx.fillText("Commit 12: Projectile combat online (" + state.mode + ")", canvas.width * 0.5, canvas.height * 0.51);
 
         ctx.font = "400 16px Trebuchet MS";
-        ctx.fillText("Use M to mute while surviving waves and responding to sound cues", canvas.width * 0.5, canvas.height * 0.55);
+        ctx.fillText("Fire with Space or click while balancing energy and survival", canvas.width * 0.5, canvas.height * 0.55);
     }
 
     updateHud(force) {
@@ -1401,6 +1585,10 @@ class Game {
             this.ui.impactsEl.textContent = String(this.state.impacts);
         }
 
+        if (this.ui.defeatedEl) {
+            this.ui.defeatedEl.textContent = String(this.state.waveDefeated);
+        }
+
         if (this.ui.powerUpEl) {
             if (this.state.powerUpRemainingMs > 0) {
                 this.ui.powerUpEl.textContent = this.state.activePowerUp + " " + String(Math.ceil(this.state.powerUpRemainingMs / 1000)) + "s";
@@ -1411,6 +1599,13 @@ class Game {
 
         if (this.ui.pickupsEl) {
             this.ui.pickupsEl.textContent = String(this.world.pickups.length);
+        }
+
+        if (this.ui.accuracyEl) {
+            const accuracy = this.state.shotsFired > 0
+                ? Math.round((this.state.shotsHit / this.state.shotsFired) * 100)
+                : 0;
+            this.ui.accuracyEl.textContent = String(accuracy) + "%";
         }
 
         if (this.ui.audioEl) {
@@ -1449,8 +1644,10 @@ function buildUiRefs() {
         fpsEl: document.getElementById("fpsValue"),
         enemiesEl: document.getElementById("enemiesValue"),
         impactsEl: document.getElementById("impactsValue"),
+        defeatedEl: document.getElementById("defeatedValue"),
         powerUpEl: document.getElementById("powerUpValue"),
         pickupsEl: document.getElementById("pickupsValue"),
+        accuracyEl: document.getElementById("accuracyValue"),
         audioEl: document.getElementById("audioValue"),
         startBtn: document.getElementById("startBtn"),
         pauseBtn: document.getElementById("pauseBtn"),
