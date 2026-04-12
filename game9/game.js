@@ -572,6 +572,13 @@ class Game {
             return;
         }
 
+        if (this.state.playerLives <= 0 || this.state.playerHealth <= 0) {
+            this.state.running = false;
+            this.setMode("game-over");
+            this.updateHud(true);
+            return;
+        }
+
         this.state.running = true;
         this.loop.previousTime = performance.now();
         this.setMode("running");
@@ -597,6 +604,7 @@ class Game {
     reset() {
         cancelAnimationFrame(this.loop.frameId);
         this.state.running = false;
+        this.input.pressed.clear();
         this.state.elapsedMs = 0;
         this.state.score = 0;
         this.state.scoreMultiplier = 1;
@@ -720,6 +728,7 @@ class Game {
         }
 
         endGame() {
+            cancelAnimationFrame(this.loop.frameId);
             this.removePowerUpEffects();
             this.state.running = false;
             this.setMode("game-over");
