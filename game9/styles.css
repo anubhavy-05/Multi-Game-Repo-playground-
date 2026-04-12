@@ -167,6 +167,10 @@ body {
     background: linear-gradient(160deg, #7a2431, #ab3a4b);
 }
 
+.control-audio {
+    background: linear-gradient(160deg, #28407a, #3f65bf);
+}
+
 .footer-note {
     border: 1px solid var(--panel-border);
     border-radius: 10px;
