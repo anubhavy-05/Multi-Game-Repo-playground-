@@ -80,6 +80,198 @@ const CONFIG = {
     }
 };
 
+class AudioEngine {
+    constructor() {
+        this.context = null;
+        this.masterGain = null;
+        this.available = typeof window !== "undefined" && (window.AudioContext || window.webkitAudioContext);
+        this.muted = false;
+    }
+
+    ensureContext() {
+        if (!this.available) {
+            return false;
+        }
+
+        if (!this.context) {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            this.context = new Ctx();
+            this.masterGain = this.context.createGain();
+            this.masterGain.gain.value = 0.08;
+            this.masterGain.connect(this.context.destination);
+        }
+
+        return true;
+    }
+
+    unlock() {
+        if (!this.ensureContext()) {
+            return;
+        }
+
+        if (this.context.state === "suspended") {
+            this.context.resume();
+        }
+    }
+
+    setMuted(nextMuted) {
+        this.muted = Boolean(nextMuted);
+        if (this.masterGain) {
+            this.masterGain.gain.value = this.muted ? 0 : 0.08;
+        }
+    }
+
+    toggleMuted() {
+        if (!this.ensureContext()) {
+            return this.muted;
+        }
+
+        this.setMuted(!this.muted);
+        return this.muted;
+    }
+
+    getStatusLabel() {
+        if (!this.available) {
+            return "unavailable";
+        }
+        return this.muted ? "muted" : "on";
+    }
+
+    play(eventName) {
+        if (!this.ensureContext() || this.muted) {
+            return;
+        }
+
+        const t = this.context.currentTime + 0.003;
+        if (eventName === "start") {
+            this.chirp(360, 520, 0.14, 0.18, "triangle", t);
+            return;
+        }
+
+        if (eventName === "pause") {
+            this.chirp(420, 260, 0.1, 0.15, "sine", t);
+            return;
+        }
+
+        if (eventName === "resume") {
+            this.chirp(300, 470, 0.12, 0.16, "triangle", t);
+            return;
+        }
+
+        if (eventName === "reset") {
+            this.chirp(600, 320, 0.16, 0.18, "square", t);
+            return;
+        }
+
+        if (eventName === "waveStart") {
+            this.chirp(280, 540, 0.18, 0.2, "triangle", t);
+            this.tone(720, 0.07, "sine", 0.08, t + 0.12);
+            return;
+        }
+
+        if (eventName === "waveComplete") {
+            this.tone(380, 0.1, "triangle", 0.15, t);
+            this.tone(540, 0.1, "triangle", 0.15, t + 0.11);
+            this.tone(720, 0.14, "triangle", 0.16, t + 0.22);
+            return;
+        }
+
+        if (eventName === "hit") {
+            this.noise(0.07, 0.15, t, 620);
+            this.tone(120, 0.07, "sawtooth", 0.1, t);
+            return;
+        }
+
+        if (eventName === "shieldBlock") {
+            this.tone(880, 0.05, "square", 0.08, t);
+            return;
+        }
+
+        if (eventName === "pickup") {
+            this.chirp(580, 860, 0.09, 0.13, "sine", t);
+            return;
+        }
+
+        if (eventName === "lifeLost") {
+            this.chirp(280, 140, 0.16, 0.16, "sawtooth", t);
+            return;
+        }
+
+        if (eventName === "gameOver") {
+            this.tone(220, 0.18, "sawtooth", 0.18, t);
+            this.tone(160, 0.22, "sawtooth", 0.18, t + 0.18);
+            this.noise(0.12, 0.12, t + 0.06, 450);
+            return;
+        }
+
+        if (eventName === "respawn") {
+            this.chirp(240, 660, 0.22, 0.14, "triangle", t);
+            return;
+        }
+
+        if (eventName === "toggle") {
+            this.tone(760, 0.06, "sine", 0.08, t);
+        }
+    }
+
+    tone(freq, duration, type, volume, startTime) {
+        const osc = this.context.createOscillator();
+        const gain = this.context.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, startTime);
+        gain.gain.setValueAtTime(0.0001, startTime);
+        gain.gain.exponentialRampToValueAtTime(volume, startTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(startTime);
+        osc.stop(startTime + duration + 0.02);
+    }
+
+    chirp(freqA, freqB, duration, volume, type, startTime) {
+        const osc = this.context.createOscillator();
+        const gain = this.context.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freqA, startTime);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(1, freqB), startTime + duration);
+        gain.gain.setValueAtTime(0.0001, startTime);
+        gain.gain.exponentialRampToValueAtTime(volume, startTime + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+        osc.connect(gain);
+        gain.connect(this.masterGain);
+        osc.start(startTime);
+        osc.stop(startTime + duration + 0.03);
+    }
+
+    noise(duration, volume, startTime, highpassHz) {
+        const sampleRate = this.context.sampleRate;
+        const frameCount = Math.max(1, Math.floor(sampleRate * duration));
+        const buffer = this.context.createBuffer(1, frameCount, sampleRate);
+        const channel = buffer.getChannelData(0);
+        for (let i = 0; i < frameCount; i += 1) {
+            channel[i] = (Math.random() * 2 - 1) * (1 - i / frameCount);
+        }
+
+        const source = this.context.createBufferSource();
+        source.buffer = buffer;
+
+        const filter = this.context.createBiquadFilter();
+        filter.type = "highpass";
+        filter.frequency.setValueAtTime(highpassHz || 400, startTime);
+
+        const gain = this.context.createGain();
+        gain.gain.setValueAtTime(0.0001, startTime);
+        gain.gain.exponentialRampToValueAtTime(volume, startTime + 0.006);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+        source.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.masterGain);
+        source.start(startTime);
+        source.stop(startTime + duration + 0.02);
+    }
+}
+
 class Enemy {
     constructor(x, y, radius, speed, color) {
         this.x = x;
@@ -345,6 +537,7 @@ class Game {
         this.canvas = canvas;
         this.ctx = canvas.getContext("2d");
         this.ui = ui;
+        this.audio = new AudioEngine();
 
         this.state = {
             mode: "booting",
@@ -448,11 +641,13 @@ class Game {
     startWave() {
         this.state.wavePhase = "active";
         this.loop.enemySpawnClock = 0;
+        this.audio.play("waveStart");
     }
 
     finishWave() {
         this.state.wavePhase = "complete";
         this.loop.waveClock = CONFIG.wave.intermissionMs;
+        this.audio.play("waveComplete");
     }
 
     createPlayer() {
@@ -510,7 +705,7 @@ class Game {
     }
 
     bindUiEvents() {
-        const { startBtn, pauseBtn, resetBtn } = this.ui;
+        const { startBtn, pauseBtn, resetBtn, muteBtn } = this.ui;
 
         if (startBtn) {
             startBtn.addEventListener("click", () => this.start());
@@ -523,6 +718,10 @@ class Game {
         if (resetBtn) {
             resetBtn.addEventListener("click", () => this.reset());
         }
+
+        if (muteBtn) {
+            muteBtn.addEventListener("click", () => this.toggleMute());
+        }
     }
 
     bindInputEvents() {
@@ -532,6 +731,12 @@ class Game {
 
     handleKeyDown(event) {
         const key = event.key.toLowerCase();
+        if (key === "m") {
+            event.preventDefault();
+            this.toggleMute();
+            return;
+        }
+
         const trackedKeys = ["w", "a", "s", "d", "arrowup", "arrowdown", "arrowleft", "arrowright"];
 
         if (!trackedKeys.includes(key)) {
@@ -556,7 +761,7 @@ class Game {
         if (this.ui.bootOverlay) {
             const activeText = {
                 booting: "Booting systems...",
-                ready: "Commit 10: Health and lives system initialized.",
+                ready: "Commit 11: Audio system armed. Press M to mute.",
                 running: "Simulation active.",
                 paused: "Simulation paused.",
                 reset: "Simulation reset.",
@@ -572,6 +777,8 @@ class Game {
             return;
         }
 
+        this.audio.unlock();
+
         if (this.state.playerLives <= 0 || this.state.playerHealth <= 0) {
             this.state.running = false;
             this.setMode("game-over");
@@ -582,6 +789,7 @@ class Game {
         this.state.running = true;
         this.loop.previousTime = performance.now();
         this.setMode("running");
+        this.audio.play("start");
         this.loop.frameId = requestAnimationFrame(this.tick);
     }
 
@@ -593,17 +801,21 @@ class Game {
         if (this.state.mode === "paused") {
             this.setMode("running");
             this.loop.previousTime = performance.now();
+            this.audio.play("resume");
             this.loop.frameId = requestAnimationFrame(this.tick);
             return;
         }
 
         this.setMode("paused");
+        this.audio.play("pause");
         cancelAnimationFrame(this.loop.frameId);
     }
 
     reset() {
         cancelAnimationFrame(this.loop.frameId);
         this.state.running = false;
+        this.audio.unlock();
+        this.audio.play("reset");
         this.input.pressed.clear();
         this.state.elapsedMs = 0;
         this.state.score = 0;
@@ -686,6 +898,15 @@ class Game {
         }
     }
 
+    toggleMute() {
+        this.audio.unlock();
+        const isMuted = this.audio.toggleMuted();
+        if (!isMuted) {
+            this.audio.play("toggle");
+        }
+        this.updateHud(true);
+    }
+
         applyPlayerDamage(amount) {
             const player = this.world.player;
             if (!player || player.invulnerableMs > 0 || this.state.mode !== "running") {
@@ -695,6 +916,7 @@ class Game {
             player.health = Math.max(0, player.health - amount);
             player.flashMs = CONFIG.collision.playerFlashMs;
             this.state.playerHealth = Math.round(player.health);
+            this.audio.play("hit");
 
             if (player.health <= 0) {
                 this.handleLifeLost();
@@ -703,6 +925,7 @@ class Game {
 
         handleLifeLost() {
             this.state.playerLives -= 1;
+            this.audio.play("lifeLost");
 
             if (this.state.playerLives <= 0) {
                 this.state.playerLives = 0;
@@ -725,12 +948,14 @@ class Game {
             player.invulnerableMs = CONFIG.player.respawnInvulnerableMs;
             player.flashMs = 0;
             this.state.playerHealth = player.health;
+            this.audio.play("respawn");
         }
 
         endGame() {
             cancelAnimationFrame(this.loop.frameId);
             this.removePowerUpEffects();
             this.state.running = false;
+            this.audio.play("gameOver");
             this.setMode("game-over");
             this.updateHud(true);
         }
@@ -844,11 +1069,13 @@ class Game {
 
         if (typeKey === "heal") {
             this.world.player.health = Math.min(this.world.player.maxHealth, this.world.player.health + spec.amount);
+            this.audio.play("pickup");
             return;
         }
 
         if (typeKey === "energy") {
             this.world.player.energy = Math.min(this.world.player.maxEnergy, this.world.player.energy + spec.amount);
+            this.audio.play("pickup");
             return;
         }
 
@@ -857,6 +1084,7 @@ class Game {
         if (typeKey === "shield") {
             this.state.activePowerUp = "Shield";
             this.state.powerUpRemainingMs = spec.durationMs;
+            this.audio.play("pickup");
             return;
         }
 
@@ -864,6 +1092,7 @@ class Game {
             this.state.activePowerUp = "Haste";
             this.state.powerUpRemainingMs = spec.durationMs;
             this.world.player.speed = this.basePlayerSpeed + spec.amount;
+            this.audio.play("pickup");
             return;
         }
 
@@ -871,6 +1100,7 @@ class Game {
             this.state.activePowerUp = "Score Burst";
             this.state.powerUpRemainingMs = spec.durationMs;
             this.state.scoreBonusMultiplier = 1 + spec.amount;
+            this.audio.play("pickup");
         }
     }
 
@@ -997,6 +1227,7 @@ class Game {
             if (enemy.contactCooldown <= 0) {
                 if (this.state.activePowerUp === "Shield") {
                     enemy.contactCooldown = CONFIG.collision.contactCooldownMs;
+                    this.audio.play("shieldBlock");
                     continue;
                 }
 
@@ -1106,10 +1337,10 @@ class Game {
 
         ctx.fillStyle = CONFIG.colors.subText;
         ctx.font = "400 20px Trebuchet MS";
-        ctx.fillText("Commit 10: Health and lives online (" + state.mode + ")", canvas.width * 0.5, canvas.height * 0.51);
+        ctx.fillText("Commit 11: Reactive audio online (" + state.mode + ")", canvas.width * 0.5, canvas.height * 0.51);
 
         ctx.font = "400 16px Trebuchet MS";
-        ctx.fillText("Survive with limited lives while collecting pickups for tactical advantage", canvas.width * 0.5, canvas.height * 0.55);
+        ctx.fillText("Use M to mute while surviving waves and responding to sound cues", canvas.width * 0.5, canvas.height * 0.55);
     }
 
     updateHud(force) {
@@ -1181,6 +1412,14 @@ class Game {
         if (this.ui.pickupsEl) {
             this.ui.pickupsEl.textContent = String(this.world.pickups.length);
         }
+
+        if (this.ui.audioEl) {
+            this.ui.audioEl.textContent = this.audio.getStatusLabel();
+        }
+
+        if (this.ui.muteBtn) {
+            this.ui.muteBtn.textContent = this.audio.muted ? "Unmute Audio" : "Mute Audio";
+        }
     }
 
     handleResize() {
@@ -1212,9 +1451,11 @@ function buildUiRefs() {
         impactsEl: document.getElementById("impactsValue"),
         powerUpEl: document.getElementById("powerUpValue"),
         pickupsEl: document.getElementById("pickupsValue"),
+        audioEl: document.getElementById("audioValue"),
         startBtn: document.getElementById("startBtn"),
         pauseBtn: document.getElementById("pauseBtn"),
         resetBtn: document.getElementById("resetBtn"),
+        muteBtn: document.getElementById("muteBtn"),
         bootOverlay: document.getElementById("bootOverlay")
     };
 }
