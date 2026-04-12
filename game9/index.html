@@ -18,9 +18,9 @@
                 <canvas id="gameCanvas" width="1280" height="720"></canvas>
 
                 <div id="bootOverlay" class="boot-overlay" aria-live="polite">
-                    <h2>Commit 10: Health and Lives</h2>
-                    <p>Damage, lives, respawn invulnerability, and game over are active.</p>
-                    <p>Survive each wave while managing contact risk and pickup timing.</p>
+                    <h2>Commit 11: Audio and Cues</h2>
+                    <p>Wave, impact, pickup, and game-over sounds are now live.</p>
+                    <p>Use the mute control (or press M) to toggle audio instantly.</p>
                 </div>
             </section>
 
@@ -89,11 +89,16 @@
                     <span>Pickups</span>
                     <strong id="pickupsValue">0</strong>
                 </div>
+                <div class="hud-row">
+                    <span>Audio</span>
+                    <strong id="audioValue">on</strong>
+                </div>
 
                 <div class="controls" aria-label="Game controls">
                     <button id="startBtn" class="control-btn control-start" type="button">Start</button>
                     <button id="pauseBtn" class="control-btn control-pause" type="button">Pause</button>
                     <button id="resetBtn" class="control-btn control-reset" type="button">Reset</button>
+                    <button id="muteBtn" class="control-btn control-audio" type="button">Mute Audio</button>
                 </div>
             </aside>
         </main>
