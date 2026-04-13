@@ -984,14 +984,21 @@ class Game {
         if (this.ui.bootOverlay) {
             const activeText = {
                 booting: "Booting systems...",
-                ready: "Commit 12: Projectile combat armed. Space or click to fire.",
+                ready: "Commit 14: Boss waves armed. Every fifth wave is a showdown.",
                 running: "Simulation active.",
                 paused: "Simulation paused.",
                 reset: "Simulation reset.",
                 "game-over": "All lives lost. Reset to try again.",
                 "canvas-error": "Canvas context failed to initialize."
             };
-            this.ui.bootOverlay.querySelector("p").textContent = activeText[nextMode] || "System idle.";
+            let overlayText = activeText[nextMode] || "System idle.";
+            if (this.state.wavePhase === "boss-warning") {
+                const remaining = Math.max(0, Math.ceil(this.state.bossWarningMs / 1000));
+                overlayText = "Boss incoming in " + String(remaining) + "s. Prepare for the showdown.";
+            } else if (this.world.currentBoss) {
+                overlayText = "Boss engaged. Stay mobile and drain its health bar.";
+            }
+            this.ui.bootOverlay.querySelector("p").textContent = overlayText;
         }
     }
 
@@ -1827,10 +1834,10 @@ class Game {
 
         ctx.fillStyle = CONFIG.colors.subText;
         ctx.font = "400 20px Trebuchet MS";
-        ctx.fillText("Commit 13: Particle feedback online (" + state.mode + ")", canvas.width * 0.5, canvas.height * 0.51);
+        ctx.fillText("Commit 14: Boss wave pressure online (" + state.mode + ")", canvas.width * 0.5, canvas.height * 0.51);
 
         ctx.font = "400 16px Trebuchet MS";
-        ctx.fillText("Watch impacts, pickups, and defeats bloom with screen shake", canvas.width * 0.5, canvas.height * 0.55);
+        ctx.fillText("Every fifth wave escalates into a boss fight with a warning phase", canvas.width * 0.5, canvas.height * 0.55);
     }
 
     updateHud(force) {
@@ -1877,6 +1884,16 @@ class Game {
 
         if (this.ui.waveProgressEl) {
             this.ui.waveProgressEl.textContent = String(this.state.waveEnemiesSpawned) + "/" + String(this.state.waveEnemiesToSpawn);
+        }
+
+        if (this.ui.bossEl) {
+            if (this.state.wavePhase === "boss-warning") {
+                this.ui.bossEl.textContent = "incoming";
+            } else if (this.world.currentBoss) {
+                this.ui.bossEl.textContent = String(this.state.bossHealth) + "/" + String(this.state.bossMaxHealth);
+            } else {
+                this.ui.bossEl.textContent = this.isBossWave() ? "waiting" : "none";
+            }
         }
 
         if (this.ui.fpsEl) {
@@ -1947,6 +1964,7 @@ function buildUiRefs() {
         waveEl: document.getElementById("waveValue"),
         wavePhaseEl: document.getElementById("wavePhaseValue"),
         waveProgressEl: document.getElementById("waveProgressValue"),
+        bossEl: document.getElementById("bossValue"),
         fpsEl: document.getElementById("fpsValue"),
         enemiesEl: document.getElementById("enemiesValue"),
         impactsEl: document.getElementById("impactsValue"),
