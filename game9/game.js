@@ -904,7 +904,7 @@ class Game {
     }
 
     bindUiEvents() {
-        const { startBtn, pauseBtn, resetBtn, muteBtn } = this.ui;
+        const { startBtn, pauseBtn, skipBtn, resetBtn, muteBtn } = this.ui;
 
         if (startBtn) {
             startBtn.addEventListener("click", () => this.start());
@@ -912,6 +912,10 @@ class Game {
 
         if (pauseBtn) {
             pauseBtn.addEventListener("click", () => this.togglePause());
+        }
+
+        if (skipBtn) {
+            skipBtn.addEventListener("click", () => this.skipWave());
         }
 
         if (resetBtn) {
@@ -1039,6 +1043,31 @@ class Game {
         this.setMode("paused");
         this.audio.play("pause");
         cancelAnimationFrame(this.loop.frameId);
+    }
+
+    skipWave() {
+        if (!this.state.running) {
+            return;
+        }
+
+        if (this.state.wavePhase === "boss-warning") {
+            this.state.bossWarningMs = 0;
+            this.startWave();
+            this.updateHud(true);
+            return;
+        }
+
+        this.world.enemies.length = 0;
+        this.world.projectiles.length = 0;
+        this.world.currentBoss = null;
+        this.state.bossHealth = 0;
+        this.state.bossMaxHealth = 0;
+        this.state.wavePhase = "complete";
+        this.loop.waveClock = 0;
+        this.audio.play("waveComplete");
+        this.setupWave(this.state.wave + 1);
+        this.startWave();
+        this.updateHud(true);
     }
 
     reset() {
@@ -1877,11 +1906,18 @@ class Game {
             this.ui.waveEl.textContent = String(this.state.wave);
         }
 
+        if (this.ui.waveTypeEl) {
+            this.ui.waveTypeEl.textContent = this.isBossWave() ? "boss" : "standard";
+        }
+
         if (this.ui.wavePhaseEl) {
             let phaseText = this.state.wavePhase;
             if (this.state.wavePhase === "intermission" || this.state.wavePhase === "complete") {
                 const remaining = Math.max(0, Math.ceil(this.loop.waveClock / 1000));
                 phaseText = this.state.wavePhase + " " + String(remaining) + "s";
+            } else if (this.state.wavePhase === "boss-warning") {
+                const remaining = Math.max(0, Math.ceil(this.state.bossWarningMs / 1000));
+                phaseText = "boss-warning " + String(remaining) + "s";
             }
             this.ui.wavePhaseEl.textContent = phaseText;
         }
@@ -1980,6 +2016,7 @@ function buildUiRefs() {
         highScoreEl: document.getElementById("highScoreValue"),
         multiplierEl: document.getElementById("multiplierValue"),
         waveEl: document.getElementById("waveValue"),
+        waveTypeEl: document.getElementById("waveTypeValue"),
         wavePhaseEl: document.getElementById("wavePhaseValue"),
         waveProgressEl: document.getElementById("waveProgressValue"),
         bossEl: document.getElementById("bossValue"),
@@ -1993,6 +2030,7 @@ function buildUiRefs() {
         audioEl: document.getElementById("audioValue"),
         startBtn: document.getElementById("startBtn"),
         pauseBtn: document.getElementById("pauseBtn"),
+        skipBtn: document.getElementById("skipBtn"),
         resetBtn: document.getElementById("resetBtn"),
         muteBtn: document.getElementById("muteBtn"),
         bootOverlay: document.getElementById("bootOverlay")
