@@ -968,6 +968,8 @@ class Game {
         this.state.shotsFired = 0;
         this.state.shotsHit = 0;
         this.state.fps = 0;
+        this.state.screenShakeMs = 0;
+        this.state.screenShakeStrength = 0;
         this.loop.uiClock = 0;
         this.loop.enemySpawnClock = 0;
         this.loop.waveClock = CONFIG.wave.intermissionMs;
