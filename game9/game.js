@@ -626,6 +626,8 @@ class Game {
             shotsHit: 0,
             fps: 0
         };
+        this.state.screenShakeMs = 0;
+        this.state.screenShakeStrength = 0;
 
         this.world = {
             player: null,
@@ -1061,6 +1063,7 @@ class Game {
                 this.state.playerLives = 0;
                 this.endGame();
                 return;
+                    this.updateScreenEffects(_deltaMs);
             }
 
             this.respawnPlayer();
@@ -1081,6 +1084,9 @@ class Game {
             this.audio.play("respawn");
         }
 
+        updateScreenEffects(deltaMs) {
+            this.state.screenShakeMs = Math.max(0, this.state.screenShakeMs - deltaMs);
+        }
         endGame() {
             cancelAnimationFrame(this.loop.frameId);
             this.removePowerUpEffects();
@@ -1142,14 +1148,29 @@ class Game {
         }
     }
 
+
+            if (this.state.screenShakeMs > 0) {
+                const shakeRatio = this.state.screenShakeMs / CONFIG.effects.screenShakeMs;
+                const shakeStrength = (this.state.screenShakeStrength || CONFIG.effects.screenShakeStrength) * shakeRatio;
+                ctx.save();
+                ctx.translate(
+                    (Math.random() * 2 - 1) * shakeStrength,
+                    (Math.random() * 2 - 1) * shakeStrength
+                );
+            }
     updateProjectiles(deltaMs) {
         this.loop.shootCooldownMs = Math.max(0, this.loop.shootCooldownMs - deltaMs);
 
         for (let i = this.world.projectiles.length - 1; i >= 0; i -= 1) {
             const projectile = this.world.projectiles[i];
             const expired = projectile.update(deltaMs, this.arenaBounds);
+            this.drawParticles();
             if (expired) {
                 this.world.projectiles.splice(i, 1);
+            }
+
+            if (this.state.screenShakeMs > 0) {
+                ctx.restore();
             }
         }
     }
