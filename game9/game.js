@@ -1057,6 +1057,9 @@ class Game {
         this.state.waveEnemiesSpawned = 0;
         this.state.waveEscaped = 0;
         this.state.waveDefeated = 0;
+        this.state.bossHealth = 0;
+        this.state.bossMaxHealth = 0;
+        this.state.bossWarningMs = 0;
         this.state.playerHealth = CONFIG.player.maxHealth;
         this.state.playerLives = CONFIG.player.startingLives;
         this.state.playerEnergy = CONFIG.player.maxEnergy;
@@ -1079,6 +1082,7 @@ class Game {
         this.world.obstacles.length = 0;
         this.world.pickups.length = 0;
         this.world.particles.length = 0;
+        this.world.currentBoss = null;
         this.createObstacles();
         this.createPlayer();
         this.setupWave(CONFIG.wave.startingWave);
@@ -1933,6 +1937,18 @@ class Game {
 
         if (this.ui.audioEl) {
             this.ui.audioEl.textContent = this.audio.getStatusLabel();
+        }
+
+        if (this.ui.bootOverlay && this.state.mode === "running") {
+            const activeText = this.ui.bootOverlay.querySelector("p");
+            if (activeText) {
+                if (this.state.wavePhase === "boss-warning") {
+                    const remaining = Math.max(0, Math.ceil(this.state.bossWarningMs / 1000));
+                    activeText.textContent = "Boss incoming in " + String(remaining) + "s. Prepare for the showdown.";
+                } else if (this.world.currentBoss) {
+                    activeText.textContent = "Boss engaged. Stay mobile and drain its health bar.";
+                }
+            }
         }
 
         if (this.ui.muteBtn) {
