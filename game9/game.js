@@ -229,6 +229,12 @@ class AudioEngine {
             return;
         }
 
+        if (eventName === "bossWarning") {
+            this.tone(120, 0.1, "square", 0.12, t);
+            this.tone(160, 0.1, "square", 0.12, t + 0.12);
+            return;
+        }
+
         if (eventName === "bossDown") {
             this.tone(180, 0.16, "sawtooth", 0.18, t);
             this.tone(280, 0.18, "triangle", 0.16, t + 0.08);
@@ -1282,7 +1288,7 @@ class Game {
                 if (this.isBossWave() && this.state.wavePhase === "intermission") {
                     this.state.wavePhase = "boss-warning";
                     this.state.bossWarningMs = CONFIG.wave.bossWarningMs;
-                    this.audio.play("bossStart");
+                    this.audio.play("bossWarning");
                 } else {
                     this.startWave();
                 }
