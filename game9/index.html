@@ -18,9 +18,9 @@
                 <canvas id="gameCanvas" width="1280" height="720"></canvas>
 
                 <div id="bootOverlay" class="boot-overlay" aria-live="polite">
-                    <h2>Commit 13: Particles and Feedback</h2>
-                    <p>Impacts, pickups, and defeats now burst with visible feedback.</p>
-                    <p>Screen shake and particle effects make combat reads sharper.</p>
+                    <h2>Commit 15: Wave Skip and Info</h2>
+                    <p>Skip ahead with a dedicated wave control while tracking wave type.</p>
+                    <p>Boss and standard waves now surface clearer progression information.</p>
                 </div>
             </section>
 
@@ -57,6 +57,10 @@
                 <div class="hud-row">
                     <span>Wave</span>
                     <strong id="waveValue">0</strong>
+                </div>
+                <div class="hud-row">
+                    <span>Wave Type</span>
+                    <strong id="waveTypeValue">standard</strong>
                 </div>
                 <div class="hud-row">
                     <span>Wave Phase</span>
@@ -109,6 +113,7 @@
                 <div class="controls" aria-label="Game controls">
                     <button id="startBtn" class="control-btn control-start" type="button">Start</button>
                     <button id="pauseBtn" class="control-btn control-pause" type="button">Pause</button>
+                    <button id="skipBtn" class="control-btn control-skip" type="button">Skip Wave</button>
                     <button id="resetBtn" class="control-btn control-reset" type="button">Reset</button>
                     <button id="muteBtn" class="control-btn control-audio" type="button">Mute Audio</button>
                 </div>
@@ -116,7 +121,7 @@
         </main>
 
         <footer class="footer-note">
-            <p>Move with WASD/Arrows, fire with Space or click/tap, and press M to mute audio.</p>
+            <p>Move with WASD/Arrows, fire with Space or click/tap, skip waves, and press M to mute audio.</p>
         </footer>
     </div>
 
