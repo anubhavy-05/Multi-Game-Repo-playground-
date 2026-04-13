@@ -1120,6 +1120,14 @@ class Game {
             this.state.playerHealth = Math.round(this.world.player.health);
             this.state.playerLives = Math.max(0, this.state.playerLives);
             this.state.playerEnergy = Math.round(this.world.player.energy);
+
+            if (this.world.currentBoss) {
+                this.state.bossHealth = Math.max(0, Math.round(this.world.currentBoss.health));
+                this.state.bossMaxHealth = this.world.currentBoss.maxHealth;
+            } else if (!this.isBossWave()) {
+                this.state.bossHealth = 0;
+                this.state.bossMaxHealth = 0;
+            }
         }
     }
 
@@ -1601,11 +1609,29 @@ class Game {
                 if (enemy.health <= 0) {
                     const defeatedEnemy = this.world.enemies.splice(j, 1)[0];
                     this.state.waveDefeated += 1;
-                    this.state.score += CONFIG.combat.defeatScore * this.state.scoreMultiplier * this.state.scoreBonusMultiplier;
-                    this.audio.play("enemyDown");
-                    this.spawnParticles(enemy.x, enemy.y, [enemy.color, "#fff2bf"], 18, 80, 220, 2, 5);
+                    const baseDefeatScore = CONFIG.combat.defeatScore * this.state.scoreMultiplier * this.state.scoreBonusMultiplier;
+                    const defeatScore = enemy.isBoss ? baseDefeatScore * CONFIG.wave.bossRewardMultiplier : baseDefeatScore;
+                    this.state.score += defeatScore;
+                    this.audio.play(enemy.isBoss ? "bossDown" : "enemyDown");
+                    this.spawnParticles(
+                        enemy.x,
+                        enemy.y,
+                        enemy.isBoss ? [enemy.color, CONFIG.boss.accentColor, "#fff2bf"] : [enemy.color, "#fff2bf"],
+                        enemy.isBoss ? 34 : 18,
+                        enemy.isBoss ? 100 : 80,
+                        enemy.isBoss ? 260 : 220,
+                        enemy.isBoss ? 3 : 2,
+                        enemy.isBoss ? 7 : 5
+                    );
                     this.state.screenShakeMs = CONFIG.effects.screenShakeMs;
-                    this.state.screenShakeStrength = CONFIG.effects.screenShakeStrength * 0.8;
+                    this.state.screenShakeStrength = enemy.isBoss ? CONFIG.effects.screenShakeStrength * 1.35 : CONFIG.effects.screenShakeStrength * 0.8;
+
+                    if (enemy.isBoss) {
+                        this.world.currentBoss = null;
+                        this.state.bossHealth = 0;
+                        this.state.bossMaxHealth = 0;
+                    }
+
                     if (defeatedEnemy && Math.random() < CONFIG.combat.spawnOnDefeatChance) {
                         this.spawnPowerUpAt(defeatedEnemy.x, defeatedEnemy.y);
                     }
@@ -1659,6 +1685,7 @@ class Game {
         this.drawParticles();
         this.drawPickups();
         this.drawPlayer();
+        this.drawBossStatus();
         this.drawDebugBanner();
 
         if (this.state.screenShakeMs > 0) {
@@ -1670,6 +1697,55 @@ class Game {
         for (let i = 0; i < this.world.projectiles.length; i += 1) {
             this.world.projectiles[i].draw(this.ctx);
         }
+    }
+
+    drawBossStatus() {
+        const boss = this.world.currentBoss;
+        const { ctx, canvas } = this;
+
+        if (this.state.wavePhase === "boss-warning") {
+            const remaining = Math.max(0, Math.ceil(this.state.bossWarningMs / 1000));
+            ctx.save();
+            ctx.textAlign = "center";
+            ctx.fillStyle = "#ffd66f";
+            ctx.font = "700 28px Trebuchet MS";
+            ctx.fillText("BOSS INCOMING", canvas.width * 0.5, 74);
+            ctx.font = "600 18px Trebuchet MS";
+            ctx.fillText("Arrival in " + String(remaining) + "s", canvas.width * 0.5, 102);
+            ctx.restore();
+            return;
+        }
+
+        if (!boss) {
+            return;
+        }
+
+        const barWidth = 420;
+        const barHeight = 18;
+        const x = canvas.width * 0.5 - barWidth * 0.5;
+        const y = 26;
+        const ratio = boss.maxHealth > 0 ? Math.max(0, boss.health / boss.maxHealth) : 0;
+
+        ctx.save();
+        ctx.fillStyle = "rgba(8, 18, 28, 0.78)";
+        ctx.fillRect(x - 10, y - 14, barWidth + 20, barHeight + 44);
+
+        ctx.fillStyle = "#ffd66f";
+        ctx.font = "700 16px Trebuchet MS";
+        ctx.textAlign = "center";
+        ctx.fillText("BOSS", canvas.width * 0.5, y + 2);
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.12)";
+        ctx.fillRect(x, y + 14, barWidth, barHeight);
+        ctx.fillStyle = "#ff6a88";
+        ctx.fillRect(x, y + 14, barWidth * ratio, barHeight);
+        ctx.strokeStyle = "rgba(255, 214, 111, 0.75)";
+        ctx.strokeRect(x, y + 14, barWidth, barHeight);
+
+        ctx.fillStyle = "#d8f2ff";
+        ctx.font = "600 13px Trebuchet MS";
+        ctx.fillText(String(Math.round(boss.health)) + "/" + String(boss.maxHealth), canvas.width * 0.5, y + 48);
+        ctx.restore();
     }
 
     drawParticles() {
