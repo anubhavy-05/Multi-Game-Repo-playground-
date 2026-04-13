@@ -1271,12 +1271,33 @@ class Game {
                 if (this.state.wavePhase === "complete") {
                     this.setupWave(this.state.wave + 1);
                 }
+                if (this.isBossWave() && this.state.wavePhase === "intermission") {
+                    this.state.wavePhase = "boss-warning";
+                    this.state.bossWarningMs = CONFIG.wave.bossWarningMs;
+                    this.audio.play("bossStart");
+                } else {
+                    this.startWave();
+                }
+            }
+            return;
+        }
+
+        if (this.state.wavePhase === "boss-warning") {
+            this.state.bossWarningMs = Math.max(0, this.state.bossWarningMs - deltaMs);
+            if (this.state.bossWarningMs <= 0) {
                 this.startWave();
             }
             return;
         }
 
         if (this.state.wavePhase !== "active") {
+            return;
+        }
+
+        if (this.isBossWave()) {
+            if (!this.world.currentBoss) {
+                this.finishWave();
+            }
             return;
         }
 
