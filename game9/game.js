@@ -1947,6 +1947,8 @@ class Game {
                     activeText.textContent = "Boss incoming in " + String(remaining) + "s. Prepare for the showdown.";
                 } else if (this.world.currentBoss) {
                     activeText.textContent = "Boss engaged. Stay mobile and drain its health bar.";
+                } else {
+                    activeText.textContent = "Simulation active.";
                 }
             }
         }
