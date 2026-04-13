@@ -472,6 +472,45 @@ class Projectile {
     }
 }
 
+class Particle {
+    constructor(x, y, vx, vy, color, size, lifeMs) {
+        this.x = x;
+        this.y = y;
+        this.vx = vx;
+        this.vy = vy;
+        this.color = color;
+        this.size = size;
+        this.lifeMs = lifeMs;
+        this.maxLifeMs = lifeMs;
+        this.spin = Math.random() * Math.PI * 2;
+        this.spinSpeed = (Math.random() * 2 - 1) * 0.015;
+    }
+
+    update(deltaMs) {
+        const deltaSeconds = deltaMs / 1000;
+        this.x += this.vx * deltaSeconds;
+        this.y += this.vy * deltaSeconds;
+        this.vx *= 0.98;
+        this.vy *= 0.98;
+        this.spin += this.spinSpeed * deltaMs;
+        this.lifeMs -= deltaMs;
+        return this.lifeMs <= 0;
+    }
+
+    draw(ctx) {
+        const fade = Math.max(0, this.lifeMs / this.maxLifeMs);
+        ctx.save();
+        ctx.globalAlpha = fade;
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.spin);
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size * (0.45 + fade * 0.55), 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+    }
+}
+
 class Player {
     constructor(x, y) {
         this.x = x;
@@ -975,11 +1014,12 @@ class Game {
             if (this.state.mode === "running") {
                 this.world.player.move(this.input, this.arenaBounds, _deltaMs);
                 this.updatePlayerResources(_deltaMs);
+                this.updateScreenEffects(_deltaMs);
 
                 this.updateWaveSystem(_deltaMs);
-
                 this.updateEnemies(_deltaMs);
                 this.updateProjectiles(_deltaMs);
+                this.updateParticles(_deltaMs);
                 this.updatePickups(_deltaMs);
                 this.updatePowerUpTimer(_deltaMs);
                 this.updateRandomPowerUpSpawns(_deltaMs);
@@ -1002,6 +1042,46 @@ class Game {
 
         const regen = CONFIG.combat.energyRegenPerSecond * (deltaMs / 1000);
         this.world.player.energy = Math.min(this.world.player.maxEnergy, this.world.player.energy + regen);
+    }
+
+    updateScreenEffects(deltaMs) {
+        this.state.screenShakeMs = Math.max(0, this.state.screenShakeMs - deltaMs);
+    }
+
+    spawnParticles(x, y, palette, count, speedMin, speedMax, sizeMin, sizeMax) {
+        if (this.world.particles.length >= CONFIG.effects.maxParticles) {
+            return;
+        }
+
+        const colors = palette && palette.length ? palette : ["#ffffff"];
+        const total = Math.min(count, CONFIG.effects.maxParticles - this.world.particles.length);
+
+        for (let i = 0; i < total; i += 1) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = speedMin + Math.random() * (speedMax - speedMin);
+            const color = colors[Math.floor(Math.random() * colors.length)];
+            const size = sizeMin + Math.random() * (sizeMax - sizeMin);
+            this.world.particles.push(
+                new Particle(
+                    x,
+                    y,
+                    Math.cos(angle) * speed,
+                    Math.sin(angle) * speed,
+                    color,
+                    size,
+                    CONFIG.effects.particleLifetimeMs
+                )
+            );
+        }
+    }
+
+    updateParticles(deltaMs) {
+        for (let i = this.world.particles.length - 1; i >= 0; i -= 1) {
+            const particle = this.world.particles[i];
+            if (particle.update(deltaMs)) {
+                this.world.particles.splice(i, 1);
+            }
+        }
     }
 
     tryFireProjectile() {
@@ -1039,62 +1119,62 @@ class Game {
         this.updateHud(true);
     }
 
-        applyPlayerDamage(amount) {
-            const player = this.world.player;
-            if (!player || player.invulnerableMs > 0 || this.state.mode !== "running") {
-                return;
-            }
-
-            player.health = Math.max(0, player.health - amount);
-            player.flashMs = CONFIG.collision.playerFlashMs;
-            this.state.playerHealth = Math.round(player.health);
-            this.audio.play("hit");
-
-            if (player.health <= 0) {
-                this.handleLifeLost();
-            }
+    applyPlayerDamage(amount) {
+        const player = this.world.player;
+        if (!player || player.invulnerableMs > 0 || this.state.mode !== "running") {
+            return;
         }
 
-        handleLifeLost() {
-            this.state.playerLives -= 1;
-            this.audio.play("lifeLost");
+        player.health = Math.max(0, player.health - amount);
+        player.flashMs = CONFIG.collision.playerFlashMs;
+        this.state.playerHealth = Math.round(player.health);
+        this.audio.play("hit");
+        this.spawnParticles(player.x, player.y, ["#ff8f8f", "#ffd0d0"], 12, 70, 180, 2, 5);
+        this.state.screenShakeMs = CONFIG.effects.screenShakeMs;
+        this.state.screenShakeStrength = CONFIG.effects.screenShakeStrength;
 
-            if (this.state.playerLives <= 0) {
-                this.state.playerLives = 0;
-                this.endGame();
-                return;
-                    this.updateScreenEffects(_deltaMs);
-            }
+        if (player.health <= 0) {
+            this.handleLifeLost();
+        }
+    }
 
-            this.respawnPlayer();
+    handleLifeLost() {
+        this.state.playerLives -= 1;
+        this.audio.play("lifeLost");
+
+        if (this.state.playerLives <= 0) {
+            this.state.playerLives = 0;
+            this.endGame();
+            return;
         }
 
-        respawnPlayer() {
-            const player = this.world.player;
-            if (!player) {
-                return;
-            }
+        this.respawnPlayer();
+    }
 
-            player.x = CONFIG.canvasWidth * 0.5;
-            player.y = CONFIG.canvasHeight * 0.56;
-            player.health = player.maxHealth;
-            player.invulnerableMs = CONFIG.player.respawnInvulnerableMs;
-            player.flashMs = 0;
-            this.state.playerHealth = player.health;
-            this.audio.play("respawn");
+    respawnPlayer() {
+        const player = this.world.player;
+        if (!player) {
+            return;
         }
 
-        updateScreenEffects(deltaMs) {
-            this.state.screenShakeMs = Math.max(0, this.state.screenShakeMs - deltaMs);
-        }
-        endGame() {
-            cancelAnimationFrame(this.loop.frameId);
-            this.removePowerUpEffects();
-            this.state.running = false;
-            this.audio.play("gameOver");
-            this.setMode("game-over");
-            this.updateHud(true);
-        }
+        player.x = CONFIG.canvasWidth * 0.5;
+        player.y = CONFIG.canvasHeight * 0.56;
+        player.health = player.maxHealth;
+        player.invulnerableMs = CONFIG.player.respawnInvulnerableMs;
+        player.flashMs = 0;
+        this.state.playerHealth = player.health;
+        this.audio.play("respawn");
+        this.spawnParticles(player.x, player.y, ["#7ee8ff", "#d7f8ff"], 16, 60, 160, 2, 4);
+    }
+
+    endGame() {
+        cancelAnimationFrame(this.loop.frameId);
+        this.removePowerUpEffects();
+        this.state.running = false;
+        this.audio.play("gameOver");
+        this.setMode("game-over");
+        this.updateHud(true);
+    }
 
     updateWaveSystem(deltaMs) {
         if (this.state.wavePhase === "intermission" || this.state.wavePhase === "complete") {
@@ -1147,30 +1227,14 @@ class Game {
             }
         }
     }
-
-
-            if (this.state.screenShakeMs > 0) {
-                const shakeRatio = this.state.screenShakeMs / CONFIG.effects.screenShakeMs;
-                const shakeStrength = (this.state.screenShakeStrength || CONFIG.effects.screenShakeStrength) * shakeRatio;
-                ctx.save();
-                ctx.translate(
-                    (Math.random() * 2 - 1) * shakeStrength,
-                    (Math.random() * 2 - 1) * shakeStrength
-                );
-            }
     updateProjectiles(deltaMs) {
         this.loop.shootCooldownMs = Math.max(0, this.loop.shootCooldownMs - deltaMs);
 
         for (let i = this.world.projectiles.length - 1; i >= 0; i -= 1) {
             const projectile = this.world.projectiles[i];
             const expired = projectile.update(deltaMs, this.arenaBounds);
-            this.drawParticles();
             if (expired) {
                 this.world.projectiles.splice(i, 1);
-            }
-
-            if (this.state.screenShakeMs > 0) {
-                ctx.restore();
             }
         }
     }
@@ -1233,12 +1297,14 @@ class Game {
         if (typeKey === "heal") {
             this.world.player.health = Math.min(this.world.player.maxHealth, this.world.player.health + spec.amount);
             this.audio.play("pickup");
+            this.spawnParticles(pickup.x, pickup.y, [spec.color], 10, 40, 120, 2, 4);
             return;
         }
 
         if (typeKey === "energy") {
             this.world.player.energy = Math.min(this.world.player.maxEnergy, this.world.player.energy + spec.amount);
             this.audio.play("pickup");
+            this.spawnParticles(pickup.x, pickup.y, [spec.color], 10, 40, 120, 2, 4);
             return;
         }
 
@@ -1248,6 +1314,7 @@ class Game {
             this.state.activePowerUp = "Shield";
             this.state.powerUpRemainingMs = spec.durationMs;
             this.audio.play("pickup");
+            this.spawnParticles(pickup.x, pickup.y, [spec.color, "#fff7cc"], 14, 50, 150, 2, 5);
             return;
         }
 
@@ -1256,6 +1323,7 @@ class Game {
             this.state.powerUpRemainingMs = spec.durationMs;
             this.world.player.speed = this.basePlayerSpeed + spec.amount;
             this.audio.play("pickup");
+            this.spawnParticles(pickup.x, pickup.y, [spec.color, "#ffd8be"], 14, 50, 150, 2, 5);
             return;
         }
 
@@ -1264,6 +1332,7 @@ class Game {
             this.state.powerUpRemainingMs = spec.durationMs;
             this.state.scoreBonusMultiplier = 1 + spec.amount;
             this.audio.play("pickup");
+            this.spawnParticles(pickup.x, pickup.y, [spec.color, "#ffd8ff"], 14, 50, 150, 2, 5);
         }
     }
 
@@ -1392,6 +1461,7 @@ class Game {
                 if (this.state.activePowerUp === "Shield") {
                     enemy.contactCooldown = CONFIG.collision.contactCooldownMs;
                     this.audio.play("shieldBlock");
+                    this.spawnParticles(enemy.x, enemy.y, ["#7ee8ff", "#d7f8ff"], 8, 30, 100, 2, 4);
                     continue;
                 }
 
@@ -1424,6 +1494,9 @@ class Game {
                     this.state.waveDefeated += 1;
                     this.state.score += CONFIG.combat.defeatScore * this.state.scoreMultiplier * this.state.scoreBonusMultiplier;
                     this.audio.play("enemyDown");
+                    this.spawnParticles(enemy.x, enemy.y, [enemy.color, "#fff2bf"], 18, 80, 220, 2, 5);
+                    this.state.screenShakeMs = CONFIG.effects.screenShakeMs;
+                    this.state.screenShakeStrength = CONFIG.effects.screenShakeStrength * 0.8;
                     if (defeatedEnemy && Math.random() < CONFIG.combat.spawnOnDefeatChance) {
                         this.spawnPowerUpAt(defeatedEnemy.x, defeatedEnemy.y);
                     }
@@ -1459,19 +1532,40 @@ class Game {
         ctx.fillStyle = gradient;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+        if (this.state.screenShakeMs > 0) {
+            const shakeRatio = this.state.screenShakeMs / CONFIG.effects.screenShakeMs;
+            const shakeStrength = (this.state.screenShakeStrength || CONFIG.effects.screenShakeStrength) * shakeRatio;
+            ctx.save();
+            ctx.translate(
+                (Math.random() * 2 - 1) * shakeStrength,
+                (Math.random() * 2 - 1) * shakeStrength
+            );
+        }
+
         this.drawGrid();
         this.drawArenaMarkers();
         this.drawObstacles();
         this.drawEnemies();
         this.drawProjectiles();
+        this.drawParticles();
         this.drawPickups();
         this.drawPlayer();
         this.drawDebugBanner();
+
+        if (this.state.screenShakeMs > 0) {
+            ctx.restore();
+        }
     }
 
     drawProjectiles() {
         for (let i = 0; i < this.world.projectiles.length; i += 1) {
             this.world.projectiles[i].draw(this.ctx);
+        }
+    }
+
+    drawParticles() {
+        for (let i = 0; i < this.world.particles.length; i += 1) {
+            this.world.particles[i].draw(this.ctx);
         }
     }
 
@@ -1542,10 +1636,10 @@ class Game {
 
         ctx.fillStyle = CONFIG.colors.subText;
         ctx.font = "400 20px Trebuchet MS";
-        ctx.fillText("Commit 12: Projectile combat online (" + state.mode + ")", canvas.width * 0.5, canvas.height * 0.51);
+        ctx.fillText("Commit 13: Particle feedback online (" + state.mode + ")", canvas.width * 0.5, canvas.height * 0.51);
 
         ctx.font = "400 16px Trebuchet MS";
-        ctx.fillText("Fire with Space or click while balancing energy and survival", canvas.width * 0.5, canvas.height * 0.55);
+        ctx.fillText("Watch impacts, pickups, and defeats bloom with screen shake", canvas.width * 0.5, canvas.height * 0.55);
     }
 
     updateHud(force) {
