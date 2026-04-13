@@ -66,7 +66,17 @@ const CONFIG = {
         baseSpawnIntervalMs: 1400,
         spawnIntervalDecayMs: 80,
         minSpawnIntervalMs: 520,
-        enemyLifetimeMs: 10500
+        enemyLifetimeMs: 10500,
+        bossWaveInterval: 5,
+        bossWarningMs: 3000,
+        bossRewardMultiplier: 2.5
+    },
+    boss: {
+        radius: 38,
+        speed: 92,
+        health: 260,
+        color: "#ff6a88",
+        accentColor: "#ffd66f"
     },
     powerUps: {
         spawnCheckMs: 1800,
@@ -213,6 +223,19 @@ class AudioEngine {
             return;
         }
 
+        if (eventName === "bossStart") {
+            this.chirp(220, 500, 0.24, 0.18, "square", t);
+            this.tone(140, 0.18, "sawtooth", 0.16, t + 0.11);
+            return;
+        }
+
+        if (eventName === "bossDown") {
+            this.tone(180, 0.16, "sawtooth", 0.18, t);
+            this.tone(280, 0.18, "triangle", 0.16, t + 0.08);
+            this.tone(420, 0.22, "triangle", 0.12, t + 0.18);
+            return;
+        }
+
         if (eventName === "lifeLost") {
             this.chirp(280, 140, 0.16, 0.16, "sawtooth", t);
             return;
@@ -294,17 +317,20 @@ class AudioEngine {
 }
 
 class Enemy {
-    constructor(x, y, radius, speed, color) {
+    constructor(x, y, radius, speed, color, options) {
+        const enemyOptions = options || {};
         this.x = x;
         this.y = y;
         this.radius = radius;
         this.speed = speed;
         this.color = color;
-        this.health = 20;
+        this.isBoss = Boolean(enemyOptions.isBoss);
+        this.maxHealth = enemyOptions.maxHealth || (this.isBoss ? CONFIG.boss.health : 20);
+        this.health = enemyOptions.health || this.maxHealth;
         this.phase = Math.random() * Math.PI * 2;
         this.contactCooldown = 0;
         this.ageMs = 0;
-        this.maxAgeMs = CONFIG.wave.enemyLifetimeMs;
+        this.maxAgeMs = enemyOptions.maxAgeMs || (this.isBoss ? Number.POSITIVE_INFINITY : CONFIG.wave.enemyLifetimeMs);
     }
 
     update(deltaMs, target, bounds) {
@@ -356,6 +382,20 @@ class Enemy {
         ctx.beginPath();
         ctx.arc(this.x, this.y, drawRadius, 0, Math.PI * 2);
         ctx.fill();
+
+        if (this.isBoss) {
+            ctx.strokeStyle = "rgba(255, 214, 111, 0.75)";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, drawRadius + 8, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.strokeStyle = "rgba(255, 214, 111, 0.45)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, drawRadius + 16, 0, Math.PI * 2);
+            ctx.stroke();
+        }
 
         ctx.fillStyle = "rgba(20, 34, 48, 0.86)";
         ctx.beginPath();
@@ -653,6 +693,9 @@ class Game {
             waveEnemiesSpawned: 0,
             waveEscaped: 0,
             waveDefeated: 0,
+            bossHealth: 0,
+            bossMaxHealth: 0,
+            bossWarningMs: 0,
             playerHealth: CONFIG.player.maxHealth,
             playerLives: CONFIG.player.startingLives,
             playerEnergy: CONFIG.player.maxEnergy,
@@ -674,7 +717,8 @@ class Game {
             projectiles: [],
             obstacles: [],
             pickups: [],
-            particles: []
+            particles: [],
+            currentBoss: null
         };
 
         this.loop = {
@@ -740,7 +784,11 @@ class Game {
         this.state.waveEnemiesSpawned = 0;
         this.state.waveDefeated = 0;
         this.state.waveEscaped = 0;
-        this.state.waveEnemiesToSpawn = CONFIG.wave.baseEnemyCount + (waveNumber - 1) * CONFIG.wave.enemyGrowthPerWave;
+        this.state.bossHealth = 0;
+        this.state.bossMaxHealth = 0;
+        this.state.bossWarningMs = 0;
+        this.world.currentBoss = null;
+        this.state.waveEnemiesToSpawn = this.isBossWave() ? 1 : CONFIG.wave.baseEnemyCount + (waveNumber - 1) * CONFIG.wave.enemyGrowthPerWave;
         this.loop.enemySpawnClock = 0;
         this.loop.waveClock = CONFIG.wave.intermissionMs;
     }
@@ -748,13 +796,22 @@ class Game {
     startWave() {
         this.state.wavePhase = "active";
         this.loop.enemySpawnClock = 0;
-        this.audio.play("waveStart");
+        if (this.isBossWave()) {
+            this.spawnBoss();
+            this.audio.play("bossStart");
+        } else {
+            this.audio.play("waveStart");
+        }
     }
 
     finishWave() {
         this.state.wavePhase = "complete";
         this.loop.waveClock = CONFIG.wave.intermissionMs;
         this.audio.play("waveComplete");
+    }
+
+    isBossWave() {
+        return this.state.wave > 0 && this.state.wave % CONFIG.wave.bossWaveInterval === 0;
     }
 
     createPlayer() {
@@ -780,9 +837,34 @@ class Game {
         }
     }
 
-    spawnEnemy() {
+    spawnEnemy(isBoss) {
         if (this.world.enemies.length >= CONFIG.enemy.maxAlive) {
             return false;
+        }
+
+        if (isBoss) {
+            const bossX = CONFIG.canvasWidth * 0.5;
+            const bossY = CONFIG.canvasHeight * 0.34;
+            const boss = new Enemy(
+                bossX,
+                bossY,
+                CONFIG.boss.radius,
+                CONFIG.boss.speed,
+                CONFIG.boss.color,
+                {
+                    isBoss: true,
+                    maxHealth: CONFIG.boss.health,
+                    health: CONFIG.boss.health,
+                    maxAgeMs: Number.POSITIVE_INFINITY
+                }
+            );
+
+            this.world.enemies.push(boss);
+            this.world.currentBoss = boss;
+            this.state.bossHealth = boss.health;
+            this.state.bossMaxHealth = boss.maxHealth;
+            this.state.waveEnemiesSpawned = 1;
+            return true;
         }
 
         const side = Math.floor(Math.random() * 4);
@@ -809,6 +891,10 @@ class Game {
         const color = CONFIG.enemy.colors[Math.floor(Math.random() * CONFIG.enemy.colors.length)];
         this.world.enemies.push(new Enemy(x, y, radius, speed, color));
         return true;
+    }
+
+    spawnBoss() {
+        return this.spawnEnemy(true);
     }
 
     bindUiEvents() {
