@@ -947,7 +947,7 @@ class Game {
     }
 
     bindUiEvents() {
-        const { startBtn, pauseBtn, skipBtn, resetBtn, muteBtn } = this.ui;
+        const { startBtn, pauseBtn, skipBtn, abilityBtn, resetBtn, muteBtn } = this.ui;
 
         if (startBtn) {
             startBtn.addEventListener("click", () => this.start());
@@ -959,6 +959,10 @@ class Game {
 
         if (skipBtn) {
             skipBtn.addEventListener("click", () => this.skipWave());
+        }
+
+        if (abilityBtn) {
+            abilityBtn.addEventListener("click", () => this.triggerAbility(CONFIG.abilities.dash.key));
         }
 
         if (resetBtn) {
@@ -2094,6 +2098,11 @@ class Game {
             this.ui.abilityEl.textContent = dashText + " | " + burstText + " | " + pulseText;
         }
 
+        if (this.ui.abilityBtn) {
+            const dashReady = this.state.abilityCooldowns.dash <= 0;
+            this.ui.abilityBtn.textContent = dashReady ? "Dash Ability" : "Dash " + String(Math.ceil(this.state.abilityCooldowns.dash / 1000)) + "s";
+        }
+
         if (this.ui.scoreEl) {
             this.ui.scoreEl.textContent = String(Math.floor(this.state.score));
         }
@@ -2225,6 +2234,7 @@ function buildUiRefs() {
         waveProgressEl: document.getElementById("waveProgressValue"),
         bossEl: document.getElementById("bossValue"),
         abilityEl: document.getElementById("abilityValue"),
+        abilityBtn: document.getElementById("abilityBtn"),
         fpsEl: document.getElementById("fpsValue"),
         enemiesEl: document.getElementById("enemiesValue"),
         impactsEl: document.getElementById("impactsValue"),
