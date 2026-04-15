@@ -50,6 +50,37 @@ const CONFIG = {
         defeatScore: 36,
         spawnOnDefeatChance: 0.14
     },
+    abilities: {
+        dash: {
+            label: "Dash",
+            key: "1",
+            cooldownMs: 3200,
+            energyCost: 18,
+            boostSpeed: 220,
+            durationMs: 260,
+            invulnerableMs: 180,
+            color: "#8ee6ff"
+        },
+        burst: {
+            label: "Burst Shot",
+            key: "2",
+            cooldownMs: 4700,
+            energyCost: 28,
+            count: 5,
+            spreadDeg: 24,
+            color: "#ffd66f"
+        },
+        pulse: {
+            label: "Repair Pulse",
+            key: "3",
+            cooldownMs: 6400,
+            energyCost: 34,
+            heal: 26,
+            radius: 170,
+            damage: 22,
+            color: "#7ef0a5"
+        }
+    },
     score: {
         basePerSecond: 12,
         crowdBonusFactor: 0.08,
@@ -239,6 +270,11 @@ class AudioEngine {
             this.tone(180, 0.16, "sawtooth", 0.18, t);
             this.tone(280, 0.18, "triangle", 0.16, t + 0.08);
             this.tone(420, 0.22, "triangle", 0.12, t + 0.18);
+            return;
+        }
+
+        if (eventName === "ability") {
+            this.chirp(420, 760, 0.1, 0.14, "triangle", t);
             return;
         }
 
@@ -712,6 +748,11 @@ class Game {
             lastImpactAtMs: 0,
             shotsFired: 0,
             shotsHit: 0,
+            abilityCooldowns: {
+                dash: 0,
+                burst: 0,
+                pulse: 0
+            },
             fps: 0
         };
         this.state.screenShakeMs = 0;
@@ -734,7 +775,9 @@ class Game {
             enemySpawnClock: 0,
             waveClock: CONFIG.wave.intermissionMs,
             powerUpSpawnClock: 0,
-            shootCooldownMs: 0
+            shootCooldownMs: 0,
+            abilityDurationMs: 0,
+            activeAbility: "none"
         };
 
         this.basePlayerSpeed = CONFIG.player.speed;
@@ -941,6 +984,12 @@ class Game {
             return;
         }
 
+        if (key === "1" || key === "2" || key === "3") {
+            event.preventDefault();
+            this.triggerAbility(key);
+            return;
+        }
+
         if (key === " " || key === "spacebar") {
             event.preventDefault();
             this.tryFireProjectile();
@@ -988,7 +1037,7 @@ class Game {
         if (this.ui.bootOverlay) {
             const activeText = {
                 booting: "Booting systems...",
-                ready: "Commit 14: Boss waves armed. Every fifth wave is a showdown.",
+                ready: "Commit 16: Special abilities armed. Use 1/2/3 to dash, burst, and pulse.",
                 running: "Simulation active.",
                 paused: "Simulation paused.",
                 reset: "Simulation reset.",
