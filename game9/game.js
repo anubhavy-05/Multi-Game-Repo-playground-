@@ -109,6 +109,16 @@ const CONFIG = {
         color: "#ff6a88",
         accentColor: "#ffd66f"
     },
+    achievements: {
+        firstBlood: { icon: "🩸", name: "First Blood", description: "Defeat your first enemy.", type: "kills", threshold: 1 },
+        enemySlayer: { icon: "⚔️", name: "Enemy Slayer", description: "Defeat 50 enemies.", type: "kills", threshold: 50 },
+        survivor: { icon: "🌊", name: "Survivor", description: "Reach wave 10.", type: "wave", threshold: 10 },
+        bossSlayer: { icon: "👑", name: "Boss Slayer", description: "Defeat your first boss.", type: "bossKills", threshold: 1 },
+        accuracyAce: { icon: "🎯", name: "Accuracy Ace", description: "Hit 25 shots with at least 80% accuracy.", type: "accuracy", threshold: 80 },
+        dashSpecialist: { icon: "💨", name: "Dash Specialist", description: "Use Dash 5 times.", type: "ability", abilityKey: "dash", threshold: 5 },
+        burstSpecialist: { icon: "🌟", name: "Burst Specialist", description: "Use Burst Shot 5 times.", type: "ability", abilityKey: "burst", threshold: 5 },
+        pulseSpecialist: { icon: "✨", name: "Pulse Specialist", description: "Use Repair Pulse 3 times.", type: "ability", abilityKey: "pulse", threshold: 3 }
+    },
     powerUps: {
         spawnCheckMs: 1800,
         randomSpawnChance: 0.22,
@@ -355,6 +365,14 @@ class AudioEngine {
         gain.connect(this.masterGain);
         source.start(startTime);
         source.stop(startTime + duration + 0.02);
+    }
+}
+
+class AchievementToast {
+    constructor(id, spec, expiresAt) {
+        this.id = id;
+        this.spec = spec;
+        this.expiresAt = expiresAt;
     }
 }
 
@@ -748,6 +766,14 @@ class Game {
             lastImpactAtMs: 0,
             shotsFired: 0,
             shotsHit: 0,
+            abilityUsage: {
+                dash: 0,
+                burst: 0,
+                pulse: 0
+            },
+            bossKills: 0,
+            totalKills: 0,
+            accuracyThresholdArmed: false,
             abilityCooldowns: {
                 dash: 0,
                 burst: 0,
@@ -767,6 +793,10 @@ class Game {
             particles: [],
             currentBoss: null
         };
+
+        this.achievements = {};
+        this.achievementQueue = [];
+        this.achievementFeed = null;
 
         this.loop = {
             frameId: 0,
@@ -819,6 +849,8 @@ class Game {
         this.bindInputEvents();
         this.handleResize();
         window.addEventListener("resize", this.handleResize);
+
+        this.initializeAchievements();
 
         this.setupWave(this.state.wave);
 
@@ -972,6 +1004,8 @@ class Game {
         if (muteBtn) {
             muteBtn.addEventListener("click", () => this.toggleMute());
         }
+
+        this.achievementFeed = this.ui.achievementFeed || null;
     }
 
     bindInputEvents() {
@@ -1041,7 +1075,7 @@ class Game {
         if (this.ui.bootOverlay) {
             const activeText = {
                 booting: "Booting systems...",
-                ready: "Commit 16: Special abilities armed. Use 1/2/3 to dash, burst, and pulse.",
+                ready: "Commit 17: Achievements armed. Unlock milestones as you play.",
                 running: "Simulation active.",
                 paused: "Simulation paused.",
                 reset: "Simulation reset.",
@@ -1151,6 +1185,11 @@ class Game {
         this.state.lastImpactAtMs = 0;
         this.state.shotsFired = 0;
         this.state.shotsHit = 0;
+        this.state.abilityUsage = {
+            dash: 0,
+            burst: 0,
+            pulse: 0
+        };
         this.state.abilityCooldowns = {
             dash: 0,
             burst: 0,
@@ -1172,6 +1211,7 @@ class Game {
         this.world.pickups.length = 0;
         this.world.particles.length = 0;
         this.world.currentBoss = null;
+        this.achievementQueue = [];
         this.createObstacles();
         this.createPlayer();
         this.setupWave(CONFIG.wave.startingWave);
@@ -1201,6 +1241,8 @@ class Game {
         }
 
         this.loop.frameId = requestAnimationFrame(this.tick);
+
+        this.updateAchievementFeed();
     }
 
     update(_deltaMs) {
@@ -1227,6 +1269,7 @@ class Game {
             this.state.playerHealth = Math.round(this.world.player.health);
             this.state.playerLives = Math.max(0, this.state.playerLives);
             this.state.playerEnergy = Math.round(this.world.player.energy);
+            this.checkAchievements();
 
             if (this.world.currentBoss) {
                 this.state.bossHealth = Math.max(0, Math.round(this.world.currentBoss.health));
@@ -1235,6 +1278,120 @@ class Game {
                 this.state.bossHealth = 0;
                 this.state.bossMaxHealth = 0;
             }
+        }
+    }
+
+    initializeAchievements() {
+        const ids = Object.keys(CONFIG.achievements);
+        for (let i = 0; i < ids.length; i += 1) {
+            this.achievements[ids[i]] = false;
+        }
+    }
+
+    unlockAchievement(id) {
+        if (this.achievements[id]) {
+            return;
+        }
+
+        const spec = CONFIG.achievements[id];
+        if (!spec) {
+            return;
+        }
+
+        this.achievements[id] = true;
+        this.achievementQueue.push(new AchievementToast(id, spec, performance.now() + 4500));
+        this.audio.play("ability");
+        this.updateAchievementFeed();
+    }
+
+    checkAchievements() {
+        const kills = this.state.totalKills;
+        const bossKills = this.state.bossKills;
+        const wave = this.state.wave;
+        const accuracy = this.state.shotsFired >= 25 ? (this.state.shotsHit / this.state.shotsFired) * 100 : 0;
+
+        if (kills >= CONFIG.achievements.firstBlood.threshold) {
+            this.unlockAchievement("firstBlood");
+        }
+
+        if (kills >= CONFIG.achievements.enemySlayer.threshold) {
+            this.unlockAchievement("enemySlayer");
+        }
+
+        if (wave >= CONFIG.achievements.survivor.threshold) {
+            this.unlockAchievement("survivor");
+        }
+
+        if (bossKills >= CONFIG.achievements.bossSlayer.threshold) {
+            this.unlockAchievement("bossSlayer");
+        }
+
+        if (accuracy >= CONFIG.achievements.accuracyAce.threshold) {
+            this.unlockAchievement("accuracyAce");
+        }
+
+        const abilityUsage = this.state.abilityUsage;
+        if (abilityUsage.dash >= CONFIG.achievements.dashSpecialist.threshold) {
+            this.unlockAchievement("dashSpecialist");
+        }
+        if (abilityUsage.burst >= CONFIG.achievements.burstSpecialist.threshold) {
+            this.unlockAchievement("burstSpecialist");
+        }
+        if (abilityUsage.pulse >= CONFIG.achievements.pulseSpecialist.threshold) {
+            this.unlockAchievement("pulseSpecialist");
+        }
+    }
+
+    incrementAbilityUsage(abilityKey) {
+        this.state.abilityUsage[abilityKey] += 1;
+    }
+
+    handleEnemyDefeated(enemy, defeatedEnemy) {
+        this.state.waveDefeated += 1;
+        this.state.totalKills += 1;
+
+        if (enemy.isBoss) {
+            this.state.bossKills += 1;
+            this.world.currentBoss = null;
+            this.state.bossHealth = 0;
+            this.state.bossMaxHealth = 0;
+        }
+
+        const baseDefeatScore = CONFIG.combat.defeatScore * this.state.scoreMultiplier * this.state.scoreBonusMultiplier;
+        const defeatScore = enemy.isBoss ? baseDefeatScore * CONFIG.wave.bossRewardMultiplier : baseDefeatScore;
+        this.state.score += defeatScore;
+
+        this.audio.play(enemy.isBoss ? "bossDown" : "enemyDown");
+        this.spawnParticles(
+            defeatedEnemy.x,
+            defeatedEnemy.y,
+            enemy.isBoss ? [enemy.color, CONFIG.boss.accentColor, "#fff2bf"] : [enemy.color, "#fff2bf"],
+            enemy.isBoss ? 34 : 18,
+            enemy.isBoss ? 100 : 80,
+            enemy.isBoss ? 260 : 220,
+            enemy.isBoss ? 3 : 2,
+            enemy.isBoss ? 7 : 5
+        );
+        this.state.screenShakeMs = CONFIG.effects.screenShakeMs;
+        this.state.screenShakeStrength = enemy.isBoss ? CONFIG.effects.screenShakeStrength * 1.35 : CONFIG.effects.screenShakeStrength * 0.8;
+        this.checkAchievements();
+    }
+
+    updateAchievementFeed() {
+        if (!this.achievementFeed) {
+            return;
+        }
+
+        const now = performance.now();
+        this.achievementQueue = this.achievementQueue.filter((entry) => entry.expiresAt > now);
+        this.achievementFeed.innerHTML = "";
+
+        for (let i = 0; i < this.achievementQueue.length; i += 1) {
+            const toast = this.achievementQueue[i];
+            const node = document.createElement("div");
+            node.className = "achievement-toast";
+            node.innerHTML = "<h3>Achievement Unlocked</h3><strong>" + toast.spec.icon + " " + toast.spec.name + "</strong><p>" + toast.spec.description + "</p>";
+            this.achievementFeed.appendChild(node);
         }
     }
 
@@ -1311,6 +1468,7 @@ class Game {
         this.loop.activeAbility = "dash";
         this.loop.abilityDurationMs = spec.durationMs;
         this.state.abilityCooldowns.dash = spec.cooldownMs;
+        this.incrementAbilityUsage("dash");
         this.spawnParticles(this.world.player.x, this.world.player.y, [spec.color, "#ffffff"], 16, 100, 220, 2, 5);
         this.audio.play("ability");
     }
@@ -1337,6 +1495,7 @@ class Game {
 
         this.state.shotsFired += spec.count;
         this.state.abilityCooldowns.burst = spec.cooldownMs;
+        this.incrementAbilityUsage("burst");
         this.audio.play("ability");
         this.spawnParticles(this.world.player.x, this.world.player.y, [spec.color, "#fff2bf"], 18, 90, 220, 2, 5);
     }
@@ -1361,31 +1520,12 @@ class Game {
             enemy.health -= spec.damage;
             if (enemy.health <= 0) {
                 const defeatedEnemy = this.world.enemies.splice(i, 1)[0];
-                this.state.waveDefeated += 1;
-                const baseDefeatScore = CONFIG.combat.defeatScore * this.state.scoreMultiplier * this.state.scoreBonusMultiplier;
-                const defeatScore = enemy.isBoss ? baseDefeatScore * CONFIG.wave.bossRewardMultiplier : baseDefeatScore;
-                this.state.score += defeatScore;
-                this.audio.play(enemy.isBoss ? "bossDown" : "enemyDown");
-                this.spawnParticles(
-                    defeatedEnemy.x,
-                    defeatedEnemy.y,
-                    enemy.isBoss ? [CONFIG.boss.accentColor, enemy.color] : [spec.color, "#fff2bf"],
-                    enemy.isBoss ? 32 : 14,
-                    enemy.isBoss ? 90 : 70,
-                    enemy.isBoss ? 250 : 180,
-                    enemy.isBoss ? 3 : 2,
-                    enemy.isBoss ? 7 : 4
-                );
-
-                if (enemy.isBoss) {
-                    this.world.currentBoss = null;
-                    this.state.bossHealth = 0;
-                    this.state.bossMaxHealth = 0;
-                }
+                this.handleEnemyDefeated(enemy, defeatedEnemy);
             }
         }
 
         this.state.abilityCooldowns.pulse = spec.cooldownMs;
+        this.incrementAbilityUsage("pulse");
         this.audio.play("ability");
         this.spawnParticles(player.x, player.y, [spec.color, "#dfffe8"], 20, 80, 200, 2, 6);
     }
@@ -2197,7 +2337,7 @@ class Game {
                 } else if (this.world.currentBoss) {
                     activeText.textContent = "Boss engaged. Stay mobile and drain its health bar.";
                 } else {
-                    activeText.textContent = "Simulation active. Use 1/2/3 for dash, burst shot, and repair pulse.";
+                    activeText.textContent = "Simulation active. Build milestones to unlock achievements.";
                 }
             }
         }
