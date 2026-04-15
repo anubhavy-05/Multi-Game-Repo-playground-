@@ -1198,6 +1198,7 @@ class Game {
                 this.world.player.move(this.input, this.arenaBounds, _deltaMs);
                 this.updatePlayerResources(_deltaMs);
                 this.updateScreenEffects(_deltaMs);
+                this.updateAbilityTimers(_deltaMs);
 
                 this.updateWaveSystem(_deltaMs);
                 this.updateEnemies(_deltaMs);
@@ -1237,6 +1238,145 @@ class Game {
 
     updateScreenEffects(deltaMs) {
         this.state.screenShakeMs = Math.max(0, this.state.screenShakeMs - deltaMs);
+    }
+
+    updateAbilityTimers(deltaMs) {
+        const abilityKeys = Object.keys(this.state.abilityCooldowns);
+        for (let i = 0; i < abilityKeys.length; i += 1) {
+            const abilityKey = abilityKeys[i];
+            this.state.abilityCooldowns[abilityKey] = Math.max(0, this.state.abilityCooldowns[abilityKey] - deltaMs);
+        }
+
+        if (this.loop.activeAbility === "dash") {
+            this.loop.abilityDurationMs = Math.max(0, this.loop.abilityDurationMs - deltaMs);
+            if (this.loop.abilityDurationMs <= 0 && this.world.player) {
+                this.world.player.speed = this.basePlayerSpeed;
+                this.loop.activeAbility = "none";
+            }
+        }
+    }
+
+    triggerAbility(key) {
+        if (!this.world.player || this.state.mode !== "running") {
+            return;
+        }
+
+        if (key === CONFIG.abilities.dash.key) {
+            this.activateDash();
+            return;
+        }
+
+        if (key === CONFIG.abilities.burst.key) {
+            this.activateBurstShot();
+            return;
+        }
+
+        if (key === CONFIG.abilities.pulse.key) {
+            this.activateRepairPulse();
+        }
+    }
+
+    canUseAbility(abilityKey) {
+        return this.state.abilityCooldowns[abilityKey] <= 0 && this.world.player && this.state.mode === "running";
+    }
+
+    spendAbilityEnergy(amount) {
+        if (!this.world.player || this.world.player.energy < amount) {
+            return false;
+        }
+
+        this.world.player.energy = Math.max(0, this.world.player.energy - amount);
+        return true;
+    }
+
+    activateDash() {
+        const spec = CONFIG.abilities.dash;
+        if (!this.canUseAbility("dash") || !this.spendAbilityEnergy(spec.energyCost)) {
+            return;
+        }
+
+        this.world.player.speed = this.basePlayerSpeed + spec.boostSpeed;
+        this.world.player.invulnerableMs = Math.max(this.world.player.invulnerableMs, spec.invulnerableMs);
+        this.loop.activeAbility = "dash";
+        this.loop.abilityDurationMs = spec.durationMs;
+        this.state.abilityCooldowns.dash = spec.cooldownMs;
+        this.spawnParticles(this.world.player.x, this.world.player.y, [spec.color, "#ffffff"], 16, 100, 220, 2, 5);
+        this.audio.play("ability");
+    }
+
+    activateBurstShot() {
+        const spec = CONFIG.abilities.burst;
+        if (!this.canUseAbility("burst") || !this.spendAbilityEnergy(spec.energyCost)) {
+            return;
+        }
+
+        const baseAngle = Math.atan2(this.world.player.facing.y, this.world.player.facing.x);
+        const spreadStep = (spec.spreadDeg * Math.PI / 180) / Math.max(1, spec.count - 1);
+        const startAngle = baseAngle - (spreadStep * (spec.count - 1) * 0.5);
+
+        for (let i = 0; i < spec.count; i += 1) {
+            const angle = startAngle + spreadStep * i;
+            const dirX = Math.cos(angle);
+            const dirY = Math.sin(angle);
+            const spawnOffset = this.world.player.radius + CONFIG.combat.projectileRadius + 4;
+            const spawnX = this.world.player.x + dirX * spawnOffset;
+            const spawnY = this.world.player.y + dirY * spawnOffset;
+            this.world.projectiles.push(new Projectile(spawnX, spawnY, dirX, dirY));
+        }
+
+        this.state.shotsFired += spec.count;
+        this.state.abilityCooldowns.burst = spec.cooldownMs;
+        this.audio.play("ability");
+        this.spawnParticles(this.world.player.x, this.world.player.y, [spec.color, "#fff2bf"], 18, 90, 220, 2, 5);
+    }
+
+    activateRepairPulse() {
+        const spec = CONFIG.abilities.pulse;
+        if (!this.canUseAbility("pulse") || !this.spendAbilityEnergy(spec.energyCost)) {
+            return;
+        }
+
+        const player = this.world.player;
+        player.health = Math.min(player.maxHealth, player.health + spec.heal);
+        this.state.playerHealth = Math.round(player.health);
+
+        for (let i = this.world.enemies.length - 1; i >= 0; i -= 1) {
+            const enemy = this.world.enemies[i];
+            const dist = Math.hypot(enemy.x - player.x, enemy.y - player.y);
+            if (dist > spec.radius) {
+                continue;
+            }
+
+            enemy.health -= spec.damage;
+            if (enemy.health <= 0) {
+                const defeatedEnemy = this.world.enemies.splice(i, 1)[0];
+                this.state.waveDefeated += 1;
+                const baseDefeatScore = CONFIG.combat.defeatScore * this.state.scoreMultiplier * this.state.scoreBonusMultiplier;
+                const defeatScore = enemy.isBoss ? baseDefeatScore * CONFIG.wave.bossRewardMultiplier : baseDefeatScore;
+                this.state.score += defeatScore;
+                this.audio.play(enemy.isBoss ? "bossDown" : "enemyDown");
+                this.spawnParticles(
+                    defeatedEnemy.x,
+                    defeatedEnemy.y,
+                    enemy.isBoss ? [CONFIG.boss.accentColor, enemy.color] : [spec.color, "#fff2bf"],
+                    enemy.isBoss ? 32 : 14,
+                    enemy.isBoss ? 90 : 70,
+                    enemy.isBoss ? 250 : 180,
+                    enemy.isBoss ? 3 : 2,
+                    enemy.isBoss ? 7 : 4
+                );
+
+                if (enemy.isBoss) {
+                    this.world.currentBoss = null;
+                    this.state.bossHealth = 0;
+                    this.state.bossMaxHealth = 0;
+                }
+            }
+        }
+
+        this.state.abilityCooldowns.pulse = spec.cooldownMs;
+        this.audio.play("ability");
+        this.spawnParticles(player.x, player.y, [spec.color, "#dfffe8"], 20, 80, 200, 2, 6);
     }
 
     spawnParticles(x, y, palette, count, speedMin, speedMax, sizeMin, sizeMax) {
