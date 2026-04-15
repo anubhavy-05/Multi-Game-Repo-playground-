@@ -167,6 +167,10 @@ body {
     background: linear-gradient(160deg, #3f5f7f, #5b7da8);
 }
 
+.control-ability {
+    background: linear-gradient(160deg, #6b3f7f, #8d5bb3);
+}
+
 .control-reset {
     background: linear-gradient(160deg, #7a2431, #ab3a4b);
 }
