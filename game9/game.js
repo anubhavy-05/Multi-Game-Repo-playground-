@@ -1994,29 +1994,7 @@ class Game {
 
                 if (enemy.health <= 0) {
                     const defeatedEnemy = this.world.enemies.splice(j, 1)[0];
-                    this.state.waveDefeated += 1;
-                    const baseDefeatScore = CONFIG.combat.defeatScore * this.state.scoreMultiplier * this.state.scoreBonusMultiplier;
-                    const defeatScore = enemy.isBoss ? baseDefeatScore * CONFIG.wave.bossRewardMultiplier : baseDefeatScore;
-                    this.state.score += defeatScore;
-                    this.audio.play(enemy.isBoss ? "bossDown" : "enemyDown");
-                    this.spawnParticles(
-                        enemy.x,
-                        enemy.y,
-                        enemy.isBoss ? [enemy.color, CONFIG.boss.accentColor, "#fff2bf"] : [enemy.color, "#fff2bf"],
-                        enemy.isBoss ? 34 : 18,
-                        enemy.isBoss ? 100 : 80,
-                        enemy.isBoss ? 260 : 220,
-                        enemy.isBoss ? 3 : 2,
-                        enemy.isBoss ? 7 : 5
-                    );
-                    this.state.screenShakeMs = CONFIG.effects.screenShakeMs;
-                    this.state.screenShakeStrength = enemy.isBoss ? CONFIG.effects.screenShakeStrength * 1.35 : CONFIG.effects.screenShakeStrength * 0.8;
-
-                    if (enemy.isBoss) {
-                        this.world.currentBoss = null;
-                        this.state.bossHealth = 0;
-                        this.state.bossMaxHealth = 0;
-                    }
+                    this.handleEnemyDefeated(enemy, defeatedEnemy);
 
                     if (defeatedEnemy && Math.random() < CONFIG.combat.spawnOnDefeatChance) {
                         this.spawnPowerUpAt(defeatedEnemy.x, defeatedEnemy.y);
@@ -2383,6 +2361,7 @@ function buildUiRefs() {
         pickupsEl: document.getElementById("pickupsValue"),
         accuracyEl: document.getElementById("accuracyValue"),
         audioEl: document.getElementById("audioValue"),
+        achievementFeed: document.getElementById("achievementFeed"),
         startBtn: document.getElementById("startBtn"),
         pauseBtn: document.getElementById("pauseBtn"),
         skipBtn: document.getElementById("skipBtn"),
