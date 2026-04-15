@@ -101,6 +101,61 @@ body {
     line-height: 1.45;
 }
 
+.achievement-feed {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    width: min(320px, calc(100% - 32px));
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+}
+
+.achievement-toast {
+    background: linear-gradient(160deg, rgba(14, 28, 40, 0.94), rgba(28, 48, 68, 0.94));
+    border: 1px solid rgba(255, 214, 111, 0.45);
+    border-radius: 12px;
+    padding: 10px 12px;
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.35);
+    transform: translateX(18px);
+    opacity: 0;
+    animation: achievement-slide 0.35s ease forwards;
+}
+
+.achievement-toast h3 {
+    font-size: 0.82rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #ffd66f;
+    margin-bottom: 4px;
+}
+
+.achievement-toast strong {
+    display: block;
+    font-size: 0.95rem;
+    color: var(--text-main);
+    margin-bottom: 2px;
+}
+
+.achievement-toast p {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    line-height: 1.35;
+}
+
+@keyframes achievement-slide {
+    from {
+        transform: translateX(18px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
 .hud-panel {
     border: 1px solid var(--panel-border);
     border-radius: 12px;
