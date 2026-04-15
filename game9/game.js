@@ -1147,6 +1147,11 @@ class Game {
         this.state.lastImpactAtMs = 0;
         this.state.shotsFired = 0;
         this.state.shotsHit = 0;
+        this.state.abilityCooldowns = {
+            dash: 0,
+            burst: 0,
+            pulse: 0
+        };
         this.state.fps = 0;
         this.state.screenShakeMs = 0;
         this.state.screenShakeStrength = 0;
@@ -1155,6 +1160,8 @@ class Game {
         this.loop.waveClock = CONFIG.wave.intermissionMs;
         this.loop.powerUpSpawnClock = 0;
         this.loop.shootCooldownMs = 0;
+        this.loop.abilityDurationMs = 0;
+        this.loop.activeAbility = "none";
         this.world.enemies.length = 0;
         this.world.projectiles.length = 0;
         this.world.obstacles.length = 0;
@@ -2079,6 +2086,14 @@ class Game {
             this.ui.energyEl.textContent = String(this.state.playerEnergy);
         }
 
+        if (this.ui.abilityEl) {
+            const abilityCooldown = this.state.abilityCooldowns;
+            const dashText = abilityCooldown.dash > 0 ? "Dash " + String(Math.ceil(abilityCooldown.dash / 1000)) + "s" : "Dash ready";
+            const burstText = abilityCooldown.burst > 0 ? "Burst " + String(Math.ceil(abilityCooldown.burst / 1000)) + "s" : "Burst ready";
+            const pulseText = abilityCooldown.pulse > 0 ? "Pulse " + String(Math.ceil(abilityCooldown.pulse / 1000)) + "s" : "Pulse ready";
+            this.ui.abilityEl.textContent = dashText + " | " + burstText + " | " + pulseText;
+        }
+
         if (this.ui.scoreEl) {
             this.ui.scoreEl.textContent = String(Math.floor(this.state.score));
         }
@@ -2173,7 +2188,7 @@ class Game {
                 } else if (this.world.currentBoss) {
                     activeText.textContent = "Boss engaged. Stay mobile and drain its health bar.";
                 } else {
-                    activeText.textContent = "Simulation active.";
+                    activeText.textContent = "Simulation active. Use 1/2/3 for dash, burst shot, and repair pulse.";
                 }
             }
         }
@@ -2209,6 +2224,7 @@ function buildUiRefs() {
         wavePhaseEl: document.getElementById("wavePhaseValue"),
         waveProgressEl: document.getElementById("waveProgressValue"),
         bossEl: document.getElementById("bossValue"),
+        abilityEl: document.getElementById("abilityValue"),
         fpsEl: document.getElementById("fpsValue"),
         enemiesEl: document.getElementById("enemiesValue"),
         impactsEl: document.getElementById("impactsValue"),
