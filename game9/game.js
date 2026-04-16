@@ -893,6 +893,7 @@ class Game {
         this.state.wavePhase = "complete";
         this.loop.waveClock = CONFIG.wave.intermissionMs;
         this.audio.play("waveComplete");
+        this.autoSaveProgress("wave complete");
     }
 
     isBossWave() {
@@ -1408,6 +1409,16 @@ class Game {
         }
     }
 
+    autoSaveProgress(reason) {
+        const saved = this.saveProgress();
+        if (saved) {
+            this.state.saveStatus = "autosaved " + reason;
+            this.updateHud(true);
+        }
+
+        return saved;
+    }
+
     loadProgress(silent) {
         try {
             if (typeof window === "undefined") {
@@ -1462,6 +1473,7 @@ class Game {
         this.achievementQueue.push(new AchievementToast(id, spec, performance.now() + 4500));
         this.audio.play("ability");
         this.updateAchievementFeed();
+        this.autoSaveProgress("achievement unlocked");
     }
 
     checkAchievements() {
@@ -1815,6 +1827,7 @@ class Game {
         this.state.running = false;
         this.audio.play("gameOver");
         this.setMode("game-over");
+        this.autoSaveProgress("game over");
         this.updateHud(true);
     }
 
