@@ -984,7 +984,7 @@ class Game {
     }
 
     bindUiEvents() {
-        const { startBtn, pauseBtn, skipBtn, abilityBtn, saveBtn, loadBtn, clearBtn, resetBtn, muteBtn } = this.ui;
+        const { startBtn, pauseBtn, skipBtn, abilityBtn, saveBtn, loadBtn, exportBtn, importBtn, clearBtn, resetBtn, muteBtn } = this.ui;
 
         if (startBtn) {
             startBtn.addEventListener("click", () => this.start());
@@ -1008,6 +1008,14 @@ class Game {
 
         if (loadBtn) {
             loadBtn.addEventListener("click", () => this.loadProgress());
+        }
+
+        if (exportBtn) {
+            exportBtn.addEventListener("click", () => this.exportProgress());
+        }
+
+        if (importBtn) {
+            importBtn.addEventListener("click", () => this.importProgress());
         }
 
         if (clearBtn) {
@@ -1459,6 +1467,51 @@ class Game {
                 this.state.saveStatus = "load failed";
                 this.updateHud(true);
             }
+            return false;
+        }
+    }
+
+    exportProgress() {
+        try {
+            const snapshot = this.buildProfileSnapshot();
+            const json = JSON.stringify(snapshot, null, 2);
+            if (typeof window !== "undefined" && window.prompt) {
+                window.prompt("Copy the profile JSON below:", json);
+            }
+            this.state.saveStatus = "profile exported";
+            this.updateHud(true);
+            return true;
+        } catch (_error) {
+            this.state.saveStatus = "export failed";
+            this.updateHud(true);
+            return false;
+        }
+    }
+
+    importProgress() {
+        try {
+            if (typeof window === "undefined" || !window.prompt) {
+                this.state.saveStatus = "import unavailable";
+                this.updateHud(true);
+                return false;
+            }
+
+            const input = window.prompt("Paste a saved profile JSON payload:");
+            if (!input) {
+                this.state.saveStatus = "import canceled";
+                this.updateHud(true);
+                return false;
+            }
+
+            const snapshot = JSON.parse(input);
+            this.applyProfileSnapshot(snapshot);
+            this.saveProgress();
+            this.state.saveStatus = "profile imported";
+            this.updateHud(true);
+            return true;
+        } catch (_error) {
+            this.state.saveStatus = "import failed";
+            this.updateHud(true);
             return false;
         }
     }
@@ -2575,6 +2628,8 @@ function buildUiRefs() {
         skipBtn: document.getElementById("skipBtn"),
         saveBtn: document.getElementById("saveBtn"),
         loadBtn: document.getElementById("loadBtn"),
+        exportBtn: document.getElementById("exportBtn"),
+        importBtn: document.getElementById("importBtn"),
         clearBtn: document.getElementById("clearBtn"),
         resetBtn: document.getElementById("resetBtn"),
         muteBtn: document.getElementById("muteBtn"),
