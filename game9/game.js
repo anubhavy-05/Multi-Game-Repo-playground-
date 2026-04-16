@@ -781,6 +781,7 @@ class Game {
                 burst: 0,
                 pulse: 0
             },
+            saveStatus: "not saved",
             fps: 0
         };
         this.state.screenShakeMs = 0;
@@ -855,6 +856,7 @@ class Game {
         this.initializeAchievements();
 
         this.setupWave(this.state.wave);
+        this.loadProgress(true);
 
         this.setMode("ready");
         this.updateHud(true);
@@ -981,7 +983,7 @@ class Game {
     }
 
     bindUiEvents() {
-        const { startBtn, pauseBtn, skipBtn, abilityBtn, resetBtn, muteBtn } = this.ui;
+        const { startBtn, pauseBtn, skipBtn, abilityBtn, saveBtn, loadBtn, resetBtn, muteBtn } = this.ui;
 
         if (startBtn) {
             startBtn.addEventListener("click", () => this.start());
@@ -997,6 +999,14 @@ class Game {
 
         if (abilityBtn) {
             abilityBtn.addEventListener("click", () => this.triggerAbility(CONFIG.abilities.dash.key));
+        }
+
+        if (saveBtn) {
+            saveBtn.addEventListener("click", () => this.saveProgress());
+        }
+
+        if (loadBtn) {
+            loadBtn.addEventListener("click", () => this.loadProgress());
         }
 
         if (resetBtn) {
@@ -1289,6 +1299,152 @@ class Game {
         const ids = Object.keys(CONFIG.achievements);
         for (let i = 0; i < ids.length; i += 1) {
             this.achievements[ids[i]] = false;
+        }
+    }
+
+    buildProfileSnapshot() {
+        return {
+            version: 1,
+            savedAt: Date.now(),
+            wave: this.state.wave,
+            score: this.state.score,
+            highScore: this.state.highScore,
+            scoreMultiplier: this.state.scoreMultiplier,
+            scoreBonusMultiplier: this.state.scoreBonusMultiplier,
+            playerHealth: this.state.playerHealth,
+            playerLives: this.state.playerLives,
+            playerEnergy: this.state.playerEnergy,
+            totalKills: this.state.totalKills,
+            bossKills: this.state.bossKills,
+            shotsFired: this.state.shotsFired,
+            shotsHit: this.state.shotsHit,
+            impacts: this.state.impacts,
+            abilityUsage: { ...this.state.abilityUsage },
+            abilityCooldowns: { ...this.state.abilityCooldowns },
+            achievements: { ...this.achievements },
+            audioMuted: this.audio.muted,
+            saveStatus: this.state.saveStatus
+        };
+    }
+
+    applyProfileSnapshot(snapshot) {
+        this.state.running = false;
+        cancelAnimationFrame(this.loop.frameId);
+
+        this.state.score = Number(snapshot.score) || 0;
+        this.state.highScore = Math.max(0, Number(snapshot.highScore) || 0);
+        this.state.scoreMultiplier = Number(snapshot.scoreMultiplier) || 1;
+        this.state.scoreBonusMultiplier = Number(snapshot.scoreBonusMultiplier) || 1;
+        this.state.playerHealth = Math.max(0, Math.round(Number(snapshot.playerHealth) || CONFIG.player.maxHealth));
+        this.state.playerLives = Math.max(1, Math.round(Number(snapshot.playerLives) || CONFIG.player.startingLives));
+        this.state.playerEnergy = Math.max(0, Math.round(Number(snapshot.playerEnergy) || CONFIG.player.maxEnergy));
+        this.state.totalKills = Math.max(0, Math.round(Number(snapshot.totalKills) || 0));
+        this.state.bossKills = Math.max(0, Math.round(Number(snapshot.bossKills) || 0));
+        this.state.shotsFired = Math.max(0, Math.round(Number(snapshot.shotsFired) || 0));
+        this.state.shotsHit = Math.max(0, Math.round(Number(snapshot.shotsHit) || 0));
+        this.state.impacts = Math.max(0, Math.round(Number(snapshot.impacts) || 0));
+        this.state.abilityUsage = {
+            dash: Math.max(0, Math.round((snapshot.abilityUsage && snapshot.abilityUsage.dash) || 0)),
+            burst: Math.max(0, Math.round((snapshot.abilityUsage && snapshot.abilityUsage.burst) || 0)),
+            pulse: Math.max(0, Math.round((snapshot.abilityUsage && snapshot.abilityUsage.pulse) || 0))
+        };
+        this.state.abilityCooldowns = {
+            dash: Math.max(0, Number((snapshot.abilityCooldowns && snapshot.abilityCooldowns.dash) || 0)),
+            burst: Math.max(0, Number((snapshot.abilityCooldowns && snapshot.abilityCooldowns.burst) || 0)),
+            pulse: Math.max(0, Number((snapshot.abilityCooldowns && snapshot.abilityCooldowns.pulse) || 0))
+        };
+
+        const achievementKeys = Object.keys(CONFIG.achievements);
+        for (let i = 0; i < achievementKeys.length; i += 1) {
+            const achievementId = achievementKeys[i];
+            this.achievements[achievementId] = Boolean(snapshot.achievements && snapshot.achievements[achievementId]);
+        }
+
+        this.audio.setMuted(Boolean(snapshot.audioMuted));
+        this.createPlayer();
+        if (this.world.player) {
+            this.world.player.health = this.state.playerHealth;
+            this.world.player.energy = this.state.playerEnergy;
+        }
+
+        this.world.enemies.length = 0;
+        this.world.projectiles.length = 0;
+        this.world.pickups.length = 0;
+        this.world.particles.length = 0;
+        this.world.currentBoss = null;
+        this.achievementQueue = [];
+
+        this.setupWave(Math.max(CONFIG.wave.startingWave, Math.round(Number(snapshot.wave) || CONFIG.wave.startingWave)));
+        this.state.saveStatus = "loaded wave " + String(this.state.wave);
+        this.updateAchievementFeed();
+        this.updateHud(true);
+        this.render();
+    }
+
+    saveProgress() {
+        try {
+            if (typeof window === "undefined") {
+                this.state.saveStatus = "save unavailable";
+                this.updateHud(true);
+                return false;
+            }
+
+            const storage = window.localStorage;
+            if (!storage) {
+                this.state.saveStatus = "save unavailable";
+                this.updateHud(true);
+                return false;
+            }
+
+            const snapshot = this.buildProfileSnapshot();
+            storage.setItem(STORAGE_KEY, JSON.stringify(snapshot));
+            this.state.saveStatus = "saved wave " + String(this.state.wave);
+            this.updateHud(true);
+            return true;
+        } catch (_error) {
+            this.state.saveStatus = "save failed";
+            this.updateHud(true);
+            return false;
+        }
+    }
+
+    loadProgress(silent) {
+        try {
+            if (typeof window === "undefined") {
+                if (!silent) {
+                    this.state.saveStatus = "load unavailable";
+                    this.updateHud(true);
+                }
+                return false;
+            }
+
+            const storage = window.localStorage;
+            if (!storage) {
+                if (!silent) {
+                    this.state.saveStatus = "load unavailable";
+                    this.updateHud(true);
+                }
+                return false;
+            }
+
+            const raw = storage.getItem(STORAGE_KEY);
+            if (!raw) {
+                if (!silent) {
+                    this.state.saveStatus = "not saved";
+                    this.updateHud(true);
+                }
+                return false;
+            }
+
+            const snapshot = JSON.parse(raw);
+            this.applyProfileSnapshot(snapshot);
+            return true;
+        } catch (_error) {
+            if (!silent) {
+                this.state.saveStatus = "load failed";
+                this.updateHud(true);
+            }
+            return false;
         }
     }
 
@@ -2310,6 +2466,10 @@ class Game {
             this.ui.audioEl.textContent = this.audio.getStatusLabel();
         }
 
+        if (this.ui.saveValue) {
+            this.ui.saveValue.textContent = this.state.saveStatus;
+        }
+
         if (this.ui.bootOverlay && this.state.mode === "running") {
             const activeText = this.ui.bootOverlay.querySelector("p");
             if (activeText) {
@@ -2365,10 +2525,13 @@ function buildUiRefs() {
         pickupsEl: document.getElementById("pickupsValue"),
         accuracyEl: document.getElementById("accuracyValue"),
         audioEl: document.getElementById("audioValue"),
+        saveValue: document.getElementById("saveValue"),
         achievementFeed: document.getElementById("achievementFeed"),
         startBtn: document.getElementById("startBtn"),
         pauseBtn: document.getElementById("pauseBtn"),
         skipBtn: document.getElementById("skipBtn"),
+        saveBtn: document.getElementById("saveBtn"),
+        loadBtn: document.getElementById("loadBtn"),
         resetBtn: document.getElementById("resetBtn"),
         muteBtn: document.getElementById("muteBtn"),
         bootOverlay: document.getElementById("bootOverlay")
