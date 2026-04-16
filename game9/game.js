@@ -984,7 +984,7 @@ class Game {
     }
 
     bindUiEvents() {
-        const { startBtn, pauseBtn, skipBtn, abilityBtn, saveBtn, loadBtn, resetBtn, muteBtn } = this.ui;
+        const { startBtn, pauseBtn, skipBtn, abilityBtn, saveBtn, loadBtn, clearBtn, resetBtn, muteBtn } = this.ui;
 
         if (startBtn) {
             startBtn.addEventListener("click", () => this.start());
@@ -1008,6 +1008,10 @@ class Game {
 
         if (loadBtn) {
             loadBtn.addEventListener("click", () => this.loadProgress());
+        }
+
+        if (clearBtn) {
+            clearBtn.addEventListener("click", () => this.clearProgress());
         }
 
         if (resetBtn) {
@@ -1455,6 +1459,32 @@ class Game {
                 this.state.saveStatus = "load failed";
                 this.updateHud(true);
             }
+            return false;
+        }
+    }
+
+    clearProgress() {
+        try {
+            if (typeof window === "undefined") {
+                this.state.saveStatus = "clear unavailable";
+                this.updateHud(true);
+                return false;
+            }
+
+            const storage = window.localStorage;
+            if (!storage) {
+                this.state.saveStatus = "clear unavailable";
+                this.updateHud(true);
+                return false;
+            }
+
+            storage.removeItem(STORAGE_KEY);
+            this.state.saveStatus = "save cleared";
+            this.updateHud(true);
+            return true;
+        } catch (_error) {
+            this.state.saveStatus = "clear failed";
+            this.updateHud(true);
             return false;
         }
     }
@@ -2545,6 +2575,7 @@ function buildUiRefs() {
         skipBtn: document.getElementById("skipBtn"),
         saveBtn: document.getElementById("saveBtn"),
         loadBtn: document.getElementById("loadBtn"),
+        clearBtn: document.getElementById("clearBtn"),
         resetBtn: document.getElementById("resetBtn"),
         muteBtn: document.getElementById("muteBtn"),
         bootOverlay: document.getElementById("bootOverlay")
