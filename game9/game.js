@@ -142,6 +142,8 @@ const CONFIG = {
     }
 };
 
+const STORAGE_KEY = "eclipse-siege-profile-v1";
+
 class AudioEngine {
     constructor() {
         this.context = null;
