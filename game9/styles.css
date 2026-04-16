@@ -226,6 +226,14 @@ body {
     background: linear-gradient(160deg, #6b3f7f, #8d5bb3);
 }
 
+.control-save {
+    background: linear-gradient(160deg, #205f4a, #2a8c66);
+}
+
+.control-load {
+    background: linear-gradient(160deg, #35517d, #4e74b0);
+}
+
 .control-reset {
     background: linear-gradient(160deg, #7a2431, #ab3a4b);
 }
