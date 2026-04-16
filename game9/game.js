@@ -1185,6 +1185,8 @@ class Game {
         this.state.lastImpactAtMs = 0;
         this.state.shotsFired = 0;
         this.state.shotsHit = 0;
+        this.state.bossKills = 0;
+        this.state.totalKills = 0;
         this.state.abilityUsage = {
             dash: 0,
             burst: 0,
