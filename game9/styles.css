@@ -234,6 +234,10 @@ body {
     background: linear-gradient(160deg, #35517d, #4e74b0);
 }
 
+.control-clear {
+    background: linear-gradient(160deg, #6c3a27, #a25638);
+}
+
 .control-reset {
     background: linear-gradient(160deg, #7a2431, #ab3a4b);
 }
