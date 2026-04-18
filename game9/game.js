@@ -994,7 +994,7 @@ class Game {
     }
 
     bindUiEvents() {
-        const { startBtn, pauseBtn, skipBtn, abilityBtn, saveBtn, loadBtn, exportBtn, importBtn, clearBtn, resetBtn, muteBtn } = this.ui;
+        const { startBtn, pauseBtn, skipBtn, abilityBtn, saveBtn, loadBtn, exportBtn, importBtn, clearBtn, resetBtn, muteBtn, diffEasyBtn, diffNormalBtn, diffHardBtn, diffBrutalBtn } = this.ui;
 
         if (startBtn) {
             startBtn.addEventListener("click", () => this.start());
@@ -1010,6 +1010,22 @@ class Game {
 
         if (abilityBtn) {
             abilityBtn.addEventListener("click", () => this.triggerAbility(CONFIG.abilities.dash.key));
+        }
+
+        if (diffEasyBtn) {
+            diffEasyBtn.addEventListener("click", () => this.setDifficulty("easy"));
+        }
+
+        if (diffNormalBtn) {
+            diffNormalBtn.addEventListener("click", () => this.setDifficulty("normal"));
+        }
+
+        if (diffHardBtn) {
+            diffHardBtn.addEventListener("click", () => this.setDifficulty("hard"));
+        }
+
+        if (diffBrutalBtn) {
+            diffBrutalBtn.addEventListener("click", () => this.setDifficulty("brutal"));
         }
 
         if (saveBtn) {
