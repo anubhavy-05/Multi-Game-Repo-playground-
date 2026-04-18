@@ -1885,6 +1885,13 @@ class Game {
         this.updateHud(true);
     }
 
+    setDifficulty(difficulty) {
+        if (!this.state.running && this.state.mode !== "paused") {
+            this.state.difficulty = difficulty;
+            this.updateHud(true);
+        }
+    }
+
     applyPlayerDamage(amount) {
         const player = this.world.player;
         if (!player || player.invulnerableMs > 0 || this.state.mode !== "running") {
