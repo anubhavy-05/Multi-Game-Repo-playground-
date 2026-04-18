@@ -226,6 +226,10 @@ body {
     background: linear-gradient(160deg, #6b3f7f, #8d5bb3);
 }
 
+.control-difficulty {
+    background: linear-gradient(160deg, #5c6b3f, #7a8a55);
+}
+
 .control-save {
     background: linear-gradient(160deg, #205f4a, #2a8c66);
 }
