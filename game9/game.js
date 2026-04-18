@@ -139,6 +139,12 @@ const CONFIG = {
         gridColor: "rgba(120, 180, 220, 0.12)",
         heading: "#d8f2ff",
         subText: "#8fb5c8"
+    },
+    difficulty: {
+        easy: { label: "Easy", enemySpeedMult: 0.75, enemyHealthMult: 0.8, scoreMult: 0.5 },
+        normal: { label: "Normal", enemySpeedMult: 1.0, enemyHealthMult: 1.0, scoreMult: 1.0 },
+        hard: { label: "Hard", enemySpeedMult: 1.25, enemyHealthMult: 1.35, scoreMult: 1.8 },
+        brutal: { label: "Brutal", enemySpeedMult: 1.5, enemyHealthMult: 1.7, scoreMult: 2.5 }
     }
 };
 
@@ -781,6 +787,7 @@ class Game {
                 burst: 0,
                 pulse: 0
             },
+            difficulty: "normal",
             saveStatus: "not saved",
             fps: 0
         };
@@ -931,16 +938,18 @@ class Game {
         if (isBoss) {
             const bossX = CONFIG.canvasWidth * 0.5;
             const bossY = CONFIG.canvasHeight * 0.34;
+            const baseDifficulty = CONFIG.difficulty[this.state.difficulty] || CONFIG.difficulty.normal;
+            const bossHealth = Math.round(CONFIG.boss.health * baseDifficulty.enemyHealthMult);
             const boss = new Enemy(
                 bossX,
                 bossY,
                 CONFIG.boss.radius,
-                CONFIG.boss.speed,
+                CONFIG.boss.speed * baseDifficulty.enemySpeedMult,
                 CONFIG.boss.color,
                 {
                     isBoss: true,
-                    maxHealth: CONFIG.boss.health,
-                    health: CONFIG.boss.health,
+                    maxHealth: bossHealth,
+                    health: bossHealth,
                     maxAgeMs: Number.POSITIVE_INFINITY
                 }
             );
@@ -973,7 +982,8 @@ class Game {
         }
 
         const radius = CONFIG.enemy.minRadius + Math.random() * (CONFIG.enemy.maxRadius - CONFIG.enemy.minRadius);
-        const speed = CONFIG.enemy.minSpeed + Math.random() * (CONFIG.enemy.maxSpeed - CONFIG.enemy.minSpeed);
+        const baseDifficulty = CONFIG.difficulty[this.state.difficulty] || CONFIG.difficulty.normal;
+        const speed = (CONFIG.enemy.minSpeed + Math.random() * (CONFIG.enemy.maxSpeed - CONFIG.enemy.minSpeed)) * baseDifficulty.enemySpeedMult;
         const color = CONFIG.enemy.colors[Math.floor(Math.random() * CONFIG.enemy.colors.length)];
         this.world.enemies.push(new Enemy(x, y, radius, speed, color));
         return true;
@@ -1194,6 +1204,7 @@ class Game {
         this.state.scoreBonusMultiplier = 1;
         this.state.wave = CONFIG.wave.startingWave;
         this.state.wavePhase = "intermission";
+        this.state.difficulty = "normal";
         this.state.waveEnemiesToSpawn = 0;
         this.state.waveEnemiesSpawned = 0;
         this.state.waveEscaped = 0;
@@ -1336,6 +1347,7 @@ class Game {
             abilityCooldowns: { ...this.state.abilityCooldowns },
             achievements: { ...this.achievements },
             audioMuted: this.audio.muted,
+            difficulty: this.state.difficulty,
             saveStatus: this.state.saveStatus
         };
     }
@@ -1374,6 +1386,7 @@ class Game {
         }
 
         this.audio.setMuted(Boolean(snapshot.audioMuted));
+        this.state.difficulty = snapshot.difficulty || "normal";
         this.createPlayer();
         if (this.world.player) {
             this.world.player.health = this.state.playerHealth;
@@ -2562,6 +2575,11 @@ class Game {
             this.ui.audioEl.textContent = this.audio.getStatusLabel();
         }
 
+        if (this.ui.difficultyEl) {
+            const difficultyLabel = (CONFIG.difficulty[this.state.difficulty] || CONFIG.difficulty.normal).label;
+            this.ui.difficultyEl.textContent = difficultyLabel;
+        }
+
         if (this.ui.saveValue) {
             this.ui.saveValue.textContent = this.state.saveStatus;
         }
@@ -2621,6 +2639,7 @@ function buildUiRefs() {
         pickupsEl: document.getElementById("pickupsValue"),
         accuracyEl: document.getElementById("accuracyValue"),
         audioEl: document.getElementById("audioValue"),
+        difficultyEl: document.getElementById("difficultyValue"),
         saveValue: document.getElementById("saveValue"),
         achievementFeed: document.getElementById("achievementFeed"),
         startBtn: document.getElementById("startBtn"),
