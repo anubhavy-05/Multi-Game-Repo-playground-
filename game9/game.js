@@ -2673,6 +2673,10 @@ function buildUiRefs() {
         exportBtn: document.getElementById("exportBtn"),
         importBtn: document.getElementById("importBtn"),
         clearBtn: document.getElementById("clearBtn"),
+        diffEasyBtn: document.getElementById("diffEasyBtn"),
+        diffNormalBtn: document.getElementById("diffNormalBtn"),
+        diffHardBtn: document.getElementById("diffHardBtn"),
+        diffBrutalBtn: document.getElementById("diffBrutalBtn"),
         resetBtn: document.getElementById("resetBtn"),
         muteBtn: document.getElementById("muteBtn"),
         bootOverlay: document.getElementById("bootOverlay")
